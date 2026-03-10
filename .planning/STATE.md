@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 01-data-foundation-01-PLAN.md
-last_updated: "2026-03-10T04:36:45.639Z"
+stopped_at: Completed 01-data-foundation/01-02-PLAN.md
+last_updated: "2026-03-10T04:38:34.826Z"
 last_activity: 2026-03-09 — Roadmap created, ready to begin Phase 1 planning
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -51,6 +51,7 @@ Progress: [░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 01-data-foundation P01 | 3 | 2 tasks | 9 files |
+| Phase 01-data-foundation P02 | 5min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -65,6 +66,9 @@ Recent decisions affecting current work:
 - [Phase 01-data-foundation]: Used venv_local (macOS unix venv) for Django commands — committed venv is Windows-style and unusable on Mac
 - [Phase 01-data-foundation]: HabitatZoneListView uses ListAPIView pattern (not APIView) — zone list is static read-only collection
 - [Phase 01-data-foundation]: Seed command uses update_or_create for idempotency — safe to re-run without creating duplicates
+- [Phase 01-02]: Dynamic import in startSimulation() breaks store->engine->store circular dep without runtime cost
+- [Phase 01-02]: Engine stored at module scope (activeEngine) not in Zustand state — prevents interval leak and serialization issues
+- [Phase 01-02]: Sol cycle: temperature +/-2C, power +/-15kW, others +/-2-3% nominal — visible rhythm without dominating experience
 
 ### Pending Todos
 
@@ -78,6 +82,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-10T04:36:45.635Z
-Stopped at: Completed 01-data-foundation-01-PLAN.md
+Last session: 2026-03-10T04:38:34.818Z
+Stopped at: Completed 01-data-foundation/01-02-PLAN.md
 Resume file: None

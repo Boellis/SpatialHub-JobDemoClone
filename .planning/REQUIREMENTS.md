@@ -16,8 +16,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Simulation
 
-- [ ] **SIM-01**: Simulated telemetry generates realistic Mars habitat sensor values on a 2-second tick
-- [ ] **SIM-02**: Zone status is derived from sensor thresholds (green/yellow/red) and reflected on zone meshes
+- [x] **SIM-01**: Simulated telemetry generates realistic Mars habitat sensor values on a 2-second tick
+- [x] **SIM-02**: Zone status is derived from sensor thresholds (green/yellow/red) and reflected on zone meshes
 - [ ] **SIM-03**: Sensor values show rolling sparkline trend charts (last 30-60 seconds)
 
 ### Interaction
@@ -84,8 +84,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | API-01 | Phase 1 | Complete |
 | API-02 | Phase 1 | Complete |
-| SIM-01 | Phase 1 | Pending |
-| SIM-02 | Phase 1 | Pending |
+| SIM-01 | Phase 1 | Complete |
+| SIM-02 | Phase 1 | Complete |
 | SCENE-01 | Phase 2 | Pending |
 | SCENE-02 | Phase 2 | Pending |
 | SCENE-03 | Phase 2 | Pending |
