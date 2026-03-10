@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 02-3d-scene-and-zone-interaction/02-02-PLAN.md
-last_updated: "2026-03-10T05:39:48.402Z"
+stopped_at: Completed 02-3d-scene-and-zone-interaction/02-03-PLAN.md
+last_updated: "2026-03-10T05:46:11.690Z"
 last_activity: 2026-03-09 — Roadmap created, ready to begin Phase 1 planning
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
   percent: 0
 ---
 
@@ -54,6 +54,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01-data-foundation P02 | 5min | 2 tasks | 5 files |
 | Phase 02-3d-scene-and-zone-interaction P01 | 15min | 2 tasks | 6 files |
 | Phase 02-3d-scene-and-zone-interaction P02 | 15min | 2 tasks | 3 files |
+| Phase 02-3d-scene-and-zone-interaction P03 | 4min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -76,6 +77,9 @@ Recent decisions affecting current work:
 - [Phase 02-3d-scene-and-zone-interaction]: Camera at [0, 25, 35] fov:50 provides full habitat overview covering zone positions x:-8..8 z:-4..4
 - [Phase 02-3d-scene-and-zone-interaction]: Emissive rim as separate TorusGeometry mesh — bloom luminanceThreshold targets rim only, leaves dome body un-bloomed for surgical cinematic glow
 - [Phase 02-3d-scene-and-zone-interaction]: Simulation engine started on HabitatView mount via useEffect (outside Canvas) — React hooks must live outside R3F scene graph nodes
+- [Phase 02-3d-scene-and-zone-interaction]: CameraController owns OrbitControls ref (not HabitatView) — direct controls.target access for lerp-based orbit pivot transition without prop drilling
+- [Phase 02-3d-scene-and-zone-interaction]: selectedZoneId state lifted to HabitatStructure — 3D scene concern shared between CameraController and HabitatDome, not a page-level concern
+- [Phase 02-3d-scene-and-zone-interaction]: useFrame lerp factor 0.04 for camera transitions: ~1s ease-out at 60fps — no external animation library needed
 
 ### Pending Todos
 
@@ -89,6 +93,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-10T05:39:48.397Z
-Stopped at: Completed 02-3d-scene-and-zone-interaction/02-02-PLAN.md
+Last session: 2026-03-10T05:46:11.678Z
+Stopped at: Completed 02-3d-scene-and-zone-interaction/02-03-PLAN.md
 Resume file: None
