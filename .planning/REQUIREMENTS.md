@@ -22,9 +22,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Interaction
 
-- [ ] **INT-01**: User can hover zones to see highlight effect
-- [ ] **INT-02**: User can click a zone to select it and trigger smooth camera transition
-- [ ] **INT-03**: Sensor nodes are visible as 3D markers at positions within zones
+- [x] **INT-01**: User can hover zones to see highlight effect
+- [x] **INT-02**: User can click a zone to select it and trigger smooth camera transition
+- [x] **INT-03**: Sensor nodes are visible as 3D markers at positions within zones
 
 ### UI Panels
 
@@ -90,9 +90,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SCENE-02 | Phase 2 | Complete |
 | SCENE-03 | Phase 2 | Complete |
 | SCENE-04 | Phase 2 | Complete |
-| INT-01 | Phase 2 | Pending |
-| INT-02 | Phase 2 | Pending |
-| INT-03 | Phase 2 | Pending |
+| INT-01 | Phase 2 | Complete |
+| INT-02 | Phase 2 | Complete |
+| INT-03 | Phase 2 | Complete |
 | UI-01 | Phase 3 | Pending |
 | UI-02 | Phase 3 | Pending |
 | UI-03 | Phase 3 | Pending |
