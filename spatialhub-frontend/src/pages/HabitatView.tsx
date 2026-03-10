@@ -1,6 +1,9 @@
+import { useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { MarsEnvironment } from '../components/habitat/MarsEnvironment';
+import { HabitatStructure } from '../components/habitat/HabitatStructure';
+import { useHabitatStore } from '../store/habitatStore';
 
 // Full-screen R3F Canvas for the Mars habitat scene.
 // Camera is elevated and pulled back to give an overview of the habitat area
@@ -8,6 +11,18 @@ import { MarsEnvironment } from '../components/habitat/MarsEnvironment';
 // Lazy-loaded via React.lazy in App.tsx — R3F bundle only loads on /habitat.
 
 const HabitatView = () => {
+  // Start the simulation on mount so dome glow is reactive from the first frame.
+  // Note: hooks must live in the React component (outside Canvas), not inside R3F nodes.
+  const startSimulation = useHabitatStore((s) => s.startSimulation);
+  const isRunning = useHabitatStore((s) => s.isRunning);
+
+  useEffect(() => {
+    if (!isRunning) {
+      startSimulation();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div
       style={{
@@ -23,6 +38,7 @@ const HabitatView = () => {
         onCreated={({ gl }) => gl.setClearColor('#050505')}
       >
         <MarsEnvironment />
+        <HabitatStructure />
         <OrbitControls
           makeDefault
           enableDamping
