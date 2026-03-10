@@ -116,14 +116,13 @@ export const HabitatDome = ({
   // radius=5, 32 segments, full circle azimuth, upper half only
   return (
     <group position={position}>
-      {/* Main dome — dark metallic half-sphere, interactive */}
+      {/* Main dome — dark metallic half-sphere, visual only.
+          raycast disabled so pointer events pass through to sensor orbs inside. */}
       <mesh
         ref={domeRef}
         castShadow
         receiveShadow
-        onPointerOver={handlePointerOver}
-        onPointerOut={handlePointerOut}
-        onClick={handleClick}
+        raycast={() => {}}
       >
         <sphereGeometry args={[5, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2]} />
         <meshStandardMaterial
@@ -135,6 +134,23 @@ export const HabitatDome = ({
           emissive="#000000"
           emissiveIntensity={0}
         />
+      </mesh>
+
+      {/* Invisible interaction ring — flat annulus at dome base for hover/click.
+          Sits at y=0.01, ring from radius 3.5 to 5.5. Covers the dome rim area
+          where users naturally hover/click, but does NOT block raycasts to sensor
+          orbs which are above y=1.5 and inside radius ~3.5.
+          visible={false} hides it visually; R3F still raycasts against it. */}
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, 0.01, 0]}
+        onPointerOver={handlePointerOver}
+        onPointerOut={handlePointerOut}
+        onClick={handleClick}
+        visible={false}
+      >
+        <ringGeometry args={[3.5, 5.5, 64]} />
+        <meshBasicMaterial />
       </mesh>
 
       {/* Accent rim ring at the base — this is where emissive bloom comes from */}
