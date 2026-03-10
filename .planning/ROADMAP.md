@@ -50,7 +50,7 @@ Plans:
 - [x] 02-01-PLAN.md — Install R3F ecosystem, create /habitat route with lazy loading, render Mars environment (ground, lights, fog)
 - [x] 02-02-PLAN.md — Procedural dome geometry, tube corridors, status-reactive emissive materials, selective bloom, floating labels
 - [x] 02-03-PLAN.md — Hover highlights, click-to-zoom camera transitions, sensor node orbs with live data tooltips
-- [ ] 02-04-PLAN.md — Gap closure: fix sensor orb tooltips blocked by dome mesh raycasting
+- [x] 02-04-PLAN.md — Gap closure: fix sensor orb tooltips blocked by dome mesh raycasting
 
 ### Phase 3: UI Panels and Live Data
 **Goal**: Users see live sensor data flowing into panels alongside the 3D scene, with a system overview HUD always visible
