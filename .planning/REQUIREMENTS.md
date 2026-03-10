@@ -9,9 +9,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### 3D Scene
 
-- [ ] **SCENE-01**: User sees a 3D procedural habitat with orbit controls on `/habitat` route
+- [x] **SCENE-01**: User sees a 3D procedural habitat with orbit controls on `/habitat` route
 - [ ] **SCENE-02**: Habitat has four visually distinct zone meshes (Grow Bays, Atmosphere, Water Recycling, Power/Thermal)
-- [ ] **SCENE-03**: Scene has environmental lighting (ambient + directional) with dark mission-control aesthetic
+- [x] **SCENE-03**: Scene has environmental lighting (ambient + directional) with dark mission-control aesthetic
 - [ ] **SCENE-04**: Active elements glow with selective bloom post-processing
 
 ### Simulation
@@ -86,9 +86,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | API-02 | Phase 1 | Complete |
 | SIM-01 | Phase 1 | Complete |
 | SIM-02 | Phase 1 | Complete |
-| SCENE-01 | Phase 2 | Pending |
+| SCENE-01 | Phase 2 | Complete |
 | SCENE-02 | Phase 2 | Pending |
-| SCENE-03 | Phase 2 | Pending |
+| SCENE-03 | Phase 2 | Complete |
 | SCENE-04 | Phase 2 | Pending |
 | INT-01 | Phase 2 | Pending |
 | INT-02 | Phase 2 | Pending |

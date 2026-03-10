@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 2 context gathered
-last_updated: "2026-03-10T05:19:37.024Z"
+stopped_at: Completed 02-3d-scene-and-zone-interaction/02-01-PLAN.md
+last_updated: "2026-03-10T05:35:19.412Z"
 last_activity: 2026-03-09 — Roadmap created, ready to begin Phase 1 planning
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 5
+  completed_plans: 3
   percent: 0
 ---
 
@@ -52,6 +52,7 @@ Progress: [░░░░░░░░░░] 0%
 *Updated after each plan completion*
 | Phase 01-data-foundation P01 | 3 | 2 tasks | 9 files |
 | Phase 01-data-foundation P02 | 5min | 2 tasks | 5 files |
+| Phase 02-3d-scene-and-zone-interaction P01 | 15min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -69,6 +70,9 @@ Recent decisions affecting current work:
 - [Phase 01-02]: Dynamic import in startSimulation() breaks store->engine->store circular dep without runtime cost
 - [Phase 01-02]: Engine stored at module scope (activeEngine) not in Zustand state — prevents interval leak and serialization issues
 - [Phase 01-02]: Sol cycle: temperature +/-2C, power +/-15kW, others +/-2-3% nominal — visible rhythm without dominating experience
+- [Phase 02-3d-scene-and-zone-interaction]: R3F ecosystem (fiber@9.5/drei@10.7/postprocessing@3.0/three@0.183) installs cleanly with React 19 — no --legacy-peer-deps needed
+- [Phase 02-3d-scene-and-zone-interaction]: HabitatView lazy-loaded as separate Vite chunk (242KB gzip) — R3F bundle isolated from main app, only loads on /habitat
+- [Phase 02-3d-scene-and-zone-interaction]: Camera at [0, 25, 35] fov:50 provides full habitat overview covering zone positions x:-8..8 z:-4..4
 
 ### Pending Todos
 
@@ -82,6 +86,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-10T05:19:37.018Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-3d-scene-and-zone-interaction/02-CONTEXT.md
+Last session: 2026-03-10T05:35:19.407Z
+Stopped at: Completed 02-3d-scene-and-zone-interaction/02-01-PLAN.md
+Resume file: None
