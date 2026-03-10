@@ -63,6 +63,18 @@ The 3D habitat visualization with live sensor data is the centerpiece — it mus
 - **Existing routes preserved:** All current pages (`/raw`, `/enriched`, `/trends`, `/simulate`, `/unity`) stay untouched. New content goes on `/habitat`.
 - **Branch:** All work on `feature/mars-habitat-demo` branch.
 
+## Current Milestone: v1.0 Mars Habitat Demo
+
+**Goal:** Build a visually stunning 3D Mars greenhouse habitat with live simulated telemetry, interactive zones, and anomaly simulation on top of the existing SpatialHub platform.
+
+**Target features:**
+- 3D interactive Three.js habitat visualization on `/habitat` route
+- Four clickable habitat zones with live sensor feeds
+- Simulated real-time Mars habitat telemetry
+- Anomaly simulation system with visual alerts
+- New Django API endpoints for habitat data
+- Fix existing backend bugs
+
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
