@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
 import { MarsEnvironment } from '../components/habitat/MarsEnvironment';
 import { HabitatStructure } from '../components/habitat/HabitatStructure';
 import { useHabitatStore } from '../store/habitatStore';
@@ -9,6 +8,10 @@ import { useHabitatStore } from '../store/habitatStore';
 // Camera is elevated and pulled back to give an overview of the habitat area
 // (zone positions span x:-8..8, z:-4..4 — camera at y:25, z:35 frames it well).
 // Lazy-loaded via React.lazy in App.tsx — R3F bundle only loads on /habitat.
+//
+// Note: OrbitControls is no longer here — it lives inside CameraController
+// (via HabitatStructure) so that CameraController can own the controls ref
+// and drive smooth camera transitions on zone select/deselect.
 
 const HabitatView = () => {
   // Start the simulation on mount so dome glow is reactive from the first frame.
@@ -39,14 +42,6 @@ const HabitatView = () => {
       >
         <MarsEnvironment />
         <HabitatStructure />
-        <OrbitControls
-          makeDefault
-          enableDamping
-          dampingFactor={0.05}
-          minDistance={8}
-          maxDistance={60}
-          maxPolarAngle={Math.PI / 2.1}
-        />
       </Canvas>
     </div>
   );

@@ -1,8 +1,10 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { useHabitatStore, selectZone } from '../../store/habitatStore';
+import { ZONE_MAP } from '../../simulation/constants';
+import { SensorOrb } from './SensorOrb';
 import type { ZoneStatus } from '../../types/habitat';
 
 // Status colors for emissive and badge rendering
@@ -12,11 +14,20 @@ const STATUS_COLORS: Record<ZoneStatus, string> = {
   red: '#ff2200',
 };
 
+// Predefined offsets for 3 sensor orbs inside a dome (relative to dome center)
+const SENSOR_OFFSETS: [number, number, number][] = [
+  [-1.2, 2.0, -0.8], // left side, mid height
+  [1.0, 3.0, 0.5],   // right side, higher
+  [0.0, 1.5, 1.2],   // center-front, lower
+];
+
 interface HabitatDomeProps {
   zoneId: string;
   name: string;
   position: [number, number, number];
   accentColor: string; // hex color, e.g., '#00ff88'
+  isSelected: boolean;
+  onSelect: (zoneId: string) => void;
 }
 
 // Lerp two hex colors at a given factor — used to shift emissive toward red on alert
@@ -26,13 +37,26 @@ function lerpHexColor(colorA: string, colorB: string, t: number): THREE.Color {
   return a.lerp(b, t);
 }
 
-export const HabitatDome = ({ zoneId, name, position, accentColor }: HabitatDomeProps) => {
+export const HabitatDome = ({
+  zoneId,
+  name,
+  position,
+  accentColor,
+  isSelected,
+  onSelect,
+}: HabitatDomeProps) => {
   const rimRef = useRef<THREE.Mesh>(null);
   const accentRef = useRef<THREE.Mesh>(null);
+  const domeRef = useRef<THREE.Mesh>(null);
+
+  const [hovered, setHovered] = useState(false);
 
   // Subscribe to this zone's live state from Zustand
   const zone = useHabitatStore(selectZone(zoneId));
   const status: ZoneStatus = zone?.status ?? 'green';
+
+  // Get sensor configs for this zone (drives SensorOrb rendering)
+  const zoneConfig = ZONE_MAP[zoneId];
 
   // Animate emissive intensity and color on every frame
   useFrame(({ clock }) => {
@@ -56,16 +80,51 @@ export const HabitatDome = ({ zoneId, name, position, accentColor }: HabitatDome
       emissiveColor = lerpHexColor(accentColor, '#ff2200', 0.7);
     }
 
+    // Boost rim emissive when hovered or selected
+    if (hovered || isSelected) {
+      intensity = Math.max(intensity * 1.5, 2.0);
+    }
+
     material.emissiveIntensity = intensity;
     material.emissive.copy(emissiveColor);
+
+    // Dome body gets a subtle self-glow when hovered or selected
+    if (domeRef.current) {
+      const domeMat = domeRef.current.material as THREE.MeshStandardMaterial;
+      domeMat.emissive.set(hovered || isSelected ? accentColor : '#000000');
+      domeMat.emissiveIntensity = hovered || isSelected ? 0.15 : 0;
+    }
   });
+
+  const handlePointerOver = (e: THREE.Event) => {
+    (e as unknown as { stopPropagation: () => void }).stopPropagation();
+    setHovered(true);
+    document.body.style.cursor = 'pointer';
+  };
+
+  const handlePointerOut = () => {
+    setHovered(false);
+    document.body.style.cursor = 'auto';
+  };
+
+  const handleClick = (e: THREE.Event) => {
+    (e as unknown as { stopPropagation: () => void }).stopPropagation();
+    onSelect(zoneId);
+  };
 
   // The dome sits with flat base at y=0. sphereGeometry with phiLength=PI/2 gives upper hemisphere.
   // radius=5, 32 segments, full circle azimuth, upper half only
   return (
     <group position={position}>
-      {/* Main dome — dark metallic half-sphere */}
-      <mesh castShadow receiveShadow>
+      {/* Main dome — dark metallic half-sphere, interactive */}
+      <mesh
+        ref={domeRef}
+        castShadow
+        receiveShadow
+        onPointerOver={handlePointerOver}
+        onPointerOut={handlePointerOut}
+        onClick={handleClick}
+      >
         <sphereGeometry args={[5, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2]} />
         <meshStandardMaterial
           color="#1a1a2e"
@@ -73,6 +132,8 @@ export const HabitatDome = ({ zoneId, name, position, accentColor }: HabitatDome
           roughness={0.3}
           transparent
           opacity={0.85}
+          emissive="#000000"
+          emissiveIntensity={0}
         />
       </mesh>
 
@@ -146,6 +207,22 @@ export const HabitatDome = ({ zoneId, name, position, accentColor }: HabitatDome
           <span style={{ opacity: 0.9 }}>{name}</span>
         </div>
       </Html>
+
+      {/* Sensor orbs — 3 per dome, positioned at fixed offsets inside the dome.
+          Orb positions are absolute (relative to dome group), not dome-center-relative. */}
+      {zoneConfig?.sensors.map((sensor, idx) => {
+        const offset = SENSOR_OFFSETS[idx] ?? [0, 2, 0];
+        return (
+          <SensorOrb
+            key={sensor.sensorId}
+            sensorId={sensor.sensorId}
+            zoneId={zoneId}
+            sensorName={sensor.name}
+            unit={sensor.unit}
+            position={offset}
+          />
+        );
+      })}
     </group>
   );
 };

@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import { ZONE_CONFIGS } from '../../simulation/constants';
 import { HabitatDome } from './HabitatDome';
+import { CameraController } from './CameraController';
 
 // Accent colors per zone — chosen for immediate semantic legibility
 const ZONE_ACCENT_COLORS: Record<string, string> = {
@@ -59,38 +61,54 @@ const CORRIDORS: Array<{ from: [number, number, number]; to: [number, number, nu
 
 // HabitatStructure renders the complete habitat layout:
 // 4 domes + 4 connecting corridors + selective bloom post-processing.
+// Also owns the selectedZoneId state — lifted here so both CameraController
+// and individual HabitatDomes can access it without prop-drilling through HabitatView.
 // Must be a child of the R3F Canvas in HabitatView.
 export const HabitatStructure = () => {
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
+
+  const handleDeselect = () => setSelectedZoneId(null);
+
   return (
     <>
-      {/* Four zone domes — positioned from ZONE_CONFIGS */}
-      {ZONE_CONFIGS.map((zone) => (
-        <HabitatDome
-          key={zone.zoneId}
-          zoneId={zone.zoneId}
-          name={zone.name}
-          position={[zone.position.x, zone.position.y, zone.position.z]}
-          accentColor={ZONE_ACCENT_COLORS[zone.zoneId] ?? '#ffffff'}
-        />
-      ))}
+      {/* CameraController owns OrbitControls and handles smooth camera transitions.
+          It also listens for the Escape key and calls onDeselect. */}
+      <CameraController selectedZoneId={selectedZoneId} onDeselect={handleDeselect} />
 
-      {/* Connecting corridors — semi-transparent tubes with subtle glow */}
-      {CORRIDORS.map(({ from, to }, idx) => {
-        const { position, rotation, length } = createCorridor(from, to);
-        return (
-          <mesh key={idx} position={position} rotation={rotation}>
-            {/* radius=0.4, length between dome edges minus dome radius on each side */}
-            <cylinderGeometry args={[0.4, 0.4, length - 10, 16]} />
-            <meshStandardMaterial
-              color="#1a1a2e"
-              transparent
-              opacity={0.4}
-              emissive="#334455"
-              emissiveIntensity={0.5}
-            />
-          </mesh>
-        );
-      })}
+      {/* Dome group — onPointerMissed fires when clicking anything NOT a dome mesh.
+          This gives us background-click-to-deselect without a separate invisible plane. */}
+      <group onPointerMissed={handleDeselect}>
+        {/* Four zone domes — positioned from ZONE_CONFIGS */}
+        {ZONE_CONFIGS.map((zone) => (
+          <HabitatDome
+            key={zone.zoneId}
+            zoneId={zone.zoneId}
+            name={zone.name}
+            position={[zone.position.x, zone.position.y, zone.position.z]}
+            accentColor={ZONE_ACCENT_COLORS[zone.zoneId] ?? '#ffffff'}
+            isSelected={selectedZoneId === zone.zoneId}
+            onSelect={setSelectedZoneId}
+          />
+        ))}
+
+        {/* Connecting corridors — semi-transparent tubes with subtle glow */}
+        {CORRIDORS.map(({ from, to }, idx) => {
+          const { position, rotation, length } = createCorridor(from, to);
+          return (
+            <mesh key={idx} position={position} rotation={rotation}>
+              {/* radius=0.4, length between dome edges minus dome radius on each side */}
+              <cylinderGeometry args={[0.4, 0.4, length - 10, 16]} />
+              <meshStandardMaterial
+                color="#1a1a2e"
+                transparent
+                opacity={0.4}
+                emissive="#334455"
+                emissiveIntensity={0.5}
+              />
+            </mesh>
+          );
+        })}
+      </group>
 
       {/* Selective bloom — luminanceThreshold 0.8 means only highly emissive
           elements (the dome rings at intensity >1) bloom. Ground and dome bodies
