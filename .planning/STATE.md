@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 02-3d-scene-and-zone-interaction/02-03-PLAN.md
-last_updated: "2026-03-10T05:50:09.407Z"
+stopped_at: Completed 02-3d-scene-and-zone-interaction/02-04-PLAN.md
+last_updated: "2026-03-10T06:19:53.434Z"
 last_activity: 2026-03-09 — Roadmap created, ready to begin Phase 1 planning
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 6
+  completed_plans: 6
   percent: 0
 ---
 
@@ -55,6 +55,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 02-3d-scene-and-zone-interaction P01 | 15min | 2 tasks | 6 files |
 | Phase 02-3d-scene-and-zone-interaction P02 | 15min | 2 tasks | 3 files |
 | Phase 02-3d-scene-and-zone-interaction P03 | 4min | 2 tasks | 5 files |
+| Phase 02-3d-scene-and-zone-interaction P04 | 1min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,7 @@ Recent decisions affecting current work:
 - [Phase 02-3d-scene-and-zone-interaction]: CameraController owns OrbitControls ref (not HabitatView) — direct controls.target access for lerp-based orbit pivot transition without prop drilling
 - [Phase 02-3d-scene-and-zone-interaction]: selectedZoneId state lifted to HabitatStructure — 3D scene concern shared between CameraController and HabitatDome, not a page-level concern
 - [Phase 02-3d-scene-and-zone-interaction]: useFrame lerp factor 0.04 for camera transitions: ~1s ease-out at 60fps — no external animation library needed
+- [Phase 02-3d-scene-and-zone-interaction]: raycast no-op makes dome mesh invisible to R3F raycasts; separate flat ring at base captures dome hover/click without occluding orbs
 
 ### Pending Todos
 
@@ -93,6 +95,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-10T05:46:11.678Z
-Stopped at: Completed 02-3d-scene-and-zone-interaction/02-03-PLAN.md
+Last session: 2026-03-10T06:19:53.428Z
+Stopped at: Completed 02-3d-scene-and-zone-interaction/02-04-PLAN.md
 Resume file: None
