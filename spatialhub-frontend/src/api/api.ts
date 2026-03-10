@@ -4,7 +4,7 @@ import type { HabitatZone } from '../types/habitat';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'https://spatialhub-backend-823061962201.us-central1.run.app/api';
 
-export async function fetchRawSensorData(page = 1): Promise<SensorData[]> {
+export async function fetchRawSensorData(_page = 1): Promise<SensorData[]> {
     const response = await axios.get(`${BASE_URL}/raw/`);
     return response.data;
 }
