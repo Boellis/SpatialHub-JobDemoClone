@@ -44,12 +44,13 @@ Plans:
   3. Hovering a zone produces a visible highlight effect; clicking it triggers a smooth camera transition into that zone (no teleporting)
   4. 3D sensor node markers are visible at positions within zones
   5. Emissive/glowing elements show selective bloom post-processing; the scene reads as cinematic rather than a dev prototype
-**Plans:** 1/3 plans executed
+**Plans:** 4 plans (3 complete + 1 gap closure)
 
 Plans:
-- [ ] 02-01-PLAN.md — Install R3F ecosystem, create /habitat route with lazy loading, render Mars environment (ground, lights, fog)
-- [ ] 02-02-PLAN.md — Procedural dome geometry, tube corridors, status-reactive emissive materials, selective bloom, floating labels
-- [ ] 02-03-PLAN.md — Hover highlights, click-to-zoom camera transitions, sensor node orbs with live data tooltips
+- [x] 02-01-PLAN.md — Install R3F ecosystem, create /habitat route with lazy loading, render Mars environment (ground, lights, fog)
+- [x] 02-02-PLAN.md — Procedural dome geometry, tube corridors, status-reactive emissive materials, selective bloom, floating labels
+- [x] 02-03-PLAN.md — Hover highlights, click-to-zoom camera transitions, sensor node orbs with live data tooltips
+- [ ] 02-04-PLAN.md — Gap closure: fix sensor orb tooltips blocked by dome mesh raycasting
 
 ### Phase 3: UI Panels and Live Data
 **Goal**: Users see live sensor data flowing into panels alongside the 3D scene, with a system overview HUD always visible
@@ -80,6 +81,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Data Foundation | 2/2 | Complete   | 2026-03-10 |
-| 2. 3D Scene and Zone Interaction | 1/3 | In Progress|  |
+| 2. 3D Scene and Zone Interaction | 3/4 | In Progress|  |
 | 3. UI Panels and Live Data | 0/TBD | Not started | - |
 | 4. Anomaly System | 0/TBD | Not started | - |
