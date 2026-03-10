@@ -41,3 +41,18 @@ class EnrichedSensorData(models.Model):
 
     class Meta:
         db_table = 'enriched_sensor_data'  # Tell Django to use the existing DB table
+
+
+class HabitatZone(models.Model):
+    zone_id = models.CharField(max_length=50, unique=True)
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    sensors = models.JSONField(default=list)
+    thresholds = models.JSONField(default=dict)
+    position = models.JSONField(default=dict)
+
+    class Meta:
+        db_table = 'habitat_zone'
+
+    def __str__(self):
+        return f"{self.zone_id} - {self.name}"

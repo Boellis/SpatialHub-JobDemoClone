@@ -5,8 +5,8 @@ from rest_framework import status
 from google.cloud import pubsub_v1
 import json
 
-from .models import RawSensorData, EnrichedSensorData, HubConfig
-from .serializers import RawSensorSerializer, EnrichedSensorSerializer, HubConfigSerializer
+from .models import RawSensorData, EnrichedSensorData, HubConfig, HabitatZone
+from .serializers import RawSensorSerializer, EnrichedSensorSerializer, HubConfigSerializer, HabitatZoneSerializer
 
 import secrets
 import string
@@ -15,6 +15,10 @@ import traceback
 class RawSensorListView(ListAPIView):
     queryset = RawSensorData.objects.all().order_by("-datetime")
     serializer_class = RawSensorSerializer
+
+class HabitatZoneListView(ListAPIView):
+    queryset = HabitatZone.objects.all()
+    serializer_class = HabitatZoneSerializer
 
 class EnrichedSensorListView(APIView):
     def get(self, request):

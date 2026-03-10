@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import *
+from .models import RawSensorData, EnrichedSensorData, HubConfig, HabitatZone
 
 class RawSensorSerializer(serializers.ModelSerializer):
     class Meta:
@@ -14,4 +14,9 @@ class EnrichedSensorSerializer(serializers.ModelSerializer):
 class HubConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = HubConfig
+        fields = '__all__'
+
+class HabitatZoneSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HabitatZone
         fields = '__all__'
