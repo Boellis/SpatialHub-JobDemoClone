@@ -44,9 +44,11 @@ function deriveZoneStatus(sensors: Record<string, SensorReading>): ZoneStatus {
   return worst;
 }
 
-// Module-level engine reference — set by startSimulation, cleared by stopSimulation
-// This avoids circular import: the engine import happens lazily inside startSimulation
-let engineInterval: ReturnType<typeof setInterval> | null = null;
+// Module-level engine instance reference — set by startSimulation, cleared by stopSimulation
+// Stored at module scope (not in Zustand state) to avoid serialization issues.
+// Uses lazy import to break the circular dependency: store -> engine -> store.
+import type { SimulationEngine } from '../simulation/engine';
+let activeEngine: SimulationEngine | null = null;
 
 export const useHabitatStore = create<HabitatState>()((set, get) => ({
   zones: buildInitialZones(),
@@ -63,25 +65,26 @@ export const useHabitatStore = create<HabitatState>()((set, get) => ({
     console.log('[Habitat] Simulation start requested');
     set({ isRunning: true });
 
-    // Lazy-import the engine to avoid circular dep at module init time
+    // Lazy-import the engine to break the circular dependency at module init time.
+    // By the time this promise resolves, both modules are fully initialized.
     import('../simulation/engine').then(({ createSimulationEngine }) => {
-      const engine = createSimulationEngine();
-
-      if (engineInterval !== null) {
-        clearInterval(engineInterval);
-        engineInterval = null;
+      // Stop any previously running engine before creating a new one
+      if (activeEngine !== null) {
+        activeEngine.stop();
+        activeEngine = null;
       }
 
-      engineInterval = engine.start();
+      activeEngine = createSimulationEngine();
+      activeEngine.start();
     });
   },
 
   stopSimulation: () => {
     console.log('[Habitat] Simulation stop requested');
 
-    if (engineInterval !== null) {
-      clearInterval(engineInterval);
-      engineInterval = null;
+    if (activeEngine !== null) {
+      activeEngine.stop();
+      activeEngine = null;
     }
 
     set({ isRunning: false });
