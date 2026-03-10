@@ -40,8 +40,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Backend
 
-- [ ] **API-01**: Django models and API endpoints serve habitat zone and sensor configuration
-- [ ] **API-02**: Fix double `/api/api/` path bug in existing frontend API client
+- [x] **API-01**: Django models and API endpoints serve habitat zone and sensor configuration
+- [x] **API-02**: Fix double `/api/api/` path bug in existing frontend API client
 
 ## v2 Requirements
 
@@ -82,8 +82,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| API-01 | Phase 1 | Pending |
-| API-02 | Phase 1 | Pending |
+| API-01 | Phase 1 | Complete |
+| API-02 | Phase 1 | Complete |
 | SIM-01 | Phase 1 | Pending |
 | SIM-02 | Phase 1 | Pending |
 | SCENE-01 | Phase 2 | Pending |

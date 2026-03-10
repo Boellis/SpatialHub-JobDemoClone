@@ -28,7 +28,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. The double `/api/api/` path bug is gone — all existing frontend API calls resolve correctly
   3. The simulation engine ticks every 2 seconds and produces sensor values in expected Mars ranges (CO2 400-5000 ppm, temp 18-28°C, etc.)
   4. Zone status (green/yellow/red) is derived automatically from sensor thresholds and updates on every tick
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 01-01-PLAN.md — Backend API endpoint for habitat zones + fix double /api/api/ path bug
@@ -74,7 +74,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Data Foundation | 0/2 | Planning complete | - |
+| 1. Data Foundation | 1/2 | In Progress|  |
 | 2. 3D Scene and Zone Interaction | 0/TBD | Not started | - |
 | 3. UI Panels and Live Data | 0/TBD | Not started | - |
 | 4. Anomaly System | 0/TBD | Not started | - |
