@@ -31,8 +31,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 01-01-PLAN.md — Backend API endpoint for habitat zones + fix double /api/api/ path bug
-- [ ] 01-02-PLAN.md — Frontend simulation infrastructure (types, constants, Zustand store, simulation engine)
+- [x] 01-01-PLAN.md — Backend API endpoint for habitat zones + fix double /api/api/ path bug
+- [x] 01-02-PLAN.md — Frontend simulation infrastructure (types, constants, Zustand store, simulation engine)
 
 ### Phase 2: 3D Scene and Zone Interaction
 **Goal**: Users can open `/habitat` and see a visually impressive 3D Mars habitat they can orbit, zoom, and click into
@@ -44,7 +44,12 @@ Plans:
   3. Hovering a zone produces a visible highlight effect; clicking it triggers a smooth camera transition into that zone (no teleporting)
   4. 3D sensor node markers are visible at positions within zones
   5. Emissive/glowing elements show selective bloom post-processing; the scene reads as cinematic rather than a dev prototype
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Install R3F ecosystem, create /habitat route with lazy loading, render Mars environment (ground, lights, fog)
+- [ ] 02-02-PLAN.md — Procedural dome geometry, tube corridors, status-reactive emissive materials, selective bloom, floating labels
+- [ ] 02-03-PLAN.md — Hover highlights, click-to-zoom camera transitions, sensor node orbs with live data tooltips
 
 ### Phase 3: UI Panels and Live Data
 **Goal**: Users see live sensor data flowing into panels alongside the 3D scene, with a system overview HUD always visible
@@ -75,6 +80,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Data Foundation | 2/2 | Complete   | 2026-03-10 |
-| 2. 3D Scene and Zone Interaction | 0/TBD | Not started | - |
+| 2. 3D Scene and Zone Interaction | 0/3 | Planning complete | - |
 | 3. UI Panels and Live Data | 0/TBD | Not started | - |
 | 4. Anomaly System | 0/TBD | Not started | - |
