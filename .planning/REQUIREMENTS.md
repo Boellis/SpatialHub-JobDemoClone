@@ -82,30 +82,30 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCENE-01 | — | Pending |
-| SCENE-02 | — | Pending |
-| SCENE-03 | — | Pending |
-| SCENE-04 | — | Pending |
-| SIM-01 | — | Pending |
-| SIM-02 | — | Pending |
-| SIM-03 | — | Pending |
-| INT-01 | — | Pending |
-| INT-02 | — | Pending |
-| INT-03 | — | Pending |
-| UI-01 | — | Pending |
-| UI-02 | — | Pending |
-| UI-03 | — | Pending |
-| ANOM-01 | — | Pending |
-| ANOM-02 | — | Pending |
-| ANOM-03 | — | Pending |
-| API-01 | — | Pending |
-| API-02 | — | Pending |
+| API-01 | Phase 1 | Pending |
+| API-02 | Phase 1 | Pending |
+| SIM-01 | Phase 1 | Pending |
+| SIM-02 | Phase 1 | Pending |
+| SCENE-01 | Phase 2 | Pending |
+| SCENE-02 | Phase 2 | Pending |
+| SCENE-03 | Phase 2 | Pending |
+| SCENE-04 | Phase 2 | Pending |
+| INT-01 | Phase 2 | Pending |
+| INT-02 | Phase 2 | Pending |
+| INT-03 | Phase 2 | Pending |
+| UI-01 | Phase 3 | Pending |
+| UI-02 | Phase 3 | Pending |
+| UI-03 | Phase 3 | Pending |
+| SIM-03 | Phase 3 | Pending |
+| ANOM-01 | Phase 4 | Pending |
+| ANOM-02 | Phase 4 | Pending |
+| ANOM-03 | Phase 4 | Pending |
 
 **Coverage:**
 - v1 requirements: 18 total
-- Mapped to phases: 0
-- Unmapped: 18 ⚠️
+- Mapped to phases: 18
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-09*
-*Last updated: 2026-03-09 after initial definition*
+*Last updated: 2026-03-09 — Traceability updated after roadmap creation*
