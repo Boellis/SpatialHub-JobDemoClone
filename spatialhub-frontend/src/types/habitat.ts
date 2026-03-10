@@ -1,10 +1,72 @@
-// Placeholder type — Plan 02 will overwrite with full definition
+// Mars Habitat sensor and zone type definitions
+// Source of truth for the simulation data model
+
+export type SensorStatus = 'green' | 'yellow' | 'red';
+export type ZoneStatus = 'green' | 'yellow' | 'red';
+
+export interface ThresholdRange {
+  min: number; // below this = warning/critical
+  max: number; // above this = warning/critical
+}
+
+export interface ThresholdConfig {
+  green: ThresholdRange;  // nominal operating range
+  yellow: ThresholdRange; // caution range (wider than green)
+  red: ThresholdRange;    // critical range (widest -- everything outside is critical)
+}
+
+export interface SensorConfig {
+  sensorId: string;       // e.g., "gb-co2"
+  name: string;           // e.g., "CO2 Level"
+  unit: string;           // e.g., "ppm"
+  type: string;           // e.g., "co2" -- for grouping/icons
+  nominalValue: number;   // baseline center value for simulation
+  driftRange: number;     // max drift from nominal in normal operation
+  noiseAmplitude: number; // random noise magnitude per tick
+  thresholds: ThresholdConfig;
+}
+
+export interface ZoneConfig {
+  zoneId: string;         // e.g., "grow-bays"
+  name: string;           // e.g., "Grow Bays"
+  description: string;
+  sensors: SensorConfig[];
+  position: { x: number; y: number; z: number };
+}
+
+export interface SensorReading {
+  sensorId: string;
+  zoneId: string;
+  value: number;
+  status: SensorStatus;
+  timestamp: number;    // Date.now()
+  history: number[];    // last 30 values for sparklines (Phase 3)
+}
+
+export interface ZoneState {
+  zoneId: string;
+  status: ZoneStatus;
+  sensors: Record<string, SensorReading>;
+}
+
+export interface HabitatState {
+  zones: Record<string, ZoneState>;
+  solElapsed: number;   // seconds elapsed in current sol cycle
+  isRunning: boolean;
+  tickCount: number;
+  startSimulation: () => void;
+  stopSimulation: () => void;
+  tick: (readings: Record<string, Record<string, SensorReading>>) => void;
+  getZoneStatus: (zoneId: string) => ZoneStatus;
+}
+
+// For the Django API response shape
 export interface HabitatZone {
   id: number;
   zone_id: string;
   name: string;
   description: string;
-  sensors: unknown[];
-  thresholds: Record<string, unknown>;
+  sensors: Array<{ sensor_id: string; name: string; unit: string; type: string }>;
+  thresholds: Record<string, { green: number[]; yellow: number[]; red: number[] }>;
   position: { x: number; y: number; z: number };
 }
