@@ -18,7 +18,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **SIM-01**: Simulated telemetry generates realistic Mars habitat sensor values on a 2-second tick
 - [x] **SIM-02**: Zone status is derived from sensor thresholds (green/yellow/red) and reflected on zone meshes
-- [ ] **SIM-03**: Sensor values show rolling sparkline trend charts (last 30-60 seconds)
+- [x] **SIM-03**: Sensor values show rolling sparkline trend charts (last 30-60 seconds)
 
 ### Interaction
 
@@ -28,7 +28,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### UI Panels
 
-- [ ] **UI-01**: Selected zone shows a detail panel with live sensor readings updating in real time
+- [x] **UI-01**: Selected zone shows a detail panel with live sensor readings updating in real time
 - [ ] **UI-02**: Alert/warning banners appear during anomalous conditions
 - [ ] **UI-03**: HUD-style glassmorphism overlay shows system overview (sol count, habitat status, active sensors)
 
@@ -93,10 +93,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INT-01 | Phase 2 | Complete |
 | INT-02 | Phase 2 | Complete |
 | INT-03 | Phase 2 | Complete |
-| UI-01 | Phase 3 | Pending |
+| UI-01 | Phase 3 | Complete |
 | UI-02 | Phase 3 | Pending |
 | UI-03 | Phase 3 | Pending |
-| SIM-03 | Phase 3 | Pending |
+| SIM-03 | Phase 3 | Complete |
 | ANOM-01 | Phase 4 | Pending |
 | ANOM-02 | Phase 4 | Pending |
 | ANOM-03 | Phase 4 | Pending |

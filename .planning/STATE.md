@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 3 context gathered
-last_updated: "2026-03-13T17:46:17.275Z"
+stopped_at: Completed 03-ui-panels-and-live-data 03-01-PLAN.md
+last_updated: "2026-03-13T21:44:10.394Z"
 last_activity: 2026-03-09 — Roadmap created, ready to begin Phase 1 planning
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 8
+  completed_plans: 7
   percent: 0
 ---
 
@@ -56,6 +56,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 02-3d-scene-and-zone-interaction P02 | 15min | 2 tasks | 3 files |
 | Phase 02-3d-scene-and-zone-interaction P03 | 4min | 2 tasks | 5 files |
 | Phase 02-3d-scene-and-zone-interaction P04 | 1min | 1 tasks | 1 files |
+| Phase 03-ui-panels-and-live-data P01 | 3 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -82,6 +83,9 @@ Recent decisions affecting current work:
 - [Phase 02-3d-scene-and-zone-interaction]: selectedZoneId state lifted to HabitatStructure — 3D scene concern shared between CameraController and HabitatDome, not a page-level concern
 - [Phase 02-3d-scene-and-zone-interaction]: useFrame lerp factor 0.04 for camera transitions: ~1s ease-out at 60fps — no external animation library needed
 - [Phase 02-3d-scene-and-zone-interaction]: raycast no-op makes dome mesh invisible to R3F raycasts; separate flat ring at base captures dome hover/click without occluding orbs
+- [Phase 03-ui-panels-and-live-data]: selectedZoneId lifted to Zustand store — R3F Canvas boundary requires shared store for HTML overlay communication
+- [Phase 03-ui-panels-and-live-data]: App split into Router + AppContent for useLocation — enables conditional nav hide on /habitat without Router context error
+- [Phase 03-ui-panels-and-live-data]: key={zoneId} on ZonePanel inner content triggers CSS slideInRight animation on zone switch — natural cross-fade via React remount
 
 ### Pending Todos
 
@@ -95,6 +99,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T17:46:17.269Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-ui-panels-and-live-data/03-CONTEXT.md
+Last session: 2026-03-13T21:44:10.387Z
+Stopped at: Completed 03-ui-panels-and-live-data 03-01-PLAN.md
+Resume file: None
