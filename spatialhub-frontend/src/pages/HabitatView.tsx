@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { MarsEnvironment } from '../components/habitat/MarsEnvironment';
 import { HabitatStructure } from '../components/habitat/HabitatStructure';
+import { ZonePanel } from '../components/habitat/ZonePanel';
 import { useHabitatStore } from '../store/habitatStore';
 
 // Full-screen R3F Canvas for the Mars habitat scene.
@@ -19,6 +20,7 @@ const HabitatView = () => {
   const startSimulation = useHabitatStore((s) => s.startSimulation);
   const isRunning = useHabitatStore((s) => s.isRunning);
   const selectedZoneId = useHabitatStore((s) => s.selectedZoneId);
+  const setSelectedZoneId = useHabitatStore((s) => s.setSelectedZoneId);
 
   useEffect(() => {
     if (!isRunning) {
@@ -53,7 +55,13 @@ const HabitatView = () => {
         pointerEvents: 'none',
         zIndex: 10,
       }}>
-        {/* ZonePanel, HabitatHUD, AlertBanner will go here */}
+        {/* ZonePanel — conditionally rendered when a zone is selected */}
+        {selectedZoneId && (
+          <ZonePanel
+            zoneId={selectedZoneId}
+            onClose={() => setSelectedZoneId(null)}
+          />
+        )}
 
         {/* Hint text — only visible when no zone is selected */}
         {!selectedZoneId && (
