@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import { MarsEnvironment } from '../components/habitat/MarsEnvironment';
 import { HabitatStructure } from '../components/habitat/HabitatStructure';
 import { ZonePanel } from '../components/habitat/ZonePanel';
+import { HabitatHUD } from '../components/habitat/HabitatHUD';
 import { useHabitatStore } from '../store/habitatStore';
 
 // Full-screen R3F Canvas for the Mars habitat scene.
@@ -55,6 +56,9 @@ const HabitatView = () => {
         pointerEvents: 'none',
         zIndex: 10,
       }}>
+        {/* HabitatHUD — always visible, top-left corner */}
+        <HabitatHUD />
+
         {/* ZonePanel — conditionally rendered when a zone is selected */}
         {selectedZoneId && (
           <ZonePanel
