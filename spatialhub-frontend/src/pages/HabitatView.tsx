@@ -4,6 +4,7 @@ import { MarsEnvironment } from '../components/habitat/MarsEnvironment';
 import { HabitatStructure } from '../components/habitat/HabitatStructure';
 import { ZonePanel } from '../components/habitat/ZonePanel';
 import { HabitatHUD } from '../components/habitat/HabitatHUD';
+import { AlertBanner } from '../components/habitat/AlertBanner';
 import { useHabitatStore } from '../store/habitatStore';
 
 // Full-screen R3F Canvas for the Mars habitat scene.
@@ -58,6 +59,9 @@ const HabitatView = () => {
       }}>
         {/* HabitatHUD — always visible, top-left corner */}
         <HabitatHUD />
+
+        {/* AlertBanner — top-center toast stack, self-positioned */}
+        <AlertBanner />
 
         {/* ZonePanel — conditionally rendered when a zone is selected */}
         {selectedZoneId && (
