@@ -61,7 +61,11 @@ Plans:
   2. Each sensor in the panel shows a mini sparkline chart of the last 30-60 seconds of readings
   3. A persistent HUD overlay shows sol count, overall habitat status, and active sensor count
   4. Alert/warning banners appear automatically when any sensor crosses a threshold (no manual intervention required)
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — State lifting, overlay infrastructure, ZonePanel with live sensor readings and sparkline charts
+- [ ] 03-02-PLAN.md — HabitatHUD glassmorphism system overview and AlertBanner toast system
 
 ### Phase 4: Anomaly System
 **Goal**: Users can trigger crisis scenarios and watch the 3D habitat respond with visual drama — zones flash, alerts escalate, sensors spike — then gradually recover
@@ -82,5 +86,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 |-------|----------------|--------|-----------|
 | 1. Data Foundation | 2/2 | Complete   | 2026-03-10 |
 | 2. 3D Scene and Zone Interaction | 4/4 | Complete   | 2026-03-10 |
-| 3. UI Panels and Live Data | 0/TBD | Not started | - |
+| 3. UI Panels and Live Data | 0/2 | In progress | - |
 | 4. Anomaly System | 0/TBD | Not started | - |
