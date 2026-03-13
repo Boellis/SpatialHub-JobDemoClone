@@ -55,6 +55,7 @@ export const useHabitatStore = create<HabitatState>()((set, get) => ({
   solElapsed: 0,
   isRunning: false,
   tickCount: 0,
+  selectedZoneId: null,
 
   startSimulation: () => {
     if (get().isRunning) {
@@ -116,6 +117,8 @@ export const useHabitatStore = create<HabitatState>()((set, get) => ({
     if (!zone) return 'green';
     return zone.status;
   },
+
+  setSelectedZoneId: (zoneId: string | null) => set({ selectedZoneId: zoneId }),
 }));
 
 // Selectors — exported for use in components (stable references, avoid re-renders)
@@ -129,6 +132,8 @@ export const selectAllZoneStatuses = () => (state: HabitatState): Record<string,
   Object.fromEntries(
     Object.entries(state.zones).map(([id, zone]) => [id, zone.status])
   );
+
+export const selectSelectedZoneId = (state: HabitatState) => state.selectedZoneId;
 
 // Expose to window in dev mode for DevTools verification
 if (import.meta.env.DEV) {

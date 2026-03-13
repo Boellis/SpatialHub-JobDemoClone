@@ -18,6 +18,7 @@ const HabitatView = () => {
   // Note: hooks must live in the React component (outside Canvas), not inside R3F nodes.
   const startSimulation = useHabitatStore((s) => s.startSimulation);
   const isRunning = useHabitatStore((s) => s.isRunning);
+  const selectedZoneId = useHabitatStore((s) => s.selectedZoneId);
 
   useEffect(() => {
     if (!isRunning) {
@@ -43,6 +44,34 @@ const HabitatView = () => {
         <MarsEnvironment />
         <HabitatStructure />
       </Canvas>
+
+      {/* HTML overlay layer — sits on top of Canvas, transparent to pointer events
+          except on interactive elements (panels, HUD, alerts) */}
+      <div style={{
+        position: 'fixed',
+        inset: 0,
+        pointerEvents: 'none',
+        zIndex: 10,
+      }}>
+        {/* ZonePanel, HabitatHUD, AlertBanner will go here */}
+
+        {/* Hint text — only visible when no zone is selected */}
+        {!selectedZoneId && (
+          <div style={{
+            position: 'absolute',
+            bottom: '2rem',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            color: 'rgba(255,255,255,0.25)',
+            fontFamily: 'monospace',
+            fontSize: '13px',
+            letterSpacing: '0.05em',
+            pointerEvents: 'none',
+          }}>
+            Click a dome to inspect
+          </div>
+        )}
+      </div>
     </div>
   );
 };

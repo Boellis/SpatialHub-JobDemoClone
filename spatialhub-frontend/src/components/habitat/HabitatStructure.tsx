@@ -1,11 +1,12 @@
-import { useState } from 'react';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import { ZONE_CONFIGS } from '../../simulation/constants';
 import { HabitatDome } from './HabitatDome';
 import { CameraController } from './CameraController';
+import { useHabitatStore } from '../../store/habitatStore';
 
 // Accent colors per zone — chosen for immediate semantic legibility
-const ZONE_ACCENT_COLORS: Record<string, string> = {
+// Exported so ZonePanel can use consistent colors for accent bars
+export const ZONE_ACCENT_COLORS: Record<string, string> = {
   'grow-bays': '#00ff88',           // green — plants, growth
   'atmosphere-control': '#00aaff',  // blue — air, sky
   'water-recycling': '#8844ff',     // purple — water processing
@@ -65,7 +66,8 @@ const CORRIDORS: Array<{ from: [number, number, number]; to: [number, number, nu
 // and individual HabitatDomes can access it without prop-drilling through HabitatView.
 // Must be a child of the R3F Canvas in HabitatView.
 export const HabitatStructure = () => {
-  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
+  const selectedZoneId = useHabitatStore((s) => s.selectedZoneId);
+  const setSelectedZoneId = useHabitatStore((s) => s.setSelectedZoneId);
 
   const handleDeselect = () => setSelectedZoneId(null);
 

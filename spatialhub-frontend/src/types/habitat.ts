@@ -54,10 +54,12 @@ export interface HabitatState {
   solElapsed: number;   // seconds elapsed in current sol cycle
   isRunning: boolean;
   tickCount: number;
+  selectedZoneId: string | null;
   startSimulation: () => void;
   stopSimulation: () => void;
   tick: (readings: Record<string, Record<string, SensorReading>>) => void;
   getZoneStatus: (zoneId: string) => ZoneStatus;
+  setSelectedZoneId: (zoneId: string | null) => void;
 }
 
 // For the Django API response shape
