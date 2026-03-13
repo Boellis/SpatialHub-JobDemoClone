@@ -29,8 +29,8 @@ Requirements for initial release. Each maps to roadmap phases.
 ### UI Panels
 
 - [x] **UI-01**: Selected zone shows a detail panel with live sensor readings updating in real time
-- [ ] **UI-02**: Alert/warning banners appear during anomalous conditions
-- [ ] **UI-03**: HUD-style glassmorphism overlay shows system overview (sol count, habitat status, active sensors)
+- [x] **UI-02**: Alert/warning banners appear during anomalous conditions
+- [x] **UI-03**: HUD-style glassmorphism overlay shows system overview (sol count, habitat status, active sensors)
 
 ### Anomaly
 
@@ -94,8 +94,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INT-02 | Phase 2 | Complete |
 | INT-03 | Phase 2 | Complete |
 | UI-01 | Phase 3 | Complete |
-| UI-02 | Phase 3 | Pending |
-| UI-03 | Phase 3 | Pending |
+| UI-02 | Phase 3 | Complete |
+| UI-03 | Phase 3 | Complete |
 | SIM-03 | Phase 3 | Complete |
 | ANOM-01 | Phase 4 | Pending |
 | ANOM-02 | Phase 4 | Pending |

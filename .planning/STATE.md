@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 03-ui-panels-and-live-data 03-01-PLAN.md
-last_updated: "2026-03-13T21:44:10.394Z"
+stopped_at: Completed 03-ui-panels-and-live-data 03-02-PLAN.md
+last_updated: "2026-03-13T21:48:52.366Z"
 last_activity: 2026-03-09 — Roadmap created, ready to begin Phase 1 planning
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 8
-  completed_plans: 7
+  completed_plans: 8
   percent: 0
 ---
 
@@ -57,6 +57,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 02-3d-scene-and-zone-interaction P03 | 4min | 2 tasks | 5 files |
 | Phase 02-3d-scene-and-zone-interaction P04 | 1min | 1 tasks | 1 files |
 | Phase 03-ui-panels-and-live-data P01 | 3 | 2 tasks | 7 files |
+| Phase 03-ui-panels-and-live-data P02 | 3min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,8 @@ Recent decisions affecting current work:
 - [Phase 03-ui-panels-and-live-data]: selectedZoneId lifted to Zustand store — R3F Canvas boundary requires shared store for HTML overlay communication
 - [Phase 03-ui-panels-and-live-data]: App split into Router + AppContent for useLocation — enables conditional nav hide on /habitat without Router context error
 - [Phase 03-ui-panels-and-live-data]: key={zoneId} on ZonePanel inner content triggers CSS slideInRight animation on zone switch — natural cross-fade via React remount
+- [Phase 03-ui-panels-and-live-data]: Alert cooldown uses Map ref not state — avoids re-render cascade; 10s floor prevents same-sensor spam on every 2s tick
+- [Phase 03-ui-panels-and-live-data]: CSS keyframe animations injected as style tag — Tailwind purges custom keyframe names; DOM injection at mount survives the purge
 
 ### Pending Todos
 
@@ -99,6 +102,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T21:44:10.387Z
-Stopped at: Completed 03-ui-panels-and-live-data 03-01-PLAN.md
+Last session: 2026-03-13T21:48:52.358Z
+Stopped at: Completed 03-ui-panels-and-live-data 03-02-PLAN.md
 Resume file: None
