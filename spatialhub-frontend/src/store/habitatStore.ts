@@ -3,7 +3,8 @@
 // The simulation engine writes to this store every 2 seconds.
 
 import { create } from 'zustand';
-import type { SensorReading, ZoneState, ZoneStatus, HabitatState } from '../types/habitat';
+import type { AnomalyPhase, AnomalyScenarioState, ScenarioAnnouncement, SensorReading, ZoneState, ZoneStatus, HabitatState } from '../types/habitat';
+import { ANOMALY_SCENARIOS } from '../simulation/anomalies';
 import { ZONE_CONFIGS } from '../simulation/constants';
 
 // Build the initial zone state from ZONE_CONFIGS — all sensors at nominal, all green
@@ -56,6 +57,8 @@ export const useHabitatStore = create<HabitatState>()((set, get) => ({
   isRunning: false,
   tickCount: 0,
   selectedZoneId: null,
+  anomalies: {} as Record<string, AnomalyScenarioState>,
+  scenarioAnnouncements: [] as ScenarioAnnouncement[],
 
   startSimulation: () => {
     if (get().isRunning) {
@@ -119,6 +122,128 @@ export const useHabitatStore = create<HabitatState>()((set, get) => ({
   },
 
   setSelectedZoneId: (zoneId: string | null) => set({ selectedZoneId: zoneId }),
+
+  triggerAnomaly: (scenarioId: string) => {
+    const scenario = ANOMALY_SCENARIOS.find((s) => s.id === scenarioId);
+    if (!scenario) return;
+
+    const state = get();
+    const current = state.anomalies[scenarioId];
+
+    // Toggle: if already active, cancel it instead
+    if (current && current.phase !== 'idle') {
+      state.cancelAnomaly(scenarioId);
+      return;
+    }
+
+    set((s) => ({
+      anomalies: {
+        ...s.anomalies,
+        [scenarioId]: { phase: 'onset', ticksInPhase: 0, biasFactor: 0 },
+      },
+      scenarioAnnouncements: [
+        ...s.scenarioAnnouncements,
+        {
+          scenarioId,
+          label: scenario.label,
+          zoneName: scenario.zoneName,
+          zoneId: scenario.zoneId,
+          timestamp: Date.now(),
+        },
+      ],
+    }));
+  },
+
+  cancelAnomaly: (scenarioId: string) => {
+    const state = get();
+    const current = state.anomalies[scenarioId];
+    if (!current || current.phase === 'idle') return;
+
+    set((s) => ({
+      anomalies: {
+        ...s.anomalies,
+        [scenarioId]: {
+          phase: 'recovery',
+          ticksInPhase: 0,
+          biasFactor: current.biasFactor, // preserve current bias as starting point for recovery
+        },
+      },
+    }));
+  },
+
+  tickAnomalies: () => {
+    set((state) => {
+      const updated: Record<string, AnomalyScenarioState> = {};
+      let changed = false;
+
+      for (const [id, entry] of Object.entries(state.anomalies)) {
+        if (entry.phase === 'idle') {
+          updated[id] = entry;
+          continue;
+        }
+
+        const scenario = ANOMALY_SCENARIOS.find((s) => s.id === id);
+        if (!scenario) {
+          updated[id] = entry;
+          continue;
+        }
+
+        // Advance ticksInPhase first
+        const newTicks = entry.ticksInPhase + 1;
+
+        // Compute biasFactor based on current phase and advanced ticks
+        let newBias: number;
+        let newPhase: AnomalyPhase = entry.phase;
+        let finalTicks = newTicks;
+
+        switch (entry.phase) {
+          case 'onset':
+            newBias = Math.min(1, newTicks / scenario.onsetTicks);
+            if (newTicks >= scenario.onsetTicks) {
+              newPhase = 'peak';
+              finalTicks = 0;
+              newBias = 1.0;
+            }
+            break;
+
+          case 'peak':
+            newBias = 1.0;
+            if (newTicks >= scenario.peakTicks) {
+              // Auto-timeout: transition to recovery
+              newPhase = 'recovery';
+              finalTicks = 0;
+              newBias = 1.0; // recovery starts from full
+            }
+            break;
+
+          case 'recovery':
+            newBias = Math.max(0, 1 - newTicks / scenario.recoveryTicks);
+            if (newTicks >= scenario.recoveryTicks) {
+              newPhase = 'idle';
+              finalTicks = 0;
+              newBias = 0;
+            }
+            break;
+
+          default:
+            newBias = entry.biasFactor;
+        }
+
+        updated[id] = { phase: newPhase, ticksInPhase: finalTicks, biasFactor: newBias };
+        changed = true;
+      }
+
+      return changed ? { anomalies: updated } : {};
+    });
+  },
+
+  dismissAnnouncement: (timestamp: number) => {
+    set((state) => ({
+      scenarioAnnouncements: state.scenarioAnnouncements.filter(
+        (a) => a.timestamp !== timestamp
+      ),
+    }));
+  },
 }));
 
 // Selectors — exported for use in components (stable references, avoid re-renders)

@@ -4,6 +4,7 @@
 
 import type { SensorReading, SensorStatus } from '../types/habitat';
 import { ZONE_CONFIGS, SENSOR_MAP, SOL_CYCLE_PERIOD } from './constants';
+import { getAnomalyBias } from './anomalies';
 import { useHabitatStore } from '../store/habitatStore';
 
 // Tick interval in ms
@@ -54,7 +55,8 @@ function solAmplitude(sensorType: string, nominalValue: number): number {
 function computeNewValue(
   currentValue: number,
   sensorId: string,
-  solElapsed: number
+  solElapsed: number,
+  anomalyBias: number = 0
 ): number {
   const entry = SENSOR_MAP[sensorId];
   if (!entry) return currentValue;
@@ -73,7 +75,7 @@ function computeNewValue(
   // 3. Sol cycle: sinusoidal based on solElapsed
   const sol = solFactor(solElapsed) * solAmplitude(type, nominalValue);
 
-  const raw = currentValue + drift + noise + sol;
+  const raw = currentValue + drift + noise + sol + anomalyBias;
   return clamp(raw, sensorId);
 }
 
@@ -151,7 +153,7 @@ function updateHistory(existing: number[], newValue: number): number[] {
 
 function tick(): void {
   const state = useHabitatStore.getState();
-  const { zones, solElapsed } = state;
+  const { zones, solElapsed, anomalies } = state;
 
   const newReadings: Record<string, Record<string, SensorReading>> = {};
 
@@ -160,14 +162,15 @@ function tick(): void {
     const currentZone = zones[zoneId];
     if (!currentZone) continue;
 
-    // Step 1: compute raw values per sensor (drift + noise + sol cycle)
+    // Step 1: compute raw values per sensor (drift + noise + sol cycle + anomaly bias)
     const rawValues: Record<string, number> = {};
     for (const sensor of zone.sensors) {
       const current = currentZone.sensors[sensor.sensorId];
       rawValues[sensor.sensorId] = computeNewValue(
         current?.value ?? sensor.nominalValue,
         sensor.sensorId,
-        solElapsed
+        solElapsed,
+        getAnomalyBias(anomalies, sensor.sensorId)
       );
     }
 
@@ -193,8 +196,12 @@ function tick(): void {
     newReadings[zoneId] = sensorReadings;
   }
 
-  // Push to store
+  // Push to store — apply sensor readings first, then advance anomaly phase timers.
+  // CRITICAL ordering: anomalies state is read at the top of tick(), bias is applied during
+  // sensor computation, and THEN tickAnomalies() advances phase counters. This ensures
+  // the current tick's biasFactor is applied before it increments to the next value.
   state.tick(newReadings);
+  state.tickAnomalies();
 }
 
 // ---- Engine factory ---------------------------------------------------------
