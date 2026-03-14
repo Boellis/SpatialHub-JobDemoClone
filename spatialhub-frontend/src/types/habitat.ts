@@ -49,17 +49,39 @@ export interface ZoneState {
   sensors: Record<string, SensorReading>;
 }
 
+export type AnomalyPhase = 'onset' | 'peak' | 'recovery' | 'idle';
+
+export interface AnomalyScenarioState {
+  phase: AnomalyPhase;
+  ticksInPhase: number;
+  biasFactor: number; // 0 = no effect, 1 = full crisis bias
+}
+
+export interface ScenarioAnnouncement {
+  scenarioId: string;
+  label: string;
+  zoneName: string;
+  zoneId: string;
+  timestamp: number;
+}
+
 export interface HabitatState {
   zones: Record<string, ZoneState>;
   solElapsed: number;   // seconds elapsed in current sol cycle
   isRunning: boolean;
   tickCount: number;
   selectedZoneId: string | null;
+  anomalies: Record<string, AnomalyScenarioState>;
+  scenarioAnnouncements: ScenarioAnnouncement[];
   startSimulation: () => void;
   stopSimulation: () => void;
   tick: (readings: Record<string, Record<string, SensorReading>>) => void;
   getZoneStatus: (zoneId: string) => ZoneStatus;
   setSelectedZoneId: (zoneId: string | null) => void;
+  triggerAnomaly: (scenarioId: string) => void;
+  cancelAnomaly: (scenarioId: string) => void;
+  tickAnomalies: () => void;
+  dismissAnnouncement: (timestamp: number) => void;
 }
 
 // For the Django API response shape
