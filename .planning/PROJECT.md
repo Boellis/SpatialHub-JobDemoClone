@@ -2,42 +2,35 @@
 
 ## What This Is
 
-A visually stunning demo that reimagines SpatialHub — an existing IoT telemetry platform for indoor farming — as a Martian habitat monitoring system. Users open the app and see a 3D interactive Three.js rendering of a Mars greenhouse habitat. They can orbit, zoom, and click into four distinct zones (Grow Bays, Atmosphere Control, Water Recycling, Power/Thermal), each streaming simulated real-time sensor telemetry. A built-in anomaly simulator lets users trigger crises (CO2 spikes, pump failures) and watch the system detect, alert, and respond with visual drama — flashing zones, warning panels, status changes.
+A visually stunning 3D Mars habitat monitoring system built on top of an existing IoT telemetry platform. Users open `/habitat` and see a procedural 3D Mars greenhouse with four interactive zones (Grow Bays, Atmosphere Control, Water Recycling, Power/Thermal), each streaming simulated real-time sensor telemetry via a client-side simulation engine. A glassmorphism HUD shows system status, zone panels display live readings with sparkline charts, and an anomaly simulator lets users trigger crises and watch the habitat respond with visual drama.
 
 ## Core Value
 
-The 3D habitat visualization with live sensor data is the centerpiece — it must feel real, responsive, and visually impressive enough to make someone say "this could actually run a Mars greenhouse."
+The 3D habitat visualization with live sensor data must feel real, responsive, and visually impressive enough to make someone say "this could actually run a Mars greenhouse."
 
 ## Requirements
 
 ### Validated
 
-<!-- Existing capabilities from current codebase -->
-
-- ✓ Sensor data ingestion via Pub/Sub pipeline — existing
-- ✓ Raw and enriched sensor data storage in PostgreSQL — existing
-- ✓ Django REST API serving sensor data (raw, enriched, hub config) — existing
-- ✓ Hub provisioning with auto-generated IDs — existing
-- ✓ Command dispatch to hubs via Pub/Sub — existing
-- ✓ React SPA with client-side routing — existing
-- ✓ Sensor data table views with client-side pagination — existing
-- ✓ Sensor trends charting with Recharts — existing
-- ✓ Device simulation page — existing
+- ✓ Django HabitatZone model + API endpoint (`/api/habitat/zones/`) — v1.0
+- ✓ Fixed double `/api/api/` path bug in frontend API client — v1.0
+- ✓ Simulation engine: 12 sensors, 4 zones, 2s tick, Mars-realistic ranges — v1.0
+- ✓ Zone status derived from sensor thresholds (green/yellow/red) — v1.0
+- ✓ 3D procedural habitat with orbit controls on `/habitat` — v1.0
+- ✓ Four visually distinct zone meshes with mission-control dark aesthetic — v1.0
+- ✓ Environmental lighting with selective bloom post-processing — v1.0
+- ✓ Hover highlight and click-to-zoom smooth camera transitions — v1.0
+- ✓ Sensor nodes as 3D markers with live tooltips — v1.0
+- ✓ Zone detail panel with live sensor readings and sparkline charts — v1.0
+- ✓ HUD glassmorphism overlay (sol count, habitat status, active sensors) — v1.0
+- ✓ Alert/warning banners during anomalous conditions — v1.0
+- ✓ 4 anomaly scenarios with gradual onset/recovery curves — v1.0
+- ✓ Visual drama: flashing zones, alert escalation, sensor spikes — v1.0
+- ✓ AnomalyDrawer UI for triggering and cancelling scenarios — v1.0
 
 ### Active
 
-<!-- What we're building for this demo -->
-
-- [ ] 3D interactive Three.js habitat visualization on new `/habitat` route
-- [ ] Four clickable habitat zones: Grow Bays, Atmosphere, Water Recycling, Power/Thermal
-- [ ] Simulated real-time Mars habitat telemetry (atmospheric, hydroponic, water quality, power sensors)
-- [ ] Zone drill-down panels showing live sensor feeds when a zone is clicked
-- [ ] Color-coded zone status indicators (green/yellow/red) based on sensor thresholds
-- [ ] Anomaly simulation system — trigger events like CO2 spikes, pump failures, nutrient crashes
-- [ ] Alert/warning UI — flashing zones, warning panels, status changes during anomalies
-- [ ] New Django API endpoints for habitat zones and Mars-context sensors
-- [ ] Fix existing backend bugs (double `/api/api/` path, missing pagination)
-- [ ] Simulated data stream generator producing realistic Mars habitat telemetry
+(None — v1.0 complete. Use `/gsd:new-milestone` to define v1.1 requirements.)
 
 ### Out of Scope
 
@@ -46,43 +39,45 @@ The 3D habitat visualization with live sensor data is the centerpiece — it mus
 - Mobile-responsive 3D experience — desktop-first
 - Multiplayer / collaborative viewing — single user
 - Persistent anomaly history / incident logs — anomalies are transient demo events
-- Replacing existing pages — new `/habitat` route sits alongside existing views
+- Replacing existing pages — `/habitat` route sits alongside existing views
+- Realistic GLTF habitat model — procedural geometry with good materials looks more futuristic
+- Physics simulation — zero value for a monitoring dashboard
+- WebSocket backend — simulated data runs in-browser
+- VR/AR mode — 99% of reviewers use normal browsers
+- Custom GLSL shaders — MeshStandardMaterial with good params is sufficient
 
 ## Context
 
-- **Brownfield project:** Existing IoT telemetry platform with Django + React + GCP infrastructure. The 3D habitat is a new feature layer on top.
-- **Codebase state:** Several known bugs (double API path, enrich subscriber error handling, hardcoded sensor names) and tech debt (no tests, hardcoded URLs, `any` types). Backend bugs on the critical path will be fixed; others are out of scope.
-- **Existing frontend deps:** React 19, Vite, Recharts, axios, react-router-dom, @tanstack/react-query (installed but unused). Three.js will be added.
-- **Mars habitat sensors** will be simulated — not coming from real hardware. The simulation should produce realistic-looking telemetry with gradual drift, occasional spikes, and correlated multi-sensor behavior.
-- **Target audience:** Portfolio reviewers, potential employers, anyone evaluating full-stack capability.
+- **Shipped:** v1.0 Mars Habitat Demo (2026-03-14)
+- **Codebase:** 3,587 LOC TypeScript/TSX (frontend), 3,798 lines added across 28 files
+- **Frontend stack:** React 19, Vite, TypeScript, R3F (fiber@9.5, drei@10.7, postprocessing@3.0, three@0.183), Zustand v5
+- **Backend stack:** Django 5.2, DRF, PostgreSQL on Cloud SQL
+- **Target audience:** Portfolio reviewers, potential employers evaluating full-stack + 3D capability
+- **Known tech debt:** `fetchHabitatZones()` dead code (Django endpoint unused by frontend), seed thresholds diverged from constants.ts, sparklines flat for first 60s, fragile z-index stacking in AnomalyDrawer
 
 ## Constraints
 
-- **Tech stack:** Must build on existing Django + React + TypeScript stack. Three.js for 3D.
-- **No new cloud infra:** Simulated data runs locally or in-browser; no new GCP services needed for the demo.
-- **Existing routes preserved:** All current pages (`/raw`, `/enriched`, `/trends`, `/simulate`, `/unity`) stay untouched. New content goes on `/habitat`.
-- **Branch:** All work on `feature/mars-habitat-demo` branch.
-
-## Current Milestone: v1.0 Mars Habitat Demo
-
-**Goal:** Build a visually stunning 3D Mars greenhouse habitat with live simulated telemetry, interactive zones, and anomaly simulation on top of the existing SpatialHub platform.
-
-**Target features:**
-- 3D interactive Three.js habitat visualization on `/habitat` route
-- Four clickable habitat zones with live sensor feeds
-- Simulated real-time Mars habitat telemetry
-- Anomaly simulation system with visual alerts
-- New Django API endpoints for habitat data
-- Fix existing backend bugs
+- **Tech stack:** Django + React + TypeScript + Three.js (R3F)
+- **No new cloud infra:** Simulated data runs in-browser
+- **Existing routes preserved:** `/raw`, `/enriched`, `/trends`, `/simulate`, `/unity` untouched
+- **Branch:** `feature/mars-habitat-demo`
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Three.js for 3D (not Unity/WebGL export) | Runs natively in React, no plugin needed, lighter weight | — Pending |
-| New `/habitat` route (not replacing existing pages) | Preserves existing functionality, reduces risk | — Pending |
-| Simulated telemetry (not real hardware) | This is a demo — real Mars sensors aren't available (yet) | — Pending |
-| Fix backend bugs as part of scope | No point building on a broken foundation | — Pending |
+| Three.js via R3F (not raw Three.js or Unity) | React reconciler, hooks-based, ecosystem (drei/postprocessing) | ✓ Good — clean integration, 242KB gzip isolated chunk |
+| New `/habitat` route with React.lazy() | Isolates 3D bundle, preserves existing pages | ✓ Good — zero impact on existing routes |
+| Client-side simulation (not Django/WebSocket) | Simulated data doesn't need persistence; in-browser is simpler | ✓ Good — zero backend load, instant start |
+| Fix `/api/api/` bug in Phase 1 | Foundation before features | ✓ Good — prevented propagation |
+| Zustand over Redux/Context | Zero-dep, React 19 compatible, works across R3F/HTML boundary | ✓ Good — seamless store sharing |
+| Procedural geometry (not GLTF models) | Faster iteration, no asset pipeline, looks futuristic | ✓ Good — cinematic result without modeling tools |
+| Emissive rim ring + selective bloom | Surgical glow on status indicators without blooming entire scene | ✓ Good — dome body stays crisp |
+| raycast no-op on dome mesh | Lets pointer events reach sensor orbs inside dome | ✓ Good — fixed tooltip regression |
+| HTML overlay as Canvas sibling | Pointer-events: none container bridges R3F and DOM | ✓ Good — clean separation |
+| CSS keyframes via DOM injection | Tailwind purges custom animation names | ✓ Good — survives build |
+| Alert cooldown in Map ref | Prevents re-render cascade on every 2s tick | ✓ Good — stable at high frequency |
+| Anomaly toggle (re-trigger = cancel) | Graceful recovery from current biasFactor, not restart | ✓ Good — intuitive UX |
 
 ---
-*Last updated: 2026-03-09 after initialization*
+*Last updated: 2026-03-14 after v1.0 milestone*
