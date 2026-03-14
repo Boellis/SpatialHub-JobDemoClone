@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 4 context gathered
-last_updated: "2026-03-14T03:46:27.249Z"
+stopped_at: Completed 04-anomaly-system-01-PLAN.md
+last_updated: "2026-03-14T04:31:19.090Z"
 last_activity: 2026-03-09 — Roadmap created, ready to begin Phase 1 planning
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 10
+  completed_plans: 9
   percent: 0
 ---
 
@@ -58,6 +58,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 02-3d-scene-and-zone-interaction P04 | 1min | 1 tasks | 1 files |
 | Phase 03-ui-panels-and-live-data P01 | 3 | 2 tasks | 7 files |
 | Phase 03-ui-panels-and-live-data P02 | 3min | 2 tasks | 3 files |
+| Phase 04-anomaly-system P01 | 20min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,9 @@ Recent decisions affecting current work:
 - [Phase 03-ui-panels-and-live-data]: key={zoneId} on ZonePanel inner content triggers CSS slideInRight animation on zone switch — natural cross-fade via React remount
 - [Phase 03-ui-panels-and-live-data]: Alert cooldown uses Map ref not state — avoids re-render cascade; 10s floor prevents same-sensor spam on every 2s tick
 - [Phase 03-ui-panels-and-live-data]: CSS keyframe animations injected as style tag — Tailwind purges custom keyframe names; DOM injection at mount survives the purge
+- [Phase 04-anomaly-system]: AnomalyPhase explicit type annotation required in tickAnomalies(): tsc -b stricter than --noEmit on union assignments
+- [Phase 04-anomaly-system]: Toggle trigger pattern: re-triggering active anomaly cancels it (recovery from current biasFactor) rather than restarting onset
+- [Phase 04-anomaly-system]: Critical tick ordering: anomalies read at top, bias applied per-sensor, tickAnomalies() called after state.tick() to prevent biasFactor skip
 
 ### Pending Todos
 
@@ -102,6 +106,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14T03:46:27.243Z
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-anomaly-system/04-CONTEXT.md
+Last session: 2026-03-14T04:31:19.085Z
+Stopped at: Completed 04-anomaly-system-01-PLAN.md
+Resume file: None

@@ -34,9 +34,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Anomaly
 
-- [ ] **ANOM-01**: User can trigger anomaly scenarios (CO2 spike, pump failure, nutrient crash, power fluctuation)
-- [ ] **ANOM-02**: Anomalies produce visual drama (flashing zones, alert escalation, sensor value spikes)
-- [ ] **ANOM-03**: Anomalies have gradual onset and recovery curves (not binary toggles)
+- [x] **ANOM-01**: User can trigger anomaly scenarios (CO2 spike, pump failure, nutrient crash, power fluctuation)
+- [x] **ANOM-02**: Anomalies produce visual drama (flashing zones, alert escalation, sensor value spikes)
+- [x] **ANOM-03**: Anomalies have gradual onset and recovery curves (not binary toggles)
 
 ### Backend
 
@@ -97,9 +97,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UI-02 | Phase 3 | Complete |
 | UI-03 | Phase 3 | Complete |
 | SIM-03 | Phase 3 | Complete |
-| ANOM-01 | Phase 4 | Pending |
-| ANOM-02 | Phase 4 | Pending |
-| ANOM-03 | Phase 4 | Pending |
+| ANOM-01 | Phase 4 | Complete |
+| ANOM-02 | Phase 4 | Complete |
+| ANOM-03 | Phase 4 | Complete |
 
 **Coverage:**
 - v1 requirements: 18 total
