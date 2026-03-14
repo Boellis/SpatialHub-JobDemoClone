@@ -75,7 +75,11 @@ Plans:
   1. User can trigger at least four named anomaly scenarios (CO2 spike, pump failure, nutrient crash, power fluctuation) from a control panel
   2. Triggering an anomaly causes affected zone meshes to visibly flash or pulse red, alert banners escalate, and sensor values show correlated spikes
   3. Anomalies build gradually over several seconds (not instant toggle) and recover gradually after the scenario ends or times out
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Anomaly data layer: types, scenario definitions, Zustand store extension, engine bias injection
+- [ ] 04-02-PLAN.md — AnomalyDrawer UI: collapsible trigger panel, scenario buttons, announcement banners
 
 ## Progress
 
@@ -87,4 +91,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 1. Data Foundation | 2/2 | Complete   | 2026-03-10 |
 | 2. 3D Scene and Zone Interaction | 4/4 | Complete   | 2026-03-10 |
 | 3. UI Panels and Live Data | 2/2 | Complete   | 2026-03-13 |
-| 4. Anomaly System | 0/TBD | Not started | - |
+| 4. Anomaly System | 0/2 | Planning complete | - |
