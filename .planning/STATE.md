@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 04-anomaly-system-01-PLAN.md
-last_updated: "2026-03-14T04:31:19.090Z"
+stopped_at: Completed 04-anomaly-system-02-PLAN.md
+last_updated: "2026-03-14T04:55:43.386Z"
 last_activity: 2026-03-09 — Roadmap created, ready to begin Phase 1 planning
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 10
-  completed_plans: 9
+  completed_plans: 10
   percent: 0
 ---
 
@@ -59,6 +59,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 03-ui-panels-and-live-data P01 | 3 | 2 tasks | 7 files |
 | Phase 03-ui-panels-and-live-data P02 | 3min | 2 tasks | 3 files |
 | Phase 04-anomaly-system P01 | 20min | 2 tasks | 4 files |
+| Phase 04-anomaly-system P02 | 30min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -93,6 +94,9 @@ Recent decisions affecting current work:
 - [Phase 04-anomaly-system]: AnomalyPhase explicit type annotation required in tickAnomalies(): tsc -b stricter than --noEmit on union assignments
 - [Phase 04-anomaly-system]: Toggle trigger pattern: re-triggering active anomaly cancels it (recovery from current biasFactor) rather than restarting onset
 - [Phase 04-anomaly-system]: Critical tick ordering: anomalies read at top, bias applied per-sensor, tickAnomalies() called after state.tick() to prevent biasFactor skip
+- [Phase 04-anomaly-system]: AnomalyDrawer drawer starts collapsed (isOpen=false) — user must actively choose to trigger scenarios, not accidentally
+- [Phase 04-anomaly-system]: Announcement banners at top:0.5rem above AlertBanner (top:1.5rem) to prevent visual collision between scenario and sensor threshold alerts
+- [Phase 04-anomaly-system]: Dismiss timers in useRef<Map<number, Timeout>> — one timer per announcement, avoids re-render cascade, cleaned up on unmount
 
 ### Pending Todos
 
@@ -106,6 +110,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14T04:31:19.085Z
-Stopped at: Completed 04-anomaly-system-01-PLAN.md
+Last session: 2026-03-14T04:55:43.373Z
+Stopped at: Completed 04-anomaly-system-02-PLAN.md
 Resume file: None

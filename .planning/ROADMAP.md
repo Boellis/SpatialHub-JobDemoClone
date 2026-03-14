@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Data Foundation** - Backend API extensions, bug fix, TypeScript types, Zustand store, and simulation engine producing realistic Mars telemetry (completed 2026-03-10)
 - [x] **Phase 2: 3D Scene and Zone Interaction** - R3F Canvas with procedural habitat geometry, environment, post-processing, and interactive clickable zones (completed 2026-03-10)
 - [x] **Phase 3: UI Panels and Live Data** - Zone drill-down panel, alert banners, HUD system overview, and sparkline trend charts (completed 2026-03-13)
-- [ ] **Phase 4: Anomaly System** - Scenario triggers, gradual onset/recovery curves, visual drama, and alert escalation flow
+- [x] **Phase 4: Anomaly System** - Scenario triggers, gradual onset/recovery curves, visual drama, and alert escalation flow (completed 2026-03-14)
 
 ## Phase Details
 
@@ -75,7 +75,7 @@ Plans:
   1. User can trigger at least four named anomaly scenarios (CO2 spike, pump failure, nutrient crash, power fluctuation) from a control panel
   2. Triggering an anomaly causes affected zone meshes to visibly flash or pulse red, alert banners escalate, and sensor values show correlated spikes
   3. Anomalies build gradually over several seconds (not instant toggle) and recover gradually after the scenario ends or times out
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 04-01-PLAN.md — Anomaly data layer: types, scenario definitions, Zustand store extension, engine bias injection
@@ -91,4 +91,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 1. Data Foundation | 2/2 | Complete   | 2026-03-10 |
 | 2. 3D Scene and Zone Interaction | 4/4 | Complete   | 2026-03-10 |
 | 3. UI Panels and Live Data | 2/2 | Complete   | 2026-03-13 |
-| 4. Anomaly System | 1/2 | In Progress|  |
+| 4. Anomaly System | 2/2 | Complete   | 2026-03-14 |
