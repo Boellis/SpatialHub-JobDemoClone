@@ -5,6 +5,7 @@ import { HabitatStructure } from '../components/habitat/HabitatStructure';
 import { ZonePanel } from '../components/habitat/ZonePanel';
 import { HabitatHUD } from '../components/habitat/HabitatHUD';
 import { AlertBanner } from '../components/habitat/AlertBanner';
+import { AnomalyDrawer } from '../components/habitat/AnomalyDrawer';
 import { useHabitatStore } from '../store/habitatStore';
 
 // Full-screen R3F Canvas for the Mars habitat scene.
@@ -71,22 +72,8 @@ const HabitatView = () => {
           />
         )}
 
-        {/* Hint text — only visible when no zone is selected */}
-        {!selectedZoneId && (
-          <div style={{
-            position: 'absolute',
-            bottom: '2rem',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            color: 'rgba(255,255,255,0.25)',
-            fontFamily: 'monospace',
-            fontSize: '13px',
-            letterSpacing: '0.05em',
-            pointerEvents: 'none',
-          }}>
-            Click a dome to inspect
-          </div>
-        )}
+        {/* AnomalyDrawer — bottom-center toggle panel with scenario buttons and announcements */}
+        <AnomalyDrawer />
       </div>
     </div>
   );
