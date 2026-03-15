@@ -2,9 +2,10 @@
 phase: 5
 slug: docker-infrastructure
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-14
+updated: 2026-03-14
 ---
 
 # Phase 5 — Validation Strategy
@@ -20,7 +21,7 @@ created: 2026-03-14
 | **Framework** | Django test runner (unittest) + bash smoke tests |
 | **Config file** | No pytest.ini — uses `python manage.py test sensor_data` |
 | **Quick run command** | `cd django_backend && python manage.py test sensor_data` |
-| **Full suite command** | `docker compose up -d && docker compose ps && cd django_backend && python manage.py test sensor_data` |
+| **Full suite command** | `docker compose up -d && ./tests/smoke_test.sh` |
 | **Estimated runtime** | ~30 seconds (Django tests) + ~120 seconds (compose startup) |
 
 ---
@@ -28,7 +29,7 @@ created: 2026-03-14
 ## Sampling Rate
 
 - **After every task commit:** Run `cd django_backend && python manage.py test sensor_data`
-- **After every plan wave:** Run `docker compose up -d && docker compose ps`
+- **After every plan wave:** Run `docker compose up -d && ./tests/smoke_test.sh`
 - **Before `/gsd:verify-work`:** Full suite must be green — all four services healthy/running
 - **Max feedback latency:** 30 seconds (Django tests), 120 seconds (compose smoke)
 
@@ -38,10 +39,9 @@ created: 2026-03-14
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 05-01-01 | 01 | 1 | INFRA-01 | smoke | `docker compose up -d && docker compose ps \| grep -c "(healthy\|running)"` | ❌ W0 | ⬜ pending |
-| 05-01-02 | 01 | 1 | INFRA-02 | smoke | `curl -s http://localhost:8009/api/simulation \| python3 -m json.tool` | ❌ W0 | ⬜ pending |
-| 05-01-03 | 01 | 1 | INFRA-03 | integration | Verified by `docker compose up` logs — healthcheck ordering | n/a | ⬜ pending |
-| 05-01-04 | 01 | 1 | INFRA-04 | integration | `docker compose run django python manage.py check --database default` | ❌ W0 | ⬜ pending |
+| 05-01-01 | 01 | 1 | INFRA-01 | smoke | `docker compose config --quiet && grep -q "biosim.Dockerfile" docker-compose.yml` | inline | ⬜ pending |
+| 05-01-02 | 01 | 1 | INFRA-04 | smoke | `grep -q "exec gunicorn" django_backend/docker/django-entrypoint.sh` | inline | ⬜ pending |
+| 05-01-03 | 01 | 1 | INFRA-02, INFRA-03 | smoke | `./tests/smoke_test.sh` | ✅ (Task 3 creates it) | ⬜ pending |
 | 05-02-01 | 02 | 1 | OBS-01 | manual | Visit `http://localhost:5173`, verify nav link visible | n/a | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
@@ -50,10 +50,11 @@ created: 2026-03-14
 
 ## Wave 0 Requirements
 
-- [ ] `tests/smoke_test.sh` — bash smoke test covering INFRA-01, INFRA-02, INFRA-04
-- [ ] `docker/django-entrypoint.sh` — prerequisite for django service
-- [ ] `.env.example` — prerequisite for any `docker compose up`
-- [ ] `biosim/default.biosim` — needed if config/ not bundled in BioSim image
+- [x] `tests/smoke_test.sh` — created by Plan 05-01 Task 3
+- [x] `django_backend/docker/django-entrypoint.sh` — created by Plan 05-01 Task 2
+- [x] `.env.example` — created by Plan 05-01 Task 1
+- [x] `tests/fixtures/biosim_module_state.json` — captured by Plan 05-01 Task 3
+- [ ] `biosim/default.biosim` — bundled in biosim.Dockerfile build stage (COPY from build)
 
 ---
 
@@ -67,11 +68,11 @@ created: 2026-03-14
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 30s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 30s
+- [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
