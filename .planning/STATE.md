@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: BioSim Integration
 status: planning
-stopped_at: Phase 5 context gathered
-last_updated: "2026-03-15T03:42:24.364Z"
+stopped_at: Completed 05-docker-infrastructure-02-PLAN.md
+last_updated: "2026-03-15T04:12:41.464Z"
 last_activity: 2026-03-14 — v2.0 roadmap finalized, ready to plan Phase 5
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
   percent: 0
 ---
 
@@ -43,6 +43,8 @@ Key v2.0 architectural decisions (pending confirmation):
 - Phase 5: BioSim via Docker + REST/WebSocket (GPL v3 boundary — no source file linking)
 - Phase 5: Full docker-compose (Django + BioSim + Open MCT + PostgreSQL) — one command
 - Phase 7/9: Both WS paths (direct frontend WS for live + Django ingest for history)
+- [Phase 05-docker-infrastructure]: Used plain <a> tag not NavLink for Open MCT link — React Router NavLink cannot handle external URLs
+- [Phase 05-docker-infrastructure]: Open MCT nav link styled with --accent-cyan to distinguish from green Mars Habitat and white internal links
 
 ### Pending Todos
 
@@ -56,6 +58,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-15T03:42:24.356Z
-Stopped at: Phase 5 context gathered
-Resume file: .planning/phases/05-docker-infrastructure/05-CONTEXT.md
+Last session: 2026-03-15T04:12:41.456Z
+Stopped at: Completed 05-docker-infrastructure-02-PLAN.md
+Resume file: None

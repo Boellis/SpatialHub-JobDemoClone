@@ -55,7 +55,7 @@ Requirements for BioSim integration milestone. Each maps to roadmap phases.
 
 ### Observability
 
-- [ ] **OBS-01**: Navigation link to Open MCT dashboard (opens `localhost:9091` in new tab)
+- [x] **OBS-01**: Navigation link to Open MCT dashboard (opens `localhost:9091` in new tab)
 
 ## v3+ Requirements
 
@@ -112,7 +112,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PIPE-03 | Phase 9 | Pending |
 | PIPE-04 | Phase 9 | Pending |
 | PIPE-05 | Phase 9 | Pending |
-| OBS-01 | Phase 5 | Pending |
+| OBS-01 | Phase 5 | Complete |
 
 **Coverage:**
 - v2.0 requirements: 29 total
