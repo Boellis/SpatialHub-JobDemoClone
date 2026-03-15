@@ -1,256 +1,208 @@
-# Technology Stack
+# Stack Research
 
-**Project:** SpatialHub Mars Habitat Demo -- 3D Visualization Layer
-**Researched:** 2026-03-09
-**Research Mode:** Ecosystem
-**Overall Confidence:** MEDIUM (web verification tools unavailable; versions based on training data through May 2025 -- verify with `npm view <pkg> version` before installing)
+**Domain:** BioSim Integration — WebSocket pipelines, Docker infrastructure, Django async bridge
+**Researched:** 2026-03-14
+**Confidence:** HIGH (all critical version claims verified against PyPI, npm, and official docs)
 
-## Context
+> This document covers ONLY net-new stack additions for the v2.0 BioSim Integration milestone.
+> Existing validated stack (React 19, Vite, TypeScript, R3F fiber@9.5/drei@10.7/three@0.183,
+> Zustand v5, Django 5.2, DRF, PostgreSQL) is unchanged and not re-researched here.
 
-Adding a 3D interactive Three.js habitat visualization with real-time telemetry overlays to an existing React 19 + Vite 6 + TypeScript 5.7 frontend. The existing app uses `useState`/`useEffect` for state, `axios` for HTTP, `recharts` for 2D charts, and `@tanstack/react-query` (installed but unused). No CSS framework -- just plain CSS classes with Tailwind-style naming but no actual Tailwind.
+---
 
 ## Recommended Stack
 
-### Core 3D Framework
+### Core Infrastructure
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| `three` | ^0.170.0 | 3D rendering engine | The only serious WebGL abstraction for the browser. No competition. | HIGH |
-| `@react-three/fiber` (R3F) | ^9.0.0 | React renderer for Three.js | Declarative Three.js in React components. The standard way to use Three.js with React since 2020. Imperative Three.js in React is a maintenance nightmare -- R3F handles the render loop, cleanup, and reconciliation. | HIGH |
-| `@react-three/drei` | ^9.120.0 | R3F helper components | 200+ ready-made components: `OrbitControls`, `Html` (DOM overlays in 3D), `Text`, `useGLTF`, `Environment`, `ContactShadows`, `Float`. Saves weeks of boilerplate. Every R3F project uses this. | HIGH |
-| `@types/three` | ^0.170.0 | TypeScript types for Three.js | Match to `three` version. R3F and drei have built-in types. | HIGH |
+| Technology | Version | Purpose | Why Recommended |
+|------------|---------|---------|-----------------|
+| Docker Compose v2 | >=2.0 (bundled with Docker Desktop) | Orchestrate BioSim + Open MCT + Django + PostgreSQL as single `docker compose up` | BioSim repo ships its own docker-compose.yml with exactly 2 services (biosim-server + openmct-biosim). We add Django and PostgreSQL services to it. v2 syntax (`docker compose` not `docker-compose`) is the current standard. |
+| BioSim (scottbell/biosim) | HEAD/main | NASA life support physics engine; provides REST API + WebSocket on port 8009 | GPL v3 copyleft — the REST/WebSocket network boundary avoids code-linking concerns. No pre-built Docker image; builds from source via Maven. Confirmed docker-compose.yml in upstream repo. |
+| Open MCT | via openmct-biosim build | NASA mission control dashboard, free alongside BioSim | Already in BioSim's docker-compose as `openmct-biosim` service building from upstream GitHub, exposed on port 9091. Zero additional configuration — just keep the service definition. |
+| eclipse-temurin | 21-jdk-jammy | JDK 21 base image for BioSim Maven build | Official `openjdk` Docker image is deprecated (Docker Hub). Eclipse Temurin is the community-endorsed replacement for JDK containers. BioSim requires JDK 21+. Use `eclipse-temurin:21-jdk-jammy` in any custom Dockerfile wrapping BioSim. |
+| PostgreSQL | 15-alpine | Local dev database in docker-compose | Already in use on Cloud SQL. Pin to `postgres:15-alpine` in the compose file for fast local iteration. Cloud SQL remains the production database — no infra changes. |
 
-**Why R3F over raw Three.js:** The project is React 19. Writing imperative Three.js inside `useEffect` hooks means manually managing scene graphs, disposal, resize handlers, render loops, and ref cleanup. R3F handles all of this. It's not a wrapper -- it's a full React reconciler. Components mount/unmount properly, props drive updates, and the render loop is automatic. For a React app, using raw Three.js is like using `document.createElement` instead of JSX.
+### Django Backend Additions
 
-**Why NOT vanilla Three.js:** The existing codebase already has a `/unity` route with an iframe-embedded Unity WebGL build. That approach (iframe isolation) is the alternative if you want raw Three.js. But for this project, the 3D scene needs to interleave with React state (sensor data, click handlers, zone selection, alert states). R3F is the only sane path.
+| Technology | Version | Purpose | Why Recommended |
+|------------|---------|---------|-----------------|
+| `websockets` | 16.0 | Async WebSocket client in the Django bridge management command | Latest (released January 2026, verified on PyPI). Requires Python >=3.10; project uses 3.11. Official docs show the exact Django integration pattern: call `django.setup()`, run an asyncio event loop, wrap all ORM writes with `asyncio.to_thread()` because Django 5.2 ORM is still synchronous-only. Simpler and more correct than using Django Channels as a WS _client_. |
+| `daphne` | 4.2.1 | ASGI server replacing Gunicorn in the docker-compose Django service | Latest (July 2025, verified on PyPI). Required because Gunicorn is a WSGI server — it cannot handle WebSocket upgrades. Even if Django only serves HTTP in v2.0, switching to Daphne now means no server-swap pain when a Django WS proxy endpoint is added later. Daphne is the official Django Channels HTTP/WebSocket server. |
+| `channels` | 4.3.2 | Django ASGI layer | Latest (November 2025, verified on PyPI). Supports Django 4.2–6.0 (project uses 5.2 — confirmed compatible), Python >=3.9. Only strictly needed if Django exposes its own WebSocket endpoint to the browser. The v2.0 architecture has the frontend connecting directly to BioSim's WebSocket — add `channels` when a Django proxy endpoint becomes necessary. Include it in requirements now to unblock future phases. |
 
-### 3D Scene Utilities
+### Frontend Additions
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| `@react-three/postprocessing` | ^3.0.0 | Post-processing effects | Bloom, vignette, tone mapping for the "visually dramatic" alert states. Wraps `postprocessing` (not Three's built-in EffectComposer which is slower). | HIGH |
-| `leva` | ^0.10.0 | Dev-time controls panel | Tweak colors, thresholds, camera angles in real time during development. Strip from production or gate behind dev flag. Far better than hardcoding and reloading. | MEDIUM |
+| Technology | Version | Purpose | Why Recommended |
+|------------|---------|---------|-----------------|
+| Native browser `WebSocket` API | Browser built-in | Connect to BioSim WebSocket at `ws://localhost:8009/ws/simulation/{simID}` | **No npm package needed.** `react-use-websocket` v4.0.0 — the obvious candidate — explicitly does NOT support React 19. Confirmed by maintainer in GitHub issue #256 (December 2024). Installing it requires `--legacy-peer-deps` which is a fragile hack that breaks on clean installs. A custom `useBioSimWebSocket` hook wrapping the native WebSocket API is 40–60 lines, zero dependencies, and gives full control over the fallback detection logic this project needs. |
 
-### Real-Time Data Layer
+---
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| `@tanstack/react-query` | ^5.74.11 | Server state / polling | Already installed in `package.json`. Use `refetchInterval` for polling sensor data (1-5s intervals). Handles caching, deduplication, background refetch, stale-while-revalidate. The existing codebase ignores it and uses raw `useEffect` + `axios` -- the habitat page should use it properly. | HIGH |
-| `zustand` | ^5.0.0 | Client-side state for 3D scene | Zone selection, alert states, anomaly simulation state, camera targets. React Context causes full subtree re-renders which kills 3D frame rates. Zustand is selector-based -- only components that read a specific slice re-render. This is critical for 60fps 3D. R3F ecosystem standardized on Zustand (same author: Poimandres). | HIGH |
+## Supporting Libraries
 
-**Why Zustand over React Context:** In a 3D scene with dozens of meshes, each subscribed to different sensor values, Context-based state changes would re-render the entire `<Canvas>` subtree every polling tick. Zustand's `useStore(state => state.specificSlice)` pattern ensures only the mesh whose sensor value changed re-renders. This is the difference between 60fps and 15fps.
+| Library | Version | Purpose | When to Use |
+|---------|---------|---------|-------------|
+| `aiohttp` | Already in repo (`simulate_devices.py`) | Async HTTP for one-off REST calls to BioSim (start simulation, inject malfunctions) | Use for `POST /api/simulation/start` and `POST /api/simulation/{simID}/modules/{name}/malfunctions` from the Django management command. Already installed — no new dependency. |
+| `channels-redis` | 4.x | Redis-backed channel layer for Django Channels group messaging | Do NOT add in v2.0. Only relevant if multiple Django consumers need to broadcast to each other. Adding it now means adding Redis as a Docker service with zero current benefit. |
 
-**Why Zustand over Redux/Jotai/Recoil:** Zustand is from Poimandres (the same group that maintains R3F, drei, and the entire react-three ecosystem). It was literally designed for this use case. Minimal API, no providers, no boilerplate. Redux is overkill. Jotai is fine but less integrated with R3F patterns. Recoil is dead (Meta abandoned it).
+---
 
-**Why NOT WebSockets:** The project spec says "no new cloud infra" and "simulated data runs locally or in-browser." Polling with react-query at 2-5 second intervals is sufficient for demo-quality "real-time" telemetry. If you wanted true real-time, Django Channels + WebSockets is the path, but it adds ASGI server complexity (Daphne/Uvicorn), Redis for channel layers, and new infrastructure -- all out of scope.
+## Development Tools
 
-### Animation
+| Tool | Purpose | Notes |
+|------|---------|-------|
+| Vite dev server proxy (`server.proxy`) | Forward `ws://localhost:PORT/ws/biosim/*` to BioSim container during frontend dev | Add `server.proxy` entry in `vite.config.ts` with `ws: true`. This avoids browser CORS issues when the frontend (on Vite's port 5173) connects to BioSim (port 8009). In production/docker-compose, the frontend connects directly to `ws://localhost:8009`. |
+| `docker compose watch` | Auto-rebuild Django service on file change in docker-compose | Available in Docker Compose v2.22+. Avoids the need for volume mounts plus manual restarts during Django development inside Docker. |
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| `@react-spring/three` | ^9.7.0 | Physics-based animation for 3D objects | Smooth transitions for zone highlighting, camera movements, alert pulsing. Spring-based animation looks organic, not mechanical. Integrates with R3F natively. | HIGH |
-
-**Why NOT GSAP:** GSAP works with Three.js but fights the React model. You'd be imperatively tweening object properties inside refs while R3F tries to declaratively manage the scene. `@react-spring/three` is declarative: `<animated.meshStandardMaterial color={spring.color} />`. It also handles interrupted animations (user clicks zone B while zone A animation is still playing) gracefully -- GSAP needs manual kill/cleanup.
-
-**Why NOT framer-motion-3d:** Framer Motion's 3D support is experimental and poorly documented. `@react-spring/three` is battle-tested in the R3F ecosystem.
-
-### UI Overlay (HUD / Panels)
-
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| `drei` `<Html>` component | (part of drei) | DOM elements positioned in 3D space | Sensor readout labels floating above zones, tooltip panels on hover/click. Renders actual DOM elements that track 3D world positions. | HIGH |
-| Existing CSS approach | N/A | Side panels, alert banners | The existing app uses plain CSS with utility class naming. Keep it consistent -- no need to introduce Tailwind or a component library for a portfolio demo. | HIGH |
-
-### 3D Assets
-
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| `gltfjsx` | ^6.5.0 | CLI tool: GLTF/GLB to React components | Converts 3D models into typed R3F components with proper refs. Run once at build time, not a runtime dep. `npx gltfjsx model.glb --types --transform` | HIGH |
-| `@react-three/drei` `useGLTF` | (part of drei) | Runtime GLTF loader with caching | Load habitat model at runtime with automatic disposal and Suspense support. | HIGH |
-
-**Asset strategy:** Create the Mars habitat as modular GLB files (one per zone or one combined with named groups). Use Blender for modeling or find CC0 sci-fi habitat models and modify. `gltfjsx` generates typed React components from these files, so each zone mesh gets a proper ref and onClick handler.
-
-### Dev Dependencies
-
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| `@react-three/test-renderer` | ^9.0.0 | Unit testing R3F scenes | Renders R3F components without WebGL. Test that clicking a zone updates state, that anomaly triggers change mesh colors. | MEDIUM |
-| `leva` | ^0.10.0 | Development GUI controls | Adjust thresholds, colors, animation speeds without code changes. Gate behind `import.meta.env.DEV`. | MEDIUM |
-
-## Alternatives Considered
-
-| Category | Recommended | Alternative | Why Not |
-|----------|-------------|-------------|---------|
-| React + Three.js | `@react-three/fiber` | Raw `THREE.Scene` in `useEffect` | Manual lifecycle hell in React. Disposal bugs. No reconciliation. |
-| React + Three.js | `@react-three/fiber` | `react-three-renderer` | Dead project, unmaintained since 2019. |
-| State management | `zustand` | React Context | Re-renders entire Canvas subtree, kills frame rate |
-| State management | `zustand` | Redux Toolkit | Overkill boilerplate for this scope. Not optimized for 60fps selective re-renders. |
-| State management | `zustand` | Jotai | Fine technically, but Zustand is from the R3F team and has better ecosystem integration |
-| Animation | `@react-spring/three` | GSAP | Imperative API fights React's declarative model. Manual cleanup on unmount. |
-| Animation | `@react-spring/three` | Framer Motion 3D | Experimental, poorly documented, limited Three.js integration |
-| Post-processing | `@react-three/postprocessing` | Three.js EffectComposer | Slower (renders each effect as separate pass). R3F postprocessing merges effects. |
-| Data fetching | `@tanstack/react-query` polling | WebSocket (Django Channels) | Requires ASGI server, Redis, new infra. Out of scope per constraints. |
-| Data fetching | `@tanstack/react-query` polling | SSE (Server-Sent Events) | Simpler than WebSocket but still needs async Django. Polling at 2-5s is fine for a demo. |
-| 3D models | GLB/GLTF files | Procedural geometry | Boxes and spheres don't look like a Mars habitat. GLB with baked lighting looks dramatically better for minimal effort. |
-| CSS | Plain CSS (existing pattern) | Tailwind CSS | Not installed, not worth adding for one new page. Consistency > perfection. |
-| UI components | Plain HTML + CSS | shadcn/ui, Radix, MUI | The demo already uses basic elements. A component library for one page is overhead. |
-
-## Architecture Patterns for the Stack
-
-### React Query + Zustand Integration
-
-```typescript
-// Pattern: React Query fetches, Zustand holds derived 3D state
-// This avoids re-rendering the 3D scene on every fetch cycle
-
-// store.ts
-import { create } from 'zustand';
-
-interface HabitatStore {
-  zones: Record<string, ZoneState>;
-  selectedZone: string | null;
-  alerts: Alert[];
-  updateZoneTelemetry: (zoneId: string, data: SensorReading[]) => void;
-  selectZone: (zoneId: string | null) => void;
-}
-
-// Component subscribes to ONE zone's color -- not the whole store
-// const color = useHabitatStore(s => s.zones['atmosphere'].statusColor);
-```
-
-### R3F Component Structure
-
-```
-<Canvas>
-  <Suspense fallback={<LoadingSpinner />}>
-    <HabitatScene>
-      <GrowBayZone />        // Each zone is a component
-      <AtmosphereZone />     // with its own mesh, materials,
-      <WaterRecyclingZone /> // click handlers, and store subscriptions
-      <PowerThermalZone />
-    </HabitatScene>
-    <OrbitControls />
-    <Environment preset="night" />
-    <EffectComposer>
-      <Bloom luminanceThreshold={0.8} />
-    </EffectComposer>
-  </Suspense>
-</Canvas>
-```
-
-### Performance Pattern: useFrame vs. Re-renders
-
-```typescript
-// GOOD: useFrame for continuous visual updates (60fps, no re-renders)
-function PulsingAlert({ zoneRef }) {
-  useFrame((state) => {
-    zoneRef.current.material.emissiveIntensity =
-      Math.sin(state.clock.elapsedTime * 3) * 0.5 + 0.5;
-  });
-  return null;
-}
-
-// GOOD: Zustand selector for discrete state changes (re-render only when value changes)
-function ZoneMesh({ id }) {
-  const status = useHabitatStore(s => s.zones[id].status);
-  // Only re-renders when THIS zone's status changes
-}
-
-// BAD: useEffect + setState for animation (causes re-renders at 60fps)
-```
+---
 
 ## Installation
 
 ```bash
-# Core 3D stack
-npm install three @react-three/fiber @react-three/drei
+# Django backend — add to django_backend/requirements.txt
+websockets>=16.0
+daphne>=4.2.1
+channels>=4.3.2
 
-# TypeScript types for Three.js
-npm install -D @types/three
+# Frontend — NO new npm packages
+# Write a custom useBioSimWebSocket hook using the native WebSocket API
+# No npm install needed
 
-# Post-processing for visual effects
-npm install @react-three/postprocessing
-
-# State management (critical for 3D performance)
-npm install zustand
-
-# Animation for 3D objects
-npm install @react-spring/three
-
-# Dev tools (optional but strongly recommended)
-npm install -D leva
-
-# Asset pipeline (run once, not a project dependency)
-npx gltfjsx --help
+# Docker — no pip install needed; Docker handles all Java/Maven dependencies
+# BioSim builds from source inside its own container
 ```
-
-**Note:** `@tanstack/react-query` is already in `package.json` at `^5.74.11`. No need to install it, but the existing codebase doesn't use it -- the habitat page should be the first proper consumer.
-
-## Version Compatibility Notes
-
-**IMPORTANT -- verify before installing:**
-
-My training data goes to May 2025. The versions listed above were current as of that date. Before installing, run:
-
-```bash
-npm view @react-three/fiber version
-npm view @react-three/drei version
-npm view three version
-npm view zustand version
-npm view @react-spring/three version
-```
-
-Key compatibility constraints:
-- `@react-three/fiber` v9 requires React 18+ (React 19 is supported)
-- `@types/three` version should match `three` major.minor version
-- `@react-three/drei` version must match `@react-three/fiber` major version
-- `@react-three/postprocessing` v3 requires R3F v9
-- `@react-spring/three` v9 works with R3F v8 and v9
-
-**React 19 compatibility:** R3F v9 (released late 2024) added React 19 support. Earlier versions (v8.x) may work but have deprecation warnings. Use v9+.
-
-## What NOT to Use
-
-| Technology | Why Not |
-|------------|---------|
-| `react-three-renderer` | Dead since 2019. Do not confuse with `@react-three/fiber`. |
-| `babylonjs` | Different ecosystem entirely. Three.js is specified in requirements, and R3F integration is mature. Babylon's React story is weaker. |
-| `A-Frame` | HTML-first VR framework. Wrong abstraction for data-driven 3D dashboards. |
-| `deck.gl` | Geospatial visualization, not indoor 3D scenes. |
-| `react-globe.gl` / `globe.gl` | Specifically for globes. Not relevant. |
-| `cannon-es` / `@react-three/cannon` / `@react-three/rapier` | Physics engines. The habitat doesn't need physics simulation. Adds significant bundle size for zero value. |
-| `three-stdlib` | Merged into `drei`. Using both causes duplicate code. |
-| `@react-three/xr` | VR/AR support. Out of scope (desktop-first demo). |
-| `Recoil` | Abandoned by Meta. Community migration to Jotai/Zustand. |
-| `MobX` | Observable-based state doesn't play well with R3F's render cycle. |
-| `socket.io` / `ws` | WebSocket overkill for demo polling. Requires backend changes. |
-| `Tailwind CSS` | Not in existing stack. Adding it for one page creates inconsistency. |
-| `CSS-in-JS (styled-components, emotion)` | Runtime cost, not needed, existing app uses plain CSS. |
-
-## Bundle Size Considerations
-
-| Package | Approx. Size (gzipped) | Notes |
-|---------|------------------------|-------|
-| `three` | ~150 KB | Largest dep. Tree-shaking helps if using ES modules (Vite handles this). |
-| `@react-three/fiber` | ~40 KB | Reasonable for what it provides. |
-| `@react-three/drei` | ~15-50 KB | Tree-shakeable. Only imported helpers are bundled. |
-| `zustand` | ~1 KB | Tiny. |
-| `@react-spring/three` | ~15 KB | Reasonable. |
-| `postprocessing` | ~80 KB | Consider code-splitting the habitat route. |
-| GLB model files | Variable | Compress with `gltf-transform` or Draco compression. Keep under 2MB total. |
-
-**Total additional JS:** ~300-350 KB gzipped. This is significant. **Code-split the `/habitat` route** with `React.lazy()` so the 3D stack only loads when users navigate there. The existing pages (`/raw`, `/enriched`, `/trends`) should not pay this cost.
-
-## Sources and Confidence Notes
-
-- R3F as the standard React + Three.js integration: HIGH confidence. This has been the established approach since 2021. Poimandres (pmndrs) maintains the entire ecosystem.
-- Zustand for R3F state management: HIGH confidence. Same author/org as R3F. Documented pattern in R3F ecosystem.
-- React Query polling for "real-time": HIGH confidence. Well-documented `refetchInterval` option. Already a dependency.
-- Specific version numbers: MEDIUM confidence. Based on May 2025 training data. Run `npm view` to verify current versions.
-- `@react-spring/three` over GSAP: HIGH confidence for React context. GSAP is superior for non-React Three.js.
-- Post-processing bundle size estimates: LOW confidence. Verify with `npx vite-bundle-analyzer` after integration.
-- React 19 + R3F v9 compatibility: MEDIUM confidence. R3F v9 was released targeting React 18+ with 19 support. Verify that the exact latest versions still list React 19 as a peer dependency.
 
 ---
 
-*Stack research: 2026-03-09 | Verification limited: WebSearch, WebFetch, and npm CLI unavailable during research. Version numbers should be verified before installation.*
+## Alternatives Considered
+
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|-------------------------|
+| Native WebSocket + custom hook | `react-use-websocket` v4 | Only if project downgrades to React 18 or lower. The library explicitly targets React 18 and is confirmed incompatible with React 19 (maintainer, Dec 2024). |
+| `websockets` management command | Celery + Redis | Only when you need distributed task queues, retry policies, fan-out, or horizontal worker scaling across machines. For a single long-running async WS bridge, Celery + broker is 5x the infrastructure for zero benefit. Community consensus in 2025: management command is the right call for simple polling loops. |
+| `websockets` management command | Django Channels `WebsocketConsumer` | Use Channels consumers when Django is _serving_ WebSocket connections to clients. Here Django is a WS _client_ connecting to BioSim — Channels adds the wrong abstraction layer. The `websockets` library is the correct client-side primitive. |
+| `daphne` | `uvicorn` | Use uvicorn if you need HTTP/2 support or if you are not using Django Channels at all. Daphne is the official Channels-compatible ASGI server and the simpler choice when Channels is already in the stack. |
+| `eclipse-temurin:21-jdk-jammy` | `openjdk:21` | The official `openjdk` image is deprecated on Docker Hub. Temurin is Eclipse Foundation's replacement. Do not use `openjdk` for new Dockerfiles. |
+| BioSim via Docker compose | BioSim running natively on host | Viable for development on machines with JDK 21. Docker isolates the Java dependency from the Python/Node environment, prevents port conflicts, matches the target architecture, and lets reviewers run the full stack with one command. |
+
+---
+
+## What NOT to Use
+
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| `react-use-websocket` | Does not support React 19 (confirmed by maintainer in GitHub issue #256, December 2024). Using `--legacy-peer-deps` to force-install it breaks on clean `npm install` — exactly what a portfolio reviewer will run. | Native browser `WebSocket` API with a custom `useBioSimWebSocket` hook |
+| `Celery` + Redis broker | Complete overkill for one long-running async task. Adds 2 new Docker services (Celery worker + Redis), complex configuration, and operational surface area with zero benefit. | Async `management command` (`python manage.py run_biosim_bridge`) using asyncio event loop |
+| `channels-redis` | Premature addition. The v2.0 bridge is a standalone async management command, not a Channels consumer group. Adding Redis as a Docker service for future-proofing only creates a service that starts and does nothing. | Add only when multi-consumer broadcasting via Channels is actually implemented |
+| `SockJS` | Designed for servers that do not support standard WebSockets. BioSim serves a compliant RFC 6455 WebSocket. SockJS overhead and server-side protocol negotiation are unnecessary. | Native `WebSocket` API |
+| `gunicorn` (as ASGI server) | Gunicorn is a WSGI server. It cannot handle WebSocket connection upgrades. If kept in the Docker service CMD, any future Django WS endpoint will silently fail with a 400. | `daphne` with `asgi.py` application entrypoint |
+| `aiohttp` as WS client | `aiohttp` has a WebSocket client but it is less idiomatic and less documented than the `websockets` library for pure WebSocket client use. Keep `aiohttp` for the async HTTP calls it already handles. | `websockets` for the bridge WS client |
+| `socket.io` | Requires a Socket.IO server. BioSim runs a standard WebSocket server. Socket.IO's protocol is not compatible with a plain WS server. | Native `WebSocket` API |
+
+---
+
+## Stack Patterns by Variant
+
+**Frontend connects DIRECTLY to BioSim WebSocket (recommended for v2.0):**
+- No Django WS proxy needed
+- `channels` package in requirements but not wired up yet
+- Vite dev proxy forwards `/ws/biosim/*` → `ws://localhost:8009` to avoid browser CORS during dev
+- In production/docker, browser connects to `ws://localhost:8009/ws/simulation/{simID}` directly
+- Django bridge management command runs independently in a separate process for data ingestion
+
+**Frontend connects to a DJANGO WebSocket proxy (deferred to v3.0+ if needed):**
+- Add `channels>=4.3.2` wiring: `routing.py`, updated `asgi.py`
+- Django `AsyncWebsocketConsumer` proxies BioSim WS to browser
+- Run `daphne` instead of `gunicorn` (already switched in v2.0)
+- Benefit: centralised auth, single origin for frontend WS connections
+
+**BioSim is unavailable (fallback mode):**
+- `useBioSimWebSocket` hook attempts connection, catches `onerror` / `onclose` within a configurable timeout (3 seconds recommended)
+- Sets `biosimAvailable: false` in Zustand store
+- Existing `simulation/engine.ts` resumes as the data source
+- No additional library — this is application logic, not a new dependency
+
+---
+
+## Docker Compose Service Layout
+
+The BioSim upstream `docker-compose.yml` (verified via GitHub) defines:
+- `biosim-server`: builds from current directory (the biosim repo), maps port 8009:8009, mounts `./logs`
+- `openmct-biosim`: builds from the upstream openmct-biosim GitHub repo, maps port 9091:80
+
+Our extended `docker-compose.yml` adds:
+
+```yaml
+# Extends biosim's two services with django + postgres
+services:
+  biosim:
+    build:
+      context: ./biosim   # git submodule or cloned directory
+    ports: ["8009:8009"]
+    volumes:
+      - ./logs:/app/logs
+    command: ["--writeTicks"]  # enables /api/simulation/{simID}/log endpoint
+
+  openmct:
+    build:
+      context: https://github.com/scottbell/openmct-biosim.git
+    ports: ["9091:80"]
+    depends_on: [biosim]
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: spatialhub_db
+      POSTGRES_USER: spatialhub
+      POSTGRES_PASSWORD: localpassword
+    ports: ["5432:5432"]
+
+  django:
+    build: .
+    # Switch from gunicorn to daphne for ASGI support
+    command: daphne -b 0.0.0.0 -p 8080 spatialhub_backend.asgi:application
+    ports: ["8080:8080"]
+    depends_on: [db, biosim]
+    environment:
+      USE_SQLITE: "0"
+      DB_HOST: db
+      DB_NAME: spatialhub_db
+      DB_USER: spatialhub
+      DB_PASS: localpassword
+      BIOSIM_WS_URL: "ws://biosim:8009"   # service-name DNS inside Docker network
+```
+
+**Docker networking:** All services share the default bridge network. Inside the network, Django reaches BioSim at `ws://biosim:8009` (service name). The browser (outside Docker) reaches BioSim at `ws://localhost:8009` (host-mapped port). The Vite dev proxy bridges the CORS gap during frontend development.
+
+---
+
+## Version Compatibility
+
+| Package | Compatible With | Notes |
+|---------|-----------------|-------|
+| `channels` 4.3.2 | Django 4.2, 5.1, 5.2, 6.0 | Project uses Django 5.2 — fully supported. Verified on PyPI. |
+| `channels` 4.3.2 | Python >=3.9 | Project uses Python 3.11 — no issue. |
+| `daphne` 4.2.1 | Python >=3.9, Django Channels 4.x | Pair with `channels`. Replace `gunicorn` in the service CMD — do not run both. |
+| `websockets` 16.0 | Python >=3.10 | Project uses Python 3.11 — fine. All Django ORM calls in the bridge MUST use `asyncio.to_thread()`. Django 5.2 ORM does not support native async I/O. |
+| `eclipse-temurin:21-jdk-jammy` | BioSim Maven build, JDK 21+ | Replaces deprecated `openjdk` Docker image. |
+| Django 5.2 async ORM | Partial async | `QuerySet` evaluation and `.save()` are synchronous. Wrap all DB writes in `asyncio.to_thread(lambda: obj.save())` inside the async bridge. |
+| Native `WebSocket` API | React 19, all modern browsers | No React peer dependency at all. Works in any browser with WebSocket support (97%+ of current browsers). |
+
+---
+
+## Sources
+
+- [PyPI channels 4.3.2](https://pypi.org/project/channels/) — version, Django/Python compatibility (HIGH confidence)
+- [PyPI daphne 4.2.1](https://pypi.org/project/daphne/) — version, Python compatibility (HIGH confidence)
+- [PyPI websockets 16.0](https://pypi.org/project/websockets/) — version, Python requirements (HIGH confidence)
+- [Django Channels deploying docs](https://channels.readthedocs.io/en/latest/deploying.html) — Daphne as the recommended ASGI server for Channels projects (HIGH confidence)
+- [websockets Django integration guide](https://websockets.readthedocs.io/en/stable/howto/django.html) — `asyncio.to_thread()` for ORM, `django.setup()` pattern, management command approach (HIGH confidence)
+- [scottbell/biosim docker-compose.yml](https://raw.githubusercontent.com/scottbell/biosim/main/docker-compose.yml) — confirmed service names, ports (8009, 9091), build directives, no pre-built image (HIGH confidence)
+- [Docker Hub eclipse-temurin](https://hub.docker.com/_/eclipse-temurin/) — confirmed replacement for deprecated `openjdk` Docker image (HIGH confidence)
+- [GitHub robtaussig/react-use-websocket issue #256](https://github.com/robtaussig/react-use-websocket/issues/256) — maintainer confirmed React 19 is NOT supported (HIGH confidence)
+- [Docker Compose networking docs](https://docs.docker.com/compose/how-tos/networking/) — service-name DNS resolution on shared bridge network (HIGH confidence)
+- WebSearch: Celery vs management command for simple polling — community consensus in 2025 favors management command for single-task use cases (MEDIUM confidence — multiple sources agree)
+
+---
+*Stack research for: BioSim Integration (v2.0 milestone)*
+*Researched: 2026-03-14*
