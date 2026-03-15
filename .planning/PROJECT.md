@@ -30,7 +30,27 @@ The 3D habitat visualization with live sensor data must feel real, responsive, a
 
 ### Active
 
-(None — v1.0 complete. Use `/gsd:new-milestone` to define v1.1 requirements.)
+- [ ] BioSim Docker integration (NASA life support simulator as physics engine)
+- [ ] Frontend WebSocket client connecting directly to BioSim for live data
+- [ ] Django bridge service ingesting BioSim ticks into enriched_sensor_data
+- [ ] AnomalyDrawer rewired to POST real malfunctions to BioSim API
+- [ ] Fallback mode: auto-detect BioSim availability, fall back to client-side sim
+- [ ] Full docker-compose stack (Django + BioSim + Open MCT + PostgreSQL)
+- [ ] Open MCT route/link alongside 3D habitat
+- [ ] Existing /api/enriched/ and /trends serve real BioSim historical data
+
+## Current Milestone: v2.0 BioSim Integration
+
+**Goal:** Replace the client-side simulation engine with NASA's BioSim physics simulator, adding real interconnected subsystem dynamics, Docker infrastructure, WebSocket data pipelines, and full backend data ingestion.
+
+**Target features:**
+- BioSim as Docker service with full-stack docker-compose
+- Direct WebSocket connection from frontend to BioSim for live telemetry
+- Django bridge independently ingesting BioSim data for historical queries
+- AnomalyDrawer triggering real BioSim malfunctions (cascading failures)
+- Automatic fallback to client-side sim when BioSim unavailable
+- Open MCT NASA dashboard exposed alongside 3D habitat
+- Full data pipeline: BioSim → Django → enriched_sensor_data → /api/enriched/ → /trends
 
 ### Out of Scope
 
@@ -41,8 +61,6 @@ The 3D habitat visualization with live sensor data must feel real, responsive, a
 - Persistent anomaly history / incident logs — anomalies are transient demo events
 - Replacing existing pages — `/habitat` route sits alongside existing views
 - Realistic GLTF habitat model — procedural geometry with good materials looks more futuristic
-- Physics simulation — zero value for a monitoring dashboard
-- WebSocket backend — simulated data runs in-browser
 - VR/AR mode — 99% of reviewers use normal browsers
 - Custom GLSL shaders — MeshStandardMaterial with good params is sufficient
 
@@ -79,5 +97,9 @@ The 3D habitat visualization with live sensor data must feel real, responsive, a
 | Alert cooldown in Map ref | Prevents re-render cascade on every 2s tick | ✓ Good — stable at high frequency |
 | Anomaly toggle (re-trigger = cancel) | Graceful recovery from current biasFactor, not restart | ✓ Good — intuitive UX |
 
+| BioSim via Docker + REST/WebSocket (not embedded) | GPL v3 copyleft — network API boundary avoids code linking | — Pending |
+| Full docker-compose (Django + BioSim + Open MCT + PostgreSQL) | One command to start entire stack, best for scale and onboarding | — Pending |
+| Both paths: direct WS for live + Django ingest for history | Real-time 3D + proper data pipeline, most impressive architecture | — Pending |
+
 ---
-*Last updated: 2026-03-14 after v1.0 milestone*
+*Last updated: 2026-03-14 after v2.0 milestone started*
