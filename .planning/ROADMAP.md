@@ -39,11 +39,11 @@
   3. `wscat ws://localhost:8009/ws/simulation/{simID}` prints live module state on every tick
   4. Open MCT dashboard is accessible at `localhost:9091` via a nav link in the frontend
   5. Django reads database credentials from environment variables (no hardcoded Cloud SQL credentials required for local stack)
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 05-01: docker-compose.yml — four-service stack with healthchecks and BioSim auto-start
-- [ ] 05-02: Django env-var credentials + Open MCT nav link
+- [ ] 05-01-PLAN.md — Docker Compose four-service stack with healthchecks, BioSim auto-start, Django entrypoint
+- [ ] 05-02-PLAN.md — Open MCT external nav link in frontend
 
 ### Phase 6: Data Mapping Layer
 **Goal**: Pure translation functions (`biosimMapper.ts` and `biosim_ingest.py`) that convert BioSim's raw physics module hierarchy to the existing ZoneState/SensorReading types — tested against the Phase 5 live JSON snapshot before any live connection code is written
@@ -116,7 +116,7 @@ Plans:
 | 2. 3D Scene and Zone Interaction | v1.0 | 4/4 | Complete | 2026-03-10 |
 | 3. UI Panels and Live Data | v1.0 | 2/2 | Complete | 2026-03-13 |
 | 4. Anomaly System | v1.0 | 2/2 | Complete | 2026-03-14 |
-| 5. Docker Infrastructure | v2.0 | 0/2 | Not started | - |
+| 5. Docker Infrastructure | v2.0 | 0/2 | Planning | - |
 | 6. Data Mapping Layer | v2.0 | 0/2 | Not started | - |
 | 7. Frontend WebSocket + Fallback | v2.0 | 0/2 | Not started | - |
 | 8. AnomalyDrawer Rewire | v2.0 | 0/1 | Not started | - |
