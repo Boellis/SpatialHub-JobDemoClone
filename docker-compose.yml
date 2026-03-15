@@ -1,0 +1,80 @@
+# SpatialHub Docker Stack — run with: docker compose up --build
+# NOTE: First build takes 10-20 minutes (BioSim Maven + Open MCT npm install). Subsequent builds use layer cache.
+
+services:
+
+  # ─────────────────────────────────────────────
+  # PostgreSQL 16 — persistent sensor/habitat data
+  # ─────────────────────────────────────────────
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: spatialhub_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASS}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d spatialhub_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ─────────────────────────────────────────────
+  # BioSim — life support simulation server (GPL v3)
+  # Multi-stage build: Maven compile then JRE-only runtime
+  # Auto-starts a simulation on boot via command override
+  # ─────────────────────────────────────────────
+  biosim:
+    build:
+      context: .
+      dockerfile: biosim.Dockerfile
+    ports:
+      - "8009:8009"
+    working_dir: /app
+    command: >
+      sh -c "
+        ./bin/start-biosim-server &
+        SERVER_PID=$$!;
+        echo 'Waiting for BioSim HTTP server to be ready...';
+        until curl -sf http://localhost:8009/api/simulation >/dev/null 2>&1; do sleep 2; done;
+        echo 'BioSim server ready, starting simulation...';
+        SIM_ID=$$(curl -s -X POST http://localhost:8009/api/simulation/start --data-binary @configuration/default.biosim -H 'Content-Type: text/plain');
+        echo \"Simulation started with ID: $$SIM_ID\";
+        wait $$SERVER_PID
+      "
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8009/api/simulation || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 6
+      start_period: 90s
+
+  # ─────────────────────────────────────────────
+  # Open MCT + BioSim plugin — telemetry dashboard UI
+  # ─────────────────────────────────────────────
+  openmct:
+    build:
+      context: "https://github.com/scottbell/openmct-biosim.git"
+    ports:
+      - "9091:80"
+
+  # ─────────────────────────────────────────────
+  # Django REST API — sensor data + habitat zones
+  # Waits for db to be healthy before starting
+  # ─────────────────────────────────────────────
+  django:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file: .env
+    command: ["./docker/django-entrypoint.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

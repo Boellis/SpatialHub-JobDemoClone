@@ -1,0 +1,17 @@
+# Environment variables (contains secrets)
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# macOS
+.DS_Store
+
+# SQLite databases
+*.sqlite3
+
+# IDE
+.idea/
+.vscode/
