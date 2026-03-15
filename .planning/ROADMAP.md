@@ -21,7 +21,7 @@
 
 **Milestone Goal:** Replace client-side simulation with NASA BioSim physics — real interconnected subsystem dynamics, Docker infrastructure, WebSocket data pipelines, Django historical ingest, and graceful fallback for reviewers without Docker.
 
-- [ ] **Phase 5: Docker Infrastructure** — Full stack starts with `docker compose up`; BioSim running and module JSON captured
+- [x] **Phase 5: Docker Infrastructure** — Full stack starts with `docker compose up`; BioSim running and module JSON captured (completed 2026-03-15)
 - [ ] **Phase 6: Data Mapping Layer** — Pure translation functions converting BioSim physics output to ZoneState/SensorReading types
 - [ ] **Phase 7: Frontend WebSocket + Fallback** — 3D habitat driven by real BioSim physics; auto-fallback to client-side sim when BioSim unavailable
 - [ ] **Phase 8: AnomalyDrawer Rewire** — AnomalyDrawer triggers real BioSim malfunctions with cascading physics failures
@@ -39,7 +39,7 @@
   3. `wscat ws://localhost:8009/ws/simulation/{simID}` prints live module state on every tick
   4. Open MCT dashboard is accessible at `localhost:9091` via a nav link in the frontend
   5. Django reads database credentials from environment variables (no hardcoded Cloud SQL credentials required for local stack)
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 05-01-PLAN.md — Docker Compose four-service stack with healthchecks, BioSim auto-start, Django entrypoint
@@ -116,7 +116,7 @@ Plans:
 | 2. 3D Scene and Zone Interaction | v1.0 | 4/4 | Complete | 2026-03-10 |
 | 3. UI Panels and Live Data | v1.0 | 2/2 | Complete | 2026-03-13 |
 | 4. Anomaly System | v1.0 | 2/2 | Complete | 2026-03-14 |
-| 5. Docker Infrastructure | 1/2 | In Progress|  | - |
+| 5. Docker Infrastructure | 2/2 | Complete   | 2026-03-15 | - |
 | 6. Data Mapping Layer | v2.0 | 0/2 | Not started | - |
 | 7. Frontend WebSocket + Fallback | v2.0 | 0/2 | Not started | - |
 | 8. AnomalyDrawer Rewire | v2.0 | 0/1 | Not started | - |

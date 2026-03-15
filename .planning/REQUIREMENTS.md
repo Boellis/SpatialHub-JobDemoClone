@@ -9,10 +9,10 @@ Requirements for BioSim integration milestone. Each maps to roadmap phases.
 
 ### Infrastructure
 
-- [ ] **INFRA-01**: Docker Compose starts all services (BioSim, Open MCT, Django, PostgreSQL) with `docker compose up`
-- [ ] **INFRA-02**: BioSim simulation auto-starts on container boot with bundled XML mission config
-- [ ] **INFRA-03**: Docker healthchecks with `service_healthy` conditions and 90s JVM start period
-- [ ] **INFRA-04**: Django settings.py reads database credentials from environment variables for Docker
+- [x] **INFRA-01**: Docker Compose starts all services (BioSim, Open MCT, Django, PostgreSQL) with `docker compose up`
+- [x] **INFRA-02**: BioSim simulation auto-starts on container boot with bundled XML mission config
+- [x] **INFRA-03**: Docker healthchecks with `service_healthy` conditions and 90s JVM start period
+- [x] **INFRA-04**: Django settings.py reads database credentials from environment variables for Docker
 
 ### Telemetry
 
@@ -84,10 +84,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | Phase 5 | Pending |
-| INFRA-02 | Phase 5 | Pending |
-| INFRA-03 | Phase 5 | Pending |
-| INFRA-04 | Phase 5 | Pending |
+| INFRA-01 | Phase 5 | Complete |
+| INFRA-02 | Phase 5 | Complete |
+| INFRA-03 | Phase 5 | Complete |
+| INFRA-04 | Phase 5 | Complete |
 | TELE-01 | Phase 7 | Pending |
 | TELE-02 | Phase 6 | Pending |
 | TELE-03 | Phase 7 | Pending |
