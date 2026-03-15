@@ -1,5 +1,11 @@
 import React, { Suspense } from "react";
-import { BrowserRouter as Router, Route, Routes, Link, useLocation } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Route,
+  Routes,
+  Link,
+  useLocation,
+} from "react-router-dom";
 import { ProvisionHub } from "./pages/ProvisionHub";
 import { RawSensorData } from "./pages/RawSensorData";
 import { EnrichedSensorData } from "./pages/EnrichedSensorData";
@@ -7,26 +13,53 @@ import { SensorTrends } from "./pages/SensorTrends";
 import SimulateDevices from "./pages/SimulateDevices";
 import UnityEmbed from "./pages/UnityEmbed";
 
-const HabitatView = React.lazy(() => import('./pages/HabitatView'));
+const HabitatView = React.lazy(() => import("./pages/HabitatView"));
 
-// AppContent uses useLocation to hide nav on /habitat for full-screen immersion.
-// Must be rendered inside <Router> so useLocation works.
+const NavLink = ({
+  to,
+  children,
+  className = "",
+}: {
+  to: string;
+  children: React.ReactNode;
+  className?: string;
+}) => {
+  const location = useLocation();
+  const isActive = location.pathname === to;
+  return (
+    <Link
+      to={to}
+      className={`nav-link ${isActive ? "active" : ""} ${className}`}
+    >
+      {children}
+    </Link>
+  );
+};
+
 const AppContent = () => {
   const location = useLocation();
-  const isHabitat = location.pathname === '/habitat';
+  const isHabitat = location.pathname === "/habitat";
 
   return (
-    <div className={isHabitat ? '' : 'min-h-screen bg-gray-100'}>
+    <>
       {!isHabitat && (
-        <nav className="bg-white p-4 shadow mb-6">
-          <div className="flex gap-4">
-            <Link to="/" className="text-blue-600 hover:underline">Provision Hub</Link>
-            <Link to="/raw" className="text-blue-600 hover:underline">Raw Data</Link>
-            <Link to="/enriched" className="text-blue-600 hover:underline">Enriched Data</Link>
-            <Link to="/trends" className="text-blue-600 hover:underline">Sensor Trends</Link>
-            <Link to="/simulate" className="text-blue-600 hover:underline">Simulate Devices</Link>
-            <Link to="/unity" className="text-blue-600 hover:underline">Unity Simulation</Link>
-            <Link to="/habitat" className="text-blue-600 hover:underline">Mars Habitat</Link>
+        <nav className="nav">
+          <Link to="/" className="nav-brand">
+            <span className="nav-brand-dot" />
+            <span>
+              Spatial<span className="nav-brand-accent">Hub</span>
+            </span>
+          </Link>
+          <div className="nav-links">
+            <NavLink to="/">Provision</NavLink>
+            <NavLink to="/raw">Raw Data</NavLink>
+            <NavLink to="/enriched">Enriched</NavLink>
+            <NavLink to="/trends">Trends</NavLink>
+            <NavLink to="/simulate">Simulate</NavLink>
+            <NavLink to="/unity">Unity</NavLink>
+            <NavLink to="/habitat" className="nav-link--habitat">
+              Mars Habitat
+            </NavLink>
           </div>
         </nav>
       )}
@@ -41,13 +74,31 @@ const AppContent = () => {
         <Route
           path="/habitat"
           element={
-            <Suspense fallback={<div style={{ width: '100vw', height: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#444' }}>Loading habitat...</div>}>
+            <Suspense
+              fallback={
+                <div
+                  style={{
+                    width: "100vw",
+                    height: "100vh",
+                    background: "#0a0a0a",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <div className="loading-state">
+                    <div className="loading-spinner" />
+                    <div className="loading-text">Initializing Habitat</div>
+                  </div>
+                </div>
+              }
+            >
               <HabitatView />
             </Suspense>
           }
         />
       </Routes>
-    </div>
+    </>
   );
 };
 

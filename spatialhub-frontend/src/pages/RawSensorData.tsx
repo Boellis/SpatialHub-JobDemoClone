@@ -3,17 +3,22 @@ import axios from "axios";
 
 export function RawSensorData() {
   const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
   useEffect(() => {
     axios
-      .get("https://spatialhub-backend-823061962201.us-central1.run.app/api/raw/")
+      .get(
+        "https://spatialhub-backend-823061962201.us-central1.run.app/api/raw/"
+      )
       .then((res) => {
         const flat = res.data.flat();
         setData(flat);
       })
-      .catch((err) => console.error("Failed to fetch raw data:", err));
+      .catch(() => setError("Failed to fetch raw sensor data"))
+      .finally(() => setLoading(false));
   }, []);
 
   const paginatedData = data.slice(
@@ -23,58 +28,95 @@ export function RawSensorData() {
   const totalPages = Math.ceil(data.length / itemsPerPage);
 
   return (
-    <div className="p-4">
-      <h2 className="text-xl font-bold mb-4">Raw Sensor Data</h2>
-      <table className="min-w-full border text-sm">
-        <thead>
-          <tr>
-            {paginatedData[0] &&
-              Object.keys(paginatedData[0]).map((key) => (
-                <th className="border px-2 py-1" key={key}>
-                  {key}
-                </th>
-              ))}
-          </tr>
-        </thead>
-        <tbody>
-          {paginatedData.length > 0 ? (
-            paginatedData.map((item, i) => (
-              <tr key={i}>
-                {Object.values(item).map((val, j) => (
-                  <td className="border px-2 py-1" key={j}>
-                    {String(val)}
-                  </td>
-                ))}
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan={10} className="text-center p-2">
-                No data available
-              </td>
-            </tr>
+    <div className="page">
+      <div className="page-header">
+        <h2 className="page-title">
+          <span
+            className="page-title-accent"
+            style={{ background: "var(--accent-cyan)" }}
+          />
+          Raw Sensor Data
+          {data.length > 0 && (
+            <span className="badge badge-count">{data.length} records</span>
           )}
-        </tbody>
-      </table>
+        </h2>
+        <p className="page-subtitle">
+          Unprocessed telemetry from connected hubs
+        </p>
+      </div>
 
-      <div className="mt-4 flex gap-2">
-        <button
-          onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-          disabled={currentPage === 1}
-          className="px-2 py-1 bg-gray-200 rounded"
-        >
-          Prev
-        </button>
-        <span>
-          Page {currentPage} of {totalPages}
-        </span>
-        <button
-          onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-          disabled={currentPage === totalPages}
-          className="px-2 py-1 bg-gray-200 rounded"
-        >
-          Next
-        </button>
+      <div className="card">
+        {loading ? (
+          <div className="loading-state">
+            <div className="loading-spinner" />
+            <div className="loading-text">Fetching telemetry</div>
+          </div>
+        ) : error ? (
+          <div className="card-body">
+            <div className="error-state">{error}</div>
+          </div>
+        ) : (
+          <>
+            <div className="data-table-wrapper">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    {paginatedData[0] &&
+                      Object.keys(paginatedData[0]).map((key) => (
+                        <th key={key}>{key}</th>
+                      ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedData.length > 0 ? (
+                    paginatedData.map((item, i) => (
+                      <tr key={i}>
+                        {Object.values(item).map((val, j) => (
+                          <td key={j}>{String(val)}</td>
+                        ))}
+                      </tr>
+                    ))
+                  ) : (
+                    <tr className="empty-row">
+                      <td colSpan={10}>No telemetry data received</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {totalPages > 0 && (
+              <div className="pagination">
+                <span className="pagination-info">
+                  Showing {(currentPage - 1) * itemsPerPage + 1}&ndash;
+                  {Math.min(currentPage * itemsPerPage, data.length)} of{" "}
+                  {data.length}
+                </span>
+                <div className="pagination-controls">
+                  <button
+                    className="pagination-btn"
+                    onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                    disabled={currentPage === 1}
+                  >
+                    &larr; Prev
+                  </button>
+                  <span className="pagination-current">
+                    {currentPage} / {totalPages}
+                  </span>
+                  <button
+                    className="pagination-btn"
+                    onClick={() =>
+                      setCurrentPage((p) => Math.min(p + 1, totalPages))
+                    }
+                    disabled={currentPage === totalPages}
+                  >
+                    Next &rarr;
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

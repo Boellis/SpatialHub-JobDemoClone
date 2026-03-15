@@ -31,7 +31,9 @@ const SimulateDevices = () => {
 
   useEffect(() => {
     axios
-      .get("https://spatialhub-backend-823061962201.us-central1.run.app/api/hub/")
+      .get(
+        "https://spatialhub-backend-823061962201.us-central1.run.app/api/hub/"
+      )
       .then((res) => setHubIds(res.data.map((h: any) => h.hub_id)))
       .catch(console.error);
   }, []);
@@ -52,9 +54,15 @@ const SimulateDevices = () => {
   const sendPayload = async (payload: any) => {
     try {
       await axios.post(CLOUD_FUNCTION_URL, payload);
-      setLog((prev) => [`Sent ${payload.sensor_name} (${payload.sensor_val})`, ...prev.slice(0, 19)]);
+      setLog((prev) => [
+        `Sent ${payload.sensor_name} (${payload.sensor_val})`,
+        ...prev.slice(0, 49),
+      ]);
     } catch (e) {
-      setLog((prev) => [`Error sending ${payload.sensor_name}: ${e}`, ...prev.slice(0, 19)]);
+      setLog((prev) => [
+        `Error sending ${payload.sensor_name}: ${e}`,
+        ...prev.slice(0, 49),
+      ]);
     }
   };
 
@@ -100,115 +108,165 @@ const SimulateDevices = () => {
         hub_id: selectedHubId,
         command: `D,${pumpAmount}`,
       });
-      setLog((prev) => [`Sent Pump Command: D,${pumpAmount}`, ...prev.slice(0, 19)]);
+      setLog((prev) => [
+        `Sent Pump Command: D,${pumpAmount}`,
+        ...prev.slice(0, 49),
+      ]);
     } catch (e) {
-      setLog((prev) => [`Error sending pump command: ${e}`, ...prev.slice(0, 19)]);
+      setLog((prev) => [
+        `Error sending pump command: ${e}`,
+        ...prev.slice(0, 49),
+      ]);
     }
   };
 
+  const toggleSensor = (sensor: SensorName) => {
+    setSelectedSensors((prev) =>
+      prev.includes(sensor)
+        ? prev.filter((s) => s !== sensor)
+        : [...prev, sensor]
+    );
+  };
+
   return (
-    <div className="p-4">
-      <h2 className="text-xl font-semibold mb-4">Simulate Devices</h2>
-
-      <div className="mb-4">
-        <label className="mr-2 font-medium">Select Hub:</label>
-        <select
-          className="border p-2"
-          value={selectedHubId}
-          onChange={(e) => setSelectedHubId(e.target.value)}
-        >
-          <option value="">-- Choose Hub --</option>
-          {hubIds.map((h) => (
-            <option key={h} value={h}>
-              {h}
-            </option>
-          ))}
-        </select>
+    <div className="page">
+      <div className="page-header">
+        <h2 className="page-title">
+          <span
+            className="page-title-accent"
+            style={{ background: "var(--accent-orange)" }}
+          />
+          Device Simulation
+        </h2>
+        <p className="page-subtitle">
+          Inject test telemetry and send hub commands
+        </p>
       </div>
 
-      <div className="mb-4">
-        <label className="mr-2 font-medium">Sensor Types:</label>
-        {sensorTypes.map((sensor) => (
-          <label key={sensor} className="mr-3">
+      <div className="card" style={{ marginBottom: "24px" }}>
+        <div className="card-header">Configuration</div>
+        <div className="card-body">
+          <div className="form-group">
+            <label className="form-label">Select Hub</label>
+            <select
+              className="form-select"
+              value={selectedHubId}
+              onChange={(e) => setSelectedHubId(e.target.value)}
+              style={{ maxWidth: "360px" }}
+            >
+              <option value="">-- Choose Hub --</option>
+              {hubIds.map((h) => (
+                <option key={h} value={h}>
+                  {h}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Sensor Types</label>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              {sensorTypes.map((sensor) => (
+                <button
+                  key={sensor}
+                  type="button"
+                  className={`sensor-chip ${selectedSensors.includes(sensor) ? "active" : ""}`}
+                  onClick={() => toggleSensor(sensor)}
+                >
+                  {sensor}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Batch Settings</label>
+            <div className="form-inline">
+              <div className="form-field">
+                <label className="form-label form-label--sm">Batches</label>
+                <input
+                  className="form-input"
+                  type="number"
+                  value={batchCount}
+                  onChange={(e) => setBatchCount(Number(e.target.value))}
+                  style={{ width: "100px" }}
+                />
+              </div>
+              <div className="form-field">
+                <label className="form-label form-label--sm">
+                  Readings / Batch
+                </label>
+                <input
+                  className="form-input"
+                  type="number"
+                  value={batchSize}
+                  onChange={(e) => setBatchSize(Number(e.target.value))}
+                  style={{ width: "120px" }}
+                />
+              </div>
+              <div className="form-field">
+                <label className="form-label form-label--sm">
+                  Interval (ms)
+                </label>
+                <input
+                  className="form-input"
+                  type="number"
+                  value={intervalMs}
+                  onChange={(e) => setIntervalMs(Number(e.target.value))}
+                  style={{ width: "120px" }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Pump Amount (ml)</label>
             <input
-              type="checkbox"
-              value={sensor}
-              onChange={(e) => {
-                const val = e.target.value as SensorName;
-                setSelectedSensors((prev) =>
-                  prev.includes(val) ? prev.filter((s) => s !== val) : [...prev, val]
-                );
-              }}
-              checked={selectedSensors.includes(sensor)}
-            />{" "}
-            {sensor}
-          </label>
-        ))}
+              className="form-input"
+              type="number"
+              value={pumpAmount}
+              onChange={(e) => setPumpAmount(Number(e.target.value))}
+              style={{ maxWidth: "160px" }}
+            />
+          </div>
+
+          <div style={{ display: "flex", gap: "12px" }}>
+            <button className="btn btn-success" onClick={simulateBatch}>
+              Start Simulation
+            </button>
+            <button className="btn btn-primary" onClick={sendPumpCommand}>
+              Send Pump Command
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="mb-4 flex gap-4">
-        <label>
-          Batches:
-          <input
-            type="number"
-            className="ml-2 p-1 border"
-            value={batchCount}
-            onChange={(e) => setBatchCount(Number(e.target.value))}
-          />
-        </label>
-        <label>
-          Readings per Batch:
-          <input
-            type="number"
-            className="ml-2 p-1 border"
-            value={batchSize}
-            onChange={(e) => setBatchSize(Number(e.target.value))}
-          />
-        </label>
-        <label>
-          Interval (ms):
-          <input
-            type="number"
-            className="ml-2 p-1 border"
-            value={intervalMs}
-            onChange={(e) => setIntervalMs(Number(e.target.value))}
-          />
-        </label>
-      </div>
-
-      <div className="mb-4">
-        <label>
-          Pump Amount (ml):
-          <input
-            type="number"
-            className="ml-2 p-1 border"
-            value={pumpAmount}
-            onChange={(e) => setPumpAmount(Number(e.target.value))}
-          />
-        </label>
-      </div>
-
-      <button
-        onClick={simulateBatch}
-        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 mr-2"
-      >
-        Start Simulation
-      </button>
-
-      <button
-        onClick={sendPumpCommand}
-        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-      >
-        Send Pump Command
-      </button>
-
-      <div className="mt-4">
-        <h3 className="font-medium">Logs</h3>
-        <ul className="text-sm text-gray-700 max-h-64 overflow-y-auto">
-          {log.map((l, i) => (
-            <li key={i}>{l}</li>
-          ))}
-        </ul>
+      <div className="card">
+        <div className="card-header">Mission Log</div>
+        <div className="card-body" style={{ padding: 0 }}>
+          <div className="log-console">
+            {log.length === 0 ? (
+              <div
+                style={{
+                  color: "var(--text-muted)",
+                  fontStyle: "italic",
+                  padding: "16px",
+                }}
+              >
+                Awaiting transmissions...
+              </div>
+            ) : (
+              log.map((l, i) => (
+                <div
+                  key={i}
+                  className={`log-entry ${l.startsWith("Error") ? "log-entry--error" : ""}`}
+                >
+                  {l}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

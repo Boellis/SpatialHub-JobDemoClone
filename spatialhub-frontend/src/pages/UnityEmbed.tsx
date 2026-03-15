@@ -5,38 +5,55 @@ const UnityEmbed = () => {
   const [height, setHeight] = useState(600);
 
   return (
-    <div className="p-4">
-      <h2 className="text-xl font-bold mb-4">Unity WebGL Simulation</h2>
-
-      <div className="mb-4 space-x-4">
-        <label>
-          Width (px):
-          <input
-            type="number"
-            className="ml-2 p-1 border rounded"
-            value={width}
-            onChange={(e) => setWidth(parseInt(e.target.value))}
+    <div className="page">
+      <div className="page-header">
+        <h2 className="page-title">
+          <span
+            className="page-title-accent"
+            style={{ background: "var(--accent-orange)" }}
           />
-        </label>
-        <label>
-          Height (px):
-          <input
-            type="number"
-            className="ml-2 p-1 border rounded"
-            value={height}
-            onChange={(e) => setHeight(parseInt(e.target.value))}
-          />
-        </label>
+          Unity WebGL Simulation
+        </h2>
+        <p className="page-subtitle">Interactive 3D environment viewer</p>
       </div>
 
-      <iframe
-        src="https://itch.io/embed-upload/10601498?color=ffffff"
-        title="Unity WebGL Build"
-        width={width}
-        height={height}
-        allowFullScreen
-        className="border shadow-lg"
-      ></iframe>
+      <div className="card" style={{ marginBottom: "24px" }}>
+        <div className="card-body">
+          <div className="form-inline">
+            <div className="form-field">
+              <label className="form-label">Width (px)</label>
+              <input
+                className="form-input"
+                type="number"
+                value={width}
+                onChange={(e) => setWidth(parseInt(e.target.value))}
+                style={{ width: "120px" }}
+              />
+            </div>
+            <div className="form-field">
+              <label className="form-label">Height (px)</label>
+              <input
+                className="form-input"
+                type="number"
+                value={height}
+                onChange={(e) => setHeight(parseInt(e.target.value))}
+                style={{ width: "120px" }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <iframe
+          src="https://itch.io/embed-upload/10601498?color=ffffff"
+          title="Unity WebGL Build"
+          width="100%"
+          height={height}
+          allowFullScreen
+          style={{ display: "block", border: "none" }}
+        />
+      </div>
     </div>
   );
 };
