@@ -60,6 +60,30 @@ const AppContent = () => {
             <NavLink to="/habitat" className="nav-link--habitat">
               Mars Habitat
             </NavLink>
+            <a
+              href="http://localhost:9091"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="nav-link nav-link--external"
+            >
+              Open MCT
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                style={{ marginLeft: '4px', opacity: 0.5 }}
+              >
+                <path
+                  d="M3.5 1.5H10.5V8.5M10.5 1.5L1.5 10.5"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </a>
           </div>
         </nav>
       )}
