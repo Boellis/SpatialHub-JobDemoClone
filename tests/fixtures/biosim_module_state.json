@@ -1,0 +1,21 @@
+{
+  "_placeholder": true,
+  "_note": "This fixture must be populated from a live BioSim instance. Run: docker compose up --build -d && ./tests/smoke_test.sh",
+  "_how_to_populate": [
+    "1. Start Docker daemon",
+    "2. Run: cd <repo-root> && docker compose up --build -d",
+    "3. Wait for biosim service to be healthy (may take 2-3 min on first run)",
+    "4. Run: ./tests/smoke_test.sh",
+    "5. This file will be overwritten with live BioSim module state JSON",
+    "6. Commit the updated fixture: git add tests/fixtures/biosim_module_state.json && git commit -m 'chore(05-01): capture live BioSim module state fixture'"
+  ],
+  "_expected_structure": {
+    "Modules": {
+      "ExampleModule": {
+        "moduleName": "string",
+        "moduleType": "string",
+        "properties": {}
+      }
+    }
+  }
+}
