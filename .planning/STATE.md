@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: BioSim Integration
-status: not_started
-stopped_at: defining requirements
-last_updated: "2026-03-14T14:00:00Z"
-last_activity: 2026-03-14 — Milestone v2.0 started
+status: ready_to_plan
+stopped_at: roadmap created — ready to plan Phase 5
+last_updated: "2026-03-14T14:30:00Z"
+last_activity: 2026-03-14 — v2.0 roadmap created, 5 phases mapped, 29/29 requirements covered
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
-  total_plans: 0
+  total_plans: 9
   completed_plans: 0
   percent: 0
 ---
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-14)
 
 **Core value:** 3D habitat visualization with live sensor data that feels real, responsive, and impressive enough to make someone say "this could actually run a Mars greenhouse."
-**Current focus:** v2.0 BioSim Integration — defining requirements
+**Current focus:** v2.0 BioSim Integration — Phase 5: Docker Infrastructure
 
 ## Current Position
 
 Milestone: v2.0 BioSim Integration
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-14 — Milestone v2.0 started
+Phase: 5 of 9 (Docker Infrastructure)
+Plan: — (not started)
+Status: Ready to plan
+Last activity: 2026-03-14 — v2.0 roadmap finalized, ready to plan Phase 5
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -39,16 +39,23 @@ Progress: [░░░░░░░░░░] 0%
 
 See PROJECT.md Key Decisions table.
 
+Key v2.0 architectural decisions (pending confirmation):
+- Phase 5: BioSim via Docker + REST/WebSocket (GPL v3 boundary — no source file linking)
+- Phase 5: Full docker-compose (Django + BioSim + Open MCT + PostgreSQL) — one command
+- Phase 7/9: Both WS paths (direct frontend WS for live + Django ingest for history)
+
 ### Pending Todos
 
 None.
 
 ### Blockers/Concerns
 
-None.
+- Phase 5: BioSim Maven Docker build may take 10-20 minutes on cold cache — set expectations before first `docker compose up`
+- Phase 5/6: BioSim module name strings in docs are examples — live `GET /api/simulation/{simID}` JSON must be captured before any mapping code is written
+- Phase 5: `settings.py` currently uses Cloud SQL credentials — env-var fallback (DB_HOST, DB_NAME, DB_USER, DB_PASS) must be wired before bridge can write to local database
 
 ## Session Continuity
 
 Last session: 2026-03-14
-Stopped at: Milestone v2.0 started, defining requirements
+Stopped at: Roadmap created — Phase 5 ready to plan
 Resume file: None
