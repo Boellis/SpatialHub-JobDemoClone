@@ -34,7 +34,7 @@ echo "  OK: BioSim API responding"
 
 # 3. Check BioSim has a running simulation and capture simID
 echo "[3/5] Checking for running simulation..."
-SIM_ID=$(echo "$SIMS" | python3 -c "import sys,json; ids=json.load(sys.stdin); print(ids[0] if ids else '')" 2>/dev/null)
+SIM_ID=$(echo "$SIMS" | python3 -c "import sys,json; d=json.load(sys.stdin); ids=d.get('simulations',d) if isinstance(d,dict) else d; print(ids[0] if ids else '')" 2>/dev/null)
 if [ -z "$SIM_ID" ]; then
   echo "FAIL: No running simulation found. Response: $SIMS"
   exit 1

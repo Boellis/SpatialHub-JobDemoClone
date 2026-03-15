@@ -1,21 +1,796 @@
 {
-  "_placeholder": true,
-  "_note": "This fixture must be populated from a live BioSim instance. Run: docker compose up --build -d && ./tests/smoke_test.sh",
-  "_how_to_populate": [
-    "1. Start Docker daemon",
-    "2. Run: cd <repo-root> && docker compose up --build -d",
-    "3. Wait for biosim service to be healthy (may take 2-3 min on first run)",
-    "4. Run: ./tests/smoke_test.sh",
-    "5. This file will be overwritten with live BioSim module state JSON",
-    "6. Commit the updated fixture: git add tests/fixtures/biosim_module_state.json && git commit -m 'chore(05-01): capture live BioSim module state fixture'"
-  ],
-  "_expected_structure": {
-    "Modules": {
-      "ExampleModule": {
-        "moduleName": "string",
-        "moduleType": "string",
-        "properties": {}
-      }
+    "globals": {
+        "myID": 1,
+        "simulationIsPaused": false,
+        "simulationStarted": true,
+        "simulationEnded": false,
+        "ticksGoneBy": 191,
+        "runTillN": -1,
+        "runTillCrewDeath": false,
+        "runTillPlantDeath": false,
+        "looping": false,
+        "driverStutterLength": 500,
+        "tickLength": 1.0
+    },
+    "modules": {
+        "Nuclear_Source": {
+            "moduleName": "Nuclear_Source",
+            "moduleType": "NuclearPowerPS",
+            "producers": [
+                {
+                    "type": "Power",
+                    "rates": {
+                        "maxFlowRates": [
+                            3000.0
+                        ],
+                        "desiredFlowRates": [
+                            3000.0
+                        ],
+                        "actualFlowRates": [
+                            3000.0
+                        ],
+                        "initialFlowRates": [
+                            3000.0
+                        ]
+                    },
+                    "connections": [
+                        "General_Power_Store"
+                    ]
+                }
+            ],
+            "malfunctions": []
+        },
+        "Biomass_Store": {
+            "moduleName": "Biomass_Store",
+            "moduleType": "BiomassStore",
+            "properties": {
+                "currentLevel": 10000.0,
+                "currentCapacity": 10000.0,
+                "overflow": 0.0,
+                "isPipe": false
+            },
+            "malfunctions": []
+        },
+        "CO2_Store": {
+            "moduleName": "CO2_Store",
+            "moduleType": "CO2Store",
+            "properties": {
+                "currentLevel": 115.68711,
+                "currentCapacity": 1000.0,
+                "overflow": 0.0,
+                "isPipe": false
+            },
+            "malfunctions": []
+        },
+        "Crew_Quarters_Environment": {
+            "moduleName": "Crew_Quarters_Environment",
+            "moduleType": "SimEnvironment",
+            "properties": {
+                "temperature": 23.0,
+                "temperatureInKelvin": 296.15,
+                "lightIntensity": 851.8544,
+                "currentVolume": 2700000.0,
+                "initialVolume": 2700000.0,
+                "dayLength": 24.0,
+                "hourOfDayStart": 0.0,
+                "maxLumens": 50000.0,
+                "relativeHumidity": 22.443703,
+                "airLockVolume": 3.7,
+                "totalPressure": 101.47319,
+                "totalMoles": 111273.91,
+                "dangerousOxygenThreshold": 1.0,
+                "leakRate": 0.0,
+                "initialTotalPressure": 101.31917,
+                "o2Moles": 23152.982,
+                "co2Moles": 81.2432,
+                "otherMoles": 0.0,
+                "vaporMoles": 58084.227,
+                "nitrogenMoles": 29955.457
+            },
+            "malfunctions": []
+        },
+        "MethaneStore": {
+            "moduleName": "MethaneStore",
+            "moduleType": "MethaneStore",
+            "properties": {
+                "currentLevel": 0.0,
+                "currentCapacity": 0.0,
+                "overflow": 0.0,
+                "isPipe": false
+            },
+            "malfunctions": []
+        },
+        "Grey_Water_Store": {
+            "moduleName": "Grey_Water_Store",
+            "moduleType": "GreyWaterStore",
+            "properties": {
+                "currentLevel": 9966.972,
+                "currentCapacity": 10000.0,
+                "overflow": 0.089601256,
+                "isPipe": false
+            },
+            "malfunctions": []
+        },
+        "O22GasConcentrationSensor": {
+            "moduleName": "O22GasConcentrationSensor",
+            "moduleType": "GasConcentrationSensor",
+            "properties": {
+                "value": 0.20807198,
+                "monitoringResult": "NOMINAL",
+                "range": {
+                    "min": 0.0,
+                    "max": 1.0
+                },
+                "alarmThresholds": {
+                    "WATCH_LOW": {
+                        "max": 0.19,
+                        "min": 0.17
+                    },
+                    "WARNING_LOW": {
+                        "max": 0.17,
+                        "min": 0.15
+                    },
+                    "SEVERE_LOW": {
+                        "max": 0.15,
+                        "min": 0.0
+                    }
+                },
+                "input": "Crew_Quarters_Environment.O2"
+            },
+            "malfunctions": []
+        },
+        "NitrogenStore": {
+            "moduleName": "NitrogenStore",
+            "moduleType": "NitrogenStore",
+            "properties": {
+                "currentLevel": 0.0,
+                "currentCapacity": 0.0,
+                "overflow": 0.0,
+                "isPipe": false
+            },
+            "malfunctions": []
+        },
+        "Potable_Water_Store": {
+            "moduleName": "Potable_Water_Store",
+            "moduleType": "PotableWaterStore",
+            "properties": {
+                "currentLevel": 9861.973,
+                "currentCapacity": 10000.0,
+                "overflow": 0.0,
+                "isPipe": false
+            },
+            "malfunctions": []
+        },
+        "Crew_Quarters_Group": {
+            "moduleName": "Crew_Quarters_Group",
+            "moduleType": "CrewGroup",
+            "consumers": [
+                {
+                    "type": "PotableWater",
+                    "rates": {
+                        "maxFlowRates": [
+                            3.0
+                        ],
+                        "desiredFlowRates": [
+                            3.0
+                        ],
+                        "actualFlowRates": [
+                            0.1666858
+                        ],
+                        "initialFlowRates": [
+                            3.0
+                        ]
+                    },
+                    "connections": [
+                        "Potable_Water_Store"
+                    ]
+                },
+                {
+                    "type": "Air",
+                    "rates": {
+                        "maxFlowRates": [
+                            0.0
+                        ],
+                        "desiredFlowRates": [
+                            0.0
+                        ],
+                        "actualFlowRates": [
+                            0.0
+                        ],
+                        "initialFlowRates": [
+                            0.0
+                        ]
+                    },
+                    "connections": [
+                        "Crew_Quarters_Environment"
+                    ]
+                },
+                {
+                    "type": "Food",
+                    "rates": {
+                        "maxFlowRates": [
+                            5.0
+                        ],
+                        "desiredFlowRates": [
+                            5.0
+                        ],
+                        "actualFlowRates": [
+                            8.088383
+                        ],
+                        "initialFlowRates": [
+                            5.0
+                        ]
+                    },
+                    "connections": [
+                        "Food_Store"
+                    ]
+                }
+            ],
+            "producers": [
+                {
+                    "type": "GreyWater",
+                    "rates": {
+                        "maxFlowRates": [
+                            100.0
+                        ],
+                        "desiredFlowRates": [
+                            100.0
+                        ],
+                        "actualFlowRates": [
+                            0.089601256
+                        ],
+                        "initialFlowRates": [
+                            100.0
+                        ]
+                    },
+                    "connections": [
+                        "Grey_Water_Store"
+                    ]
+                },
+                {
+                    "type": "DirtyWater",
+                    "rates": {
+                        "maxFlowRates": [
+                            100.0
+                        ],
+                        "desiredFlowRates": [
+                            100.0
+                        ],
+                        "actualFlowRates": [
+                            0.060428753
+                        ],
+                        "initialFlowRates": [
+                            100.0
+                        ]
+                    },
+                    "connections": [
+                        "Dirty_Water_Store"
+                    ]
+                },
+                {
+                    "type": "Air",
+                    "rates": {
+                        "maxFlowRates": [
+                            0.0
+                        ],
+                        "desiredFlowRates": [
+                            0.0
+                        ],
+                        "actualFlowRates": [
+                            0.0
+                        ],
+                        "initialFlowRates": [
+                            0.0
+                        ]
+                    },
+                    "connections": [
+                        "Crew_Quarters_Environment"
+                    ]
+                },
+                {
+                    "type": "DryWaste",
+                    "rates": {
+                        "maxFlowRates": [
+                            10.0
+                        ],
+                        "desiredFlowRates": [
+                            10.0
+                        ],
+                        "actualFlowRates": [
+                            0.00062467286
+                        ],
+                        "initialFlowRates": [
+                            10.0
+                        ]
+                    },
+                    "connections": [
+                        "Dry_Waste_Store"
+                    ]
+                }
+            ],
+            "properties": {
+                "crewPeople": [
+                    {
+                        "name": "Buck Rogers",
+                        "age": 35.0,
+                        "weight": 75.0,
+                        "sex": "male",
+                        "currentActivity": {
+                            "name": "sleep",
+                            "timeLength": 8,
+                            "activityIntensity": 0
+                        },
+                        "currentActivityIntensity": 0,
+                        "currentActivityTimeLength": 8,
+                        "timeActivityPerformed": 2,
+                        "O2Consumed": 0.015089911,
+                        "CO2Produced": 0.012977324,
+                        "caloriesConsumed": 93.700935,
+                        "potableWaterConsumed": 0.1666858,
+                        "dirtyWaterProduced": 0.060428753,
+                        "greyWaterProduced": 0.089601256,
+                        "schedule": {
+                            "orderedSchedule": [
+                                {
+                                    "name": "born",
+                                    "timeLength": 0,
+                                    "activityIntensity": 0
+                                },
+                                {
+                                    "name": "leisure",
+                                    "timeLength": 12,
+                                    "activityIntensity": 2
+                                },
+                                {
+                                    "name": "sleep",
+                                    "timeLength": 8,
+                                    "activityIntensity": 0
+                                },
+                                {
+                                    "name": "excercise",
+                                    "timeLength": 2,
+                                    "activityIntensity": 5
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+            "malfunctions": []
+        },
+        "VCCR": {
+            "moduleName": "VCCR",
+            "moduleType": "VCCRLinear",
+            "consumers": [
+                {
+                    "type": "Power",
+                    "rates": {
+                        "maxFlowRates": [
+                            1000.0
+                        ],
+                        "desiredFlowRates": [
+                            1000.0
+                        ],
+                        "actualFlowRates": [
+                            1000.0
+                        ],
+                        "initialFlowRates": [
+                            1000.0
+                        ]
+                    },
+                    "connections": [
+                        "General_Power_Store"
+                    ]
+                },
+                {
+                    "type": "Air",
+                    "rates": {
+                        "maxFlowRates": [
+                            1000.0
+                        ],
+                        "desiredFlowRates": [
+                            1000.0
+                        ],
+                        "actualFlowRates": [
+                            999.99994
+                        ],
+                        "initialFlowRates": [
+                            1000.0
+                        ]
+                    },
+                    "connections": [
+                        "Crew_Quarters_Environment"
+                    ]
+                }
+            ],
+            "producers": [
+                {
+                    "type": "Air",
+                    "rates": {
+                        "maxFlowRates": [
+                            1000.0
+                        ],
+                        "desiredFlowRates": [
+                            1000.0
+                        ],
+                        "actualFlowRates": [
+                            999.26324
+                        ],
+                        "initialFlowRates": [
+                            1000.0
+                        ]
+                    },
+                    "connections": [
+                        "Crew_Quarters_Environment"
+                    ]
+                },
+                {
+                    "type": "CO2",
+                    "rates": {
+                        "maxFlowRates": [
+                            1000.0
+                        ],
+                        "desiredFlowRates": [
+                            1000.0
+                        ],
+                        "actualFlowRates": [
+                            0.7366862
+                        ],
+                        "initialFlowRates": [
+                            1000.0
+                        ]
+                    },
+                    "connections": [
+                        "CO2_Store"
+                    ]
+                }
+            ],
+            "malfunctions": []
+        },
+        "Food_Store": {
+            "moduleName": "Food_Store",
+            "moduleType": "FoodStore",
+            "properties": {
+                "currentLevel": 9991.868,
+                "currentCapacity": 10000.0,
+                "overflow": 0.0,
+                "isPipe": false
+            },
+            "malfunctions": []
+        },
+        "Co2GasConcentrationSensor": {
+            "moduleName": "Co2GasConcentrationSensor",
+            "moduleType": "GasConcentrationSensor",
+            "properties": {
+                "value": 0.00073011906,
+                "monitoringResult": "NOMINAL",
+                "range": {
+                    "min": 0.0,
+                    "max": 1.0
+                },
+                "alarmThresholds": {
+                    "DISTRESS_HIGH": {
+                        "max": 0.003,
+                        "min": 0.002
+                    },
+                    "CRITICAL_HIGH": {
+                        "max": 0.004,
+                        "min": 0.003
+                    },
+                    "SEVERE_HIGH": {
+                        "max": 1.0,
+                        "min": 0.004
+                    }
+                },
+                "input": "Crew_Quarters_Environment.CO2"
+            },
+            "malfunctions": []
+        },
+        "OGS": {
+            "moduleName": "OGS",
+            "moduleType": "OGS",
+            "consumers": [
+                {
+                    "type": "PotableWater",
+                    "rates": {
+                        "maxFlowRates": [
+                            10.0
+                        ],
+                        "desiredFlowRates": [
+                            10.0
+                        ],
+                        "actualFlowRates": [
+                            0.5556
+                        ],
+                        "initialFlowRates": [
+                            10.0
+                        ]
+                    },
+                    "connections": [
+                        "Potable_Water_Store"
+                    ]
+                },
+                {
+                    "type": "Power",
+                    "rates": {
+                        "maxFlowRates": [
+                            1000.0
+                        ],
+                        "desiredFlowRates": [
+                            1000.0
+                        ],
+                        "actualFlowRates": [
+                            1000.0
+                        ],
+                        "initialFlowRates": [
+                            1000.0
+                        ]
+                    },
+                    "connections": [
+                        "General_Power_Store"
+                    ]
+                }
+            ],
+            "producers": [
+                {
+                    "type": "H2",
+                    "rates": {
+                        "maxFlowRates": [
+                            1000.0
+                        ],
+                        "desiredFlowRates": [
+                            1000.0
+                        ],
+                        "actualFlowRates": [
+                            30.840553
+                        ],
+                        "initialFlowRates": [
+                            1000.0
+                        ]
+                    },
+                    "connections": [
+                        "H2_Store"
+                    ]
+                },
+                {
+                    "type": "O2",
+                    "rates": {
+                        "maxFlowRates": [
+                            1000.0
+                        ],
+                        "desiredFlowRates": [
+                            1000.0
+                        ],
+                        "actualFlowRates": [
+                            15.420277
+                        ],
+                        "initialFlowRates": [
+                            1000.0
+                        ]
+                    },
+                    "connections": [
+                        "O2_Store"
+                    ]
+                }
+            ],
+            "malfunctions": []
+        },
+        "Dry_Waste_Store": {
+            "moduleName": "Dry_Waste_Store",
+            "moduleType": "DryWasteStore",
+            "properties": {
+                "currentLevel": 0.17731969,
+                "currentCapacity": 1000000.0,
+                "overflow": 0.0,
+                "isPipe": false
+            },
+            "malfunctions": []
+        },
+        "H2_Store": {
+            "moduleName": "H2_Store",
+            "moduleType": "H2Store",
+            "properties": {
+                "currentLevel": 5890.535,
+                "currentCapacity": 10000.0,
+                "overflow": 0.0,
+                "isPipe": false
+            },
+            "malfunctions": []
+        },
+        "General_Power_Store": {
+            "moduleName": "General_Power_Store",
+            "moduleType": "PowerStore",
+            "properties": {
+                "currentLevel": 99600.0,
+                "currentCapacity": 100000.0,
+                "overflow": 115000.0,
+                "isPipe": false
+            },
+            "malfunctions": []
+        },
+        "O2_Store": {
+            "moduleName": "O2_Store",
+            "moduleType": "O2Store",
+            "properties": {
+                "currentLevel": 3945.26,
+                "currentCapacity": 10000.0,
+                "overflow": 0.0,
+                "isPipe": false
+            },
+            "malfunctions": []
+        },
+        "Dirty_Water_Store": {
+            "moduleName": "Dirty_Water_Store",
+            "moduleType": "DirtyWaterStore",
+            "properties": {
+                "currentLevel": 11.541879,
+                "currentCapacity": 10000.0,
+                "overflow": 0.0,
+                "isPipe": false
+            },
+            "malfunctions": []
+        },
+        "BiomassPS": {
+            "moduleName": "BiomassPS",
+            "moduleType": "BiomassPS",
+            "consumers": [
+                {
+                    "type": "GreyWater",
+                    "rates": {
+                        "maxFlowRates": [
+                            100.0
+                        ],
+                        "desiredFlowRates": [
+                            100.0
+                        ],
+                        "actualFlowRates": [
+                            0.0014953613
+                        ],
+                        "initialFlowRates": [
+                            100.0
+                        ]
+                    },
+                    "connections": [
+                        "Grey_Water_Store"
+                    ]
+                },
+                {
+                    "type": "PotableWater",
+                    "rates": {
+                        "maxFlowRates": [
+                            100.0
+                        ],
+                        "desiredFlowRates": [
+                            100.0
+                        ],
+                        "actualFlowRates": [
+                            0.0
+                        ],
+                        "initialFlowRates": [
+                            100.0
+                        ]
+                    },
+                    "connections": [
+                        "Potable_Water_Store"
+                    ]
+                },
+                {
+                    "type": "Power",
+                    "rates": {
+                        "maxFlowRates": [
+                            400.0
+                        ],
+                        "desiredFlowRates": [
+                            400.0
+                        ],
+                        "actualFlowRates": [
+                            400.0
+                        ],
+                        "initialFlowRates": [
+                            400.0
+                        ]
+                    },
+                    "connections": [
+                        "General_Power_Store"
+                    ]
+                },
+                {
+                    "type": "Air",
+                    "rates": {
+                        "maxFlowRates": [
+                            0.0
+                        ],
+                        "desiredFlowRates": [
+                            0.0
+                        ],
+                        "actualFlowRates": [
+                            0.006404476
+                        ],
+                        "initialFlowRates": [
+                            0.0
+                        ]
+                    },
+                    "connections": [
+                        "Crew_Quarters_Environment"
+                    ]
+                }
+            ],
+            "producers": [
+                {
+                    "type": "DirtyWater",
+                    "rates": {
+                        "maxFlowRates": [
+                            100.0
+                        ],
+                        "desiredFlowRates": [
+                            100.0
+                        ],
+                        "actualFlowRates": [
+                            0.0
+                        ],
+                        "initialFlowRates": [
+                            100.0
+                        ]
+                    },
+                    "connections": [
+                        "Dirty_Water_Store"
+                    ]
+                },
+                {
+                    "type": "Air",
+                    "rates": {
+                        "maxFlowRates": [
+                            0.0
+                        ],
+                        "desiredFlowRates": [
+                            0.0
+                        ],
+                        "actualFlowRates": [
+                            0.0074291914
+                        ],
+                        "initialFlowRates": [
+                            0.0
+                        ]
+                    },
+                    "connections": [
+                        "Crew_Quarters_Environment"
+                    ]
+                },
+                {
+                    "type": "Biomass",
+                    "rates": {
+                        "maxFlowRates": [
+                            100.0
+                        ],
+                        "desiredFlowRates": [
+                            100.0
+                        ],
+                        "actualFlowRates": [
+                            0.0
+                        ],
+                        "initialFlowRates": [
+                            100.0
+                        ]
+                    },
+                    "connections": [
+                        "Biomass_Store"
+                    ]
+                }
+            ],
+            "properties": {
+                "shelves": [
+                    {
+                        "plantType": "Soybean",
+                        "cropAreaUsed": 1.0,
+                        "cropAreaTotal": 1.0,
+                        "timeTillCanopyClosure": 26.0,
+                        "harvestInterval": 86.0,
+                        "ppfNeeded": 648.15,
+                        "molesOfCO2Inhaled": 0.006404476
+                    }
+                ]
+            },
+            "malfunctions": []
+        }
     }
-  }
 }
