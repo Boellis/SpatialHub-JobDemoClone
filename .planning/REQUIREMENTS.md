@@ -47,10 +47,10 @@ Requirements for BioSim integration milestone. Each maps to roadmap phases.
 
 ### Pipeline
 
-- [ ] **PIPE-01**: Django async management command (`biosim_bridge`) connects to BioSim WebSocket
-- [ ] **PIPE-02**: Bridge writes BioSim tick data to `enriched_sensor_data` via `asyncio.to_thread()`
-- [ ] **PIPE-03**: `/api/enriched/` endpoint serves real BioSim historical data with no API changes
-- [ ] **PIPE-04**: `/trends` page displays real BioSim simulation history
+- [x] **PIPE-01**: Django async management command (`biosim_bridge`) connects to BioSim WebSocket
+- [x] **PIPE-02**: Bridge writes BioSim tick data to `enriched_sensor_data` via `asyncio.to_thread()`
+- [x] **PIPE-03**: `/api/enriched/` endpoint serves real BioSim historical data with no API changes
+- [x] **PIPE-04**: `/trends` page displays real BioSim simulation history
 - [ ] **PIPE-05**: Tick log bulk import from BioSim `/log` endpoint into `enriched_sensor_data`
 
 ### Observability
@@ -107,10 +107,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ANOM-02 | Phase 8 | Complete |
 | ANOM-03 | Phase 8 | Complete |
 | ANOM-04 | Phase 8 | Complete |
-| PIPE-01 | Phase 9 | Pending |
-| PIPE-02 | Phase 9 | Pending |
-| PIPE-03 | Phase 9 | Pending |
-| PIPE-04 | Phase 9 | Pending |
+| PIPE-01 | Phase 9 | Complete |
+| PIPE-02 | Phase 9 | Complete |
+| PIPE-03 | Phase 9 | Complete |
+| PIPE-04 | Phase 9 | Complete |
 | PIPE-05 | Phase 9 | Pending |
 | OBS-01 | Phase 5 | Complete |
 

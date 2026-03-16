@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: BioSim Integration
 status: completed
-stopped_at: Phase 9 context gathered
-last_updated: "2026-03-16T18:29:13.554Z"
+stopped_at: "Completed 09-01: biosim_bridge management command + Docker service"
+last_updated: "2026-03-16T19:01:46.644Z"
 last_activity: 2026-03-16 — biosimMapper.ts implemented via TDD, 20 fixture-pinned tests passing
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 11
+  completed_plans: 10
   percent: 0
 ---
 
@@ -61,6 +61,8 @@ Key v2.0 architectural decisions (pending confirmation):
 - [Phase 08-anomalydrawer-rewire]: deleteMalfunction is fire-and-forget — UI clears optimistically, no rollback needed for cancel in BioSim mode
 - [Phase 08-anomalydrawer-rewire]: simIdRef (useRef) captures simId at all 3 probe sites so WS_OPEN handler has the value; setBiosimSimId(null) called separately on WS_CLOSE and startFallback
 - [Phase 08-anomalydrawer-rewire]: simIdRef (useRef) captures simId at all 3 probe sites so WS_OPEN handler has the value without closure issues
+- [Phase 09-django-bridge-historical-pipeline]: probe_sim_id, write_rows, process_tick as module-level async functions — independent unit testing without Command class
+- [Phase 09-django-bridge-historical-pipeline]: asyncio.to_thread for bulk_create — keeps async event loop unblocked during DB writes
 
 ### Pending Todos
 
@@ -74,6 +76,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T18:29:13.547Z
-Stopped at: Phase 9 context gathered
-Resume file: .planning/phases/09-django-bridge-historical-pipeline/09-CONTEXT.md
+Last session: 2026-03-16T19:01:46.639Z
+Stopped at: Completed 09-01: biosim_bridge management command + Docker service
+Resume file: None
