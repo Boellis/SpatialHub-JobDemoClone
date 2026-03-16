@@ -76,12 +76,15 @@ export interface HabitatState {
   anomalies: Record<string, AnomalyScenarioState>;
   scenarioAnnouncements: ScenarioAnnouncement[];
   simSource: SimSource;
+  biosimSimId: string | null;
+  biosimMalfunctionIds: Record<string, number>;  // scenarioId -> malfunctionID
   startSimulation: () => void;
   stopSimulation: () => void;
   tick: (readings: Record<string, Record<string, SensorReading>>) => void;
   getZoneStatus: (zoneId: string) => ZoneStatus;
   setSelectedZoneId: (zoneId: string | null) => void;
   setSimSource: (source: SimSource) => void;
+  setBiosimSimId: (id: string | null) => void;
   triggerAnomaly: (scenarioId: string) => void;
   cancelAnomaly: (scenarioId: string) => void;
   tickAnomalies: () => void;
