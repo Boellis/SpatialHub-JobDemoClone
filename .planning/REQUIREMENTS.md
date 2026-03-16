@@ -35,7 +35,7 @@ Requirements for BioSim integration milestone. Each maps to roadmap phases.
 
 - [x] **FALL-01**: `useSimSource` hook auto-detects BioSim availability within 2-5 seconds
 - [x] **FALL-02**: Habitat gracefully falls back to client-side simulation when BioSim unavailable
-- [ ] **FALL-03**: HabitatHUD shows connection badge ("BioSim Connected" green / "Fallback Mode" amber)
+- [x] **FALL-03**: HabitatHUD shows connection badge ("BioSim Connected" green / "Fallback Mode" amber)
 - [x] **FALL-04**: Exactly one data source active at any time (state machine enforced)
 
 ### Anomaly
@@ -101,7 +101,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PERF-07 | Phase 7 | Complete |
 | FALL-01 | Phase 7 | Complete |
 | FALL-02 | Phase 7 | Complete |
-| FALL-03 | Phase 7 | Pending |
+| FALL-03 | Phase 7 | Complete |
 | FALL-04 | Phase 7 | Complete |
 | ANOM-01 | Phase 8 | Pending |
 | ANOM-02 | Phase 8 | Pending |

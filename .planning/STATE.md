@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: BioSim Integration
 status: completed
-stopped_at: Completed 07-01-PLAN.md
-last_updated: "2026-03-16T05:09:19.514Z"
+stopped_at: Completed 07-02-PLAN.md
+last_updated: "2026-03-16T05:45:07.662Z"
 last_activity: 2026-03-16 — biosimMapper.ts implemented via TDD, 20 fixture-pinned tests passing
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
   percent: 0
 ---
 
@@ -55,6 +55,8 @@ Key v2.0 architectural decisions (pending confirmation):
 - [Phase 06-data-mapping-layer]: biosim_tick_to_rows is a pure function with no DB calls — caller (Phase 9 bridge) owns bulk_create
 - [Phase 07]: Worker logic tested via inline re-implementation mirroring biosimWorker.ts — @vitest/web-worker incompatible with Vite module Worker import paths in jsdom
 - [Phase 07]: probeBioSim, wsUrl, RETRY_DELAYS exported from useSimSource.ts — enables pure-function unit testing of state machine inputs without hook infrastructure
+- [Phase 07-frontend-websocket-fallback]: ConnectionBadge uses Record<SimSource, BadgeConfig> map (not switch/if) — adding a 5th state requires one map entry only
+- [Phase 07-frontend-websocket-fallback]: BioSim probe response is wrapped { simulations: [1] } not a bare array — probe updated to handle both shapes
 
 ### Pending Todos
 
@@ -68,6 +70,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T05:09:19.509Z
-Stopped at: Completed 07-01-PLAN.md
+Last session: 2026-03-16T05:45:07.651Z
+Stopped at: Completed 07-02-PLAN.md
 Resume file: None

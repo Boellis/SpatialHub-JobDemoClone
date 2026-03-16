@@ -23,7 +23,7 @@
 
 - [x] **Phase 5: Docker Infrastructure** — Full stack starts with `docker compose up`; BioSim running and module JSON captured (completed 2026-03-15)
 - [x] **Phase 6: Data Mapping Layer** — Pure translation functions converting BioSim physics output to ZoneState/SensorReading types (completed 2026-03-16)
-- [ ] **Phase 7: Frontend WebSocket + Fallback** — 3D habitat driven by real BioSim physics; auto-fallback to client-side sim when BioSim unavailable
+- [x] **Phase 7: Frontend WebSocket + Fallback** — 3D habitat driven by real BioSim physics; auto-fallback to client-side sim when BioSim unavailable (completed 2026-03-16)
 - [ ] **Phase 8: AnomalyDrawer Rewire** — AnomalyDrawer triggers real BioSim malfunctions with cascading physics failures
 - [ ] **Phase 9: Django Bridge + Historical Pipeline** — Django async bridge ingests BioSim ticks; /trends serves real simulation history
 
@@ -71,7 +71,7 @@ Plans:
   3. HabitatHUD displays a green "BioSim Connected" badge or amber "Fallback Mode" badge — never both, never neither
   4. Navigating away from `/habitat` and back five times leaves exactly one WebSocket connection open in DevTools
   5. 3D scene holds 60fps during peak telemetry throughput with WebSocket data processing off the main render thread
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 07-01-PLAN.md — Type contracts, Worker-owned WebSocket, useSimSource orchestration hook with probe/fallback/reconnection/RAF buffer
@@ -119,6 +119,6 @@ Plans:
 | 4. Anomaly System | v1.0 | 2/2 | Complete | 2026-03-14 |
 | 5. Docker Infrastructure | v2.0 | 2/3 | Gap closure | - |
 | 6. Data Mapping Layer | v2.0 | 2/2 | Complete | 2026-03-16 |
-| 7. Frontend WebSocket + Fallback | 1/2 | In Progress|  | - |
+| 7. Frontend WebSocket + Fallback | 2/2 | Complete   | 2026-03-16 | - |
 | 8. AnomalyDrawer Rewire | v2.0 | 0/1 | Not started | - |
 | 9. Django Bridge + Historical Pipeline | v2.0 | 0/2 | Not started | - |
