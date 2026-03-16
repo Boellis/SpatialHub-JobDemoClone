@@ -55,11 +55,11 @@ Plans:
   2. Unit tests for `biosimMapper.ts` pass against the Phase 5 JSON fixture, covering all four habitat zones
   3. `biosim_ingest.py` converts a BioSim tick to valid `EnrichedSensorData` rows with documented unit conversions (mol, Pa, flow rates)
   4. Sparkline history uses fixed-size ring buffers — no unbounded array growth under sustained telemetry
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 06-01: biosimMapper.ts — TypeScript pure mapper with unit tests
-- [ ] 06-02: biosim_ingest.py — Python pure mapper with unit tests
+- [ ] 06-01-PLAN.md — biosimMapper.ts: vitest setup, BIOSIM_SENSOR_THRESHOLDS, TDD pure mapper with ring buffer (TELE-02, PERF-03)
+- [ ] 06-02-PLAN.md — biosim_ingest.py: pytest setup, TDD pure translation function for bulk_create (PERF-04)
 
 ### Phase 7: Frontend WebSocket + Fallback
 **Goal**: The 3D habitat is driven by real BioSim physics when Docker is running, automatically falls back to the v1.0 client-side simulation when BioSim is unavailable, and the HabitatHUD shows which data source is active — all without any changes to 3D scene components
@@ -118,7 +118,7 @@ Plans:
 | 3. UI Panels and Live Data | v1.0 | 2/2 | Complete | 2026-03-13 |
 | 4. Anomaly System | v1.0 | 2/2 | Complete | 2026-03-14 |
 | 5. Docker Infrastructure | v2.0 | 2/3 | Gap closure | - |
-| 6. Data Mapping Layer | v2.0 | 0/2 | Not started | - |
+| 6. Data Mapping Layer | v2.0 | 0/2 | Planned | - |
 | 7. Frontend WebSocket + Fallback | v2.0 | 0/2 | Not started | - |
 | 8. AnomalyDrawer Rewire | v2.0 | 0/1 | Not started | - |
 | 9. Django Bridge + Historical Pipeline | v2.0 | 0/2 | Not started | - |
