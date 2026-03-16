@@ -42,7 +42,7 @@ services:
         echo 'Waiting for BioSim HTTP server to be ready...';
         until curl -sf http://localhost:8009/api/simulation >/dev/null 2>&1; do sleep 2; done;
         echo 'BioSim server ready, starting simulation...';
-        SIM_ID=$$(curl -s -X POST http://localhost:8009/api/simulation/start --data-binary @configuration/default.biosim -H 'Content-Type: text/plain');
+        SIM_ID=$$(curl -s -X POST 'http://localhost:8009/api/simulation/start?writeTicks=true' --data-binary @configuration/default.biosim -H 'Content-Type: text/plain');
         echo \"Simulation started with ID: $$SIM_ID\";
         wait $$SERVER_PID
       "
