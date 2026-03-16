@@ -76,5 +76,20 @@ services:
       db:
         condition: service_healthy
 
+  # -----------------------------------------
+  # BioSim Bridge -- ingests WS ticks into PostgreSQL
+  # Same Django image, different command
+  # -----------------------------------------
+  bridge:
+    build: .
+    env_file: .env
+    command: ["python", "manage.py", "biosim_bridge"]
+    depends_on:
+      db:
+        condition: service_healthy
+      biosim:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   pgdata:
