@@ -86,10 +86,11 @@ Plans:
   2. Clicking cancel sends a DELETE to BioSim using the stored malfunction ID — bias ramp-down is not used in BioSim mode
   3. Optional delay field in AnomalyDrawer schedules malfunction onset via `tickToOccur` parameter
   4. In fallback (engine) mode, all four existing anomaly scenarios behave identically to v1.0
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 08-01: habitatStore.triggerAnomaly rewire + BioSim malfunction API integration
+- [ ] 08-01-PLAN.md — biosimMalfunctions service, habitatStore dual-path triggerAnomaly/cancelAnomaly, unit tests (ANOM-01, ANOM-02, ANOM-03, ANOM-04)
+- [ ] 08-02-PLAN.md — useSimSource biosimSimId wiring, end-to-end visual verification (ANOM-01, ANOM-02, ANOM-04)
 
 ### Phase 9: Django Bridge + Historical Pipeline
 **Goal**: A long-running Django async management command independently ingests BioSim tick data into `enriched_sensor_data`, making `/api/enriched/` and `/trends` serve real simulation history — no frontend or API endpoint changes required
@@ -119,6 +120,6 @@ Plans:
 | 4. Anomaly System | v1.0 | 2/2 | Complete | 2026-03-14 |
 | 5. Docker Infrastructure | v2.0 | 2/3 | Gap closure | - |
 | 6. Data Mapping Layer | v2.0 | 2/2 | Complete | 2026-03-16 |
-| 7. Frontend WebSocket + Fallback | 2/2 | Complete   | 2026-03-16 | - |
-| 8. AnomalyDrawer Rewire | v2.0 | 0/1 | Not started | - |
+| 7. Frontend WebSocket + Fallback | v2.0 | 2/2 | Complete | 2026-03-16 |
+| 8. AnomalyDrawer Rewire | v2.0 | 0/2 | Not started | - |
 | 9. Django Bridge + Historical Pipeline | v2.0 | 0/2 | Not started | - |
