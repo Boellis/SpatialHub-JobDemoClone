@@ -58,7 +58,7 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 06-01-PLAN.md — biosimMapper.ts: vitest setup, BIOSIM_SENSOR_THRESHOLDS, TDD pure mapper with ring buffer (TELE-02, PERF-03)
+- [x] 06-01-PLAN.md — biosimMapper.ts: vitest setup, BIOSIM_SENSOR_THRESHOLDS, TDD pure mapper with ring buffer (TELE-02, PERF-03) — completed 2026-03-16
 - [ ] 06-02-PLAN.md — biosim_ingest.py: pytest setup, TDD pure translation function for bulk_create (PERF-04)
 
 ### Phase 7: Frontend WebSocket + Fallback
@@ -118,7 +118,7 @@ Plans:
 | 3. UI Panels and Live Data | v1.0 | 2/2 | Complete | 2026-03-13 |
 | 4. Anomaly System | v1.0 | 2/2 | Complete | 2026-03-14 |
 | 5. Docker Infrastructure | v2.0 | 2/3 | Gap closure | - |
-| 6. Data Mapping Layer | v2.0 | 0/2 | Planned | - |
+| 6. Data Mapping Layer | v2.0 | 1/2 | In progress | - |
 | 7. Frontend WebSocket + Fallback | v2.0 | 0/2 | Not started | - |
 | 8. AnomalyDrawer Rewire | v2.0 | 0/1 | Not started | - |
 | 9. Django Bridge + Historical Pipeline | v2.0 | 0/2 | Not started | - |

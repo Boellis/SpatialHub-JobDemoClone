@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: BioSim Integration
-status: verifying
-stopped_at: Phase 6 context gathered
-last_updated: "2026-03-16T02:19:27.188Z"
-last_activity: 2026-03-15 — Phase 5 all plans executed, live BioSim fixture captured
+status: in-progress
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-03-16T03:28:41Z"
+last_activity: 2026-03-16 — Phase 6 Plan 1 complete (biosimMapper.ts TDD, 20 tests passing)
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 5
+  completed_plans: 4
   percent: 0
 ---
 
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-14)
 
 **Core value:** 3D habitat visualization with live sensor data that feels real, responsive, and impressive enough to make someone say "this could actually run a Mars greenhouse."
-**Current focus:** v2.0 BioSim Integration — Phase 5: Docker Infrastructure
+**Current focus:** v2.0 BioSim Integration — Phase 6: Data Mapping Layer
 
 ## Current Position
 
 Milestone: v2.0 BioSim Integration
-Phase: 5 of 9 (Docker Infrastructure)
-Plan: 3/3 complete
-Status: All plans executed, pending verification
-Last activity: 2026-03-15 — Phase 5 all plans executed, live BioSim fixture captured
+Phase: 6 of 9 (Data Mapping Layer)
+Plan: 1/2 complete
+Status: Plan 1 complete, ready for Plan 2
+Last activity: 2026-03-16 — biosimMapper.ts implemented via TDD, 20 fixture-pinned tests passing
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -48,6 +48,9 @@ Key v2.0 architectural decisions (pending confirmation):
 - [Phase 05-docker-infrastructure]: Multi-stage Dockerfile: eclipse-temurin:21-jdk for Maven build, JRE-only runtime (saves ~180MB)
 - [Phase 05-docker-infrastructure]: BioSim simulation auto-start via command override (background server + poll-until-ready + POST to /api/simulation/start)
 - [Phase 05-docker-infrastructure]: Django entrypoint placed in django_backend/docker/ to avoid modifying root Dockerfile (production asset)
+- [Phase 06-01-data-mapping]: BIOSIM_SENSOR_THRESHOLDS separate from ZONE_CONFIGS — BioSim operates at different ranges (e.g., gb-humidity green 15-35% vs client-sim 45-65%)
+- [Phase 06-01-data-mapping]: deriveBioSimStatus unexported — keeps BioSim threshold logic contained in biosimMapper.ts
+- [Phase 06-01-data-mapping]: mapBioSimToHabitatReadings existingHistory parameter optional — mapper stays pure, Phase 7 hook manages state continuity
 
 ### Pending Todos
 
@@ -61,6 +64,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T02:19:27.182Z
-Stopped at: Phase 6 context gathered
-Resume file: .planning/phases/06-data-mapping-layer/06-CONTEXT.md
+Last session: 2026-03-16T03:28:41Z
+Stopped at: Completed 06-01-PLAN.md
+Resume file: .planning/phases/06-data-mapping-layer/06-02-PLAN.md

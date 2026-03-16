@@ -17,7 +17,7 @@ Requirements for BioSim integration milestone. Each maps to roadmap phases.
 ### Telemetry
 
 - [ ] **TELE-01**: Frontend WebSocket hook (`useBioSimWS`) connects to BioSim WS and drives habitatStore
-- [ ] **TELE-02**: Pure mapping function (`biosimMapper.ts`) translates BioSim module hierarchy to ZoneState/SensorReading types
+- [x] **TELE-02**: Pure mapping function (`biosimMapper.ts`) translates BioSim module hierarchy to ZoneState/SensorReading types
 - [ ] **TELE-03**: WebSocket messages buffered via useRef and flushed on requestAnimationFrame cadence
 - [ ] **TELE-04**: 3D habitat scene displays real BioSim physics data with no component changes
 
@@ -25,7 +25,7 @@ Requirements for BioSim integration milestone. Each maps to roadmap phases.
 
 - [ ] **PERF-01**: WebSocket data processing runs in a Web Worker to keep main thread free for rendering
 - [ ] **PERF-02**: Zustand store uses granular selectors so only affected zone/sensor components re-render on tick
-- [ ] **PERF-03**: Memory-bounded rolling buffers (fixed-size ring buffers for sparkline history, no unbounded arrays)
+- [x] **PERF-03**: Memory-bounded rolling buffers (fixed-size ring buffers for sparkline history, no unbounded arrays)
 - [ ] **PERF-04**: Django bridge batches writes (bulk_create per tick batch, not individual row inserts)
 - [ ] **PERF-05**: 3D scene maintains 60fps during peak telemetry throughput (10+ ticks/sec)
 - [ ] **PERF-06**: Sub-100ms latency from BioSim state change to visual update in habitat view
@@ -89,12 +89,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INFRA-03 | Phase 5 | Complete |
 | INFRA-04 | Phase 5 | Complete |
 | TELE-01 | Phase 7 | Pending |
-| TELE-02 | Phase 6 | Pending |
+| TELE-02 | Phase 6 | Complete |
 | TELE-03 | Phase 7 | Pending |
 | TELE-04 | Phase 7 | Pending |
 | PERF-01 | Phase 7 | Pending |
 | PERF-02 | Phase 7 | Pending |
-| PERF-03 | Phase 6 | Pending |
+| PERF-03 | Phase 6 | Complete |
 | PERF-04 | Phase 6 | Pending |
 | PERF-05 | Phase 7 | Pending |
 | PERF-06 | Phase 7 | Pending |
