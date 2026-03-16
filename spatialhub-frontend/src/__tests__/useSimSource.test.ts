@@ -55,6 +55,7 @@ class MockWorker {
 
 let startSimMock: ReturnType<typeof vi.fn>;
 let stopSimMock: ReturnType<typeof vi.fn>;
+let setBiosimSimIdMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -85,6 +86,8 @@ beforeEach(() => {
     isRunning: false,
     solElapsed: 0,
     tickCount: 0,
+    biosimSimId: null,
+    biosimMalfunctionIds: {},
   });
 
   // Patch startSimulation and stopSimulation to no-ops that just update isRunning.
@@ -95,9 +98,13 @@ beforeEach(() => {
   stopSimMock = vi.fn(() => {
     useHabitatStore.setState({ isRunning: false });
   });
+  setBiosimSimIdMock = vi.fn((id: string | null) => {
+    useHabitatStore.setState({ biosimSimId: id });
+  });
   useHabitatStore.setState({
     startSimulation: startSimMock as unknown as () => void,
     stopSimulation: stopSimMock as unknown as () => void,
+    setBiosimSimId: setBiosimSimIdMock as unknown as (id: string | null) => void,
   });
 });
 
@@ -373,5 +380,68 @@ describe('useSimSource hook', () => {
 
     const sentTypes = (worker.sentMessages as Array<{ type: string }>).map((m) => m.type);
     expect(sentTypes).toContain('DISCONNECT');
+  });
+
+  // ANOM-01/ANOM-02: WS_OPEN -> setBiosimSimId called with probed simId
+  it('on WS_OPEN, setBiosimSimId is called with the probed simId', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [42] }));
+
+    const { unmount } = renderHook(() => useSimSource());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+
+    act(() => {
+      getWorker().fireMessage({ type: 'WS_OPEN' });
+    });
+
+    expect(setBiosimSimIdMock).toHaveBeenCalledWith('42');
+    expect(useHabitatStore.getState().biosimSimId).toBe('42');
+
+    unmount();
+  });
+
+  // ANOM-04: startFallback -> setBiosimSimId called with null
+  it('on startFallback, setBiosimSimId is called with null', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => [42] }) // initial probe
+      .mockRejectedValue(new Error('BioSim down')) // retry probes
+    );
+
+    const { unmount } = renderHook(() => useSimSource());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+
+    act(() => {
+      getWorker().fireMessage({ type: 'WS_OPEN' });
+    });
+
+    // Trigger disconnect to initiate retry -> fallback path
+    act(() => {
+      getWorker().fireMessage({ type: 'WS_CLOSE', code: 1006 });
+    });
+
+    // Advance through all retry delays + disconnected display delay
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(RETRY_DELAYS[0] + 200);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(RETRY_DELAYS[1] + 200);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(RETRY_DELAYS[2] + 200);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DISCONNECTED_DISPLAY_MS + 200);
+    });
+
+    expect(useHabitatStore.getState().simSource).toBe('fallback');
+    // setBiosimSimId(null) called on WS_CLOSE and again on startFallback
+    expect(setBiosimSimIdMock).toHaveBeenCalledWith(null);
+
+    unmount();
   });
 });

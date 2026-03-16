@@ -109,6 +109,7 @@ export function useSimSource(): void {
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const disconnectedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef<boolean>(false);
+  const simIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -157,6 +158,7 @@ export function useSimSource(): void {
       stopRAFLoop();
       if (!mountedRef.current) return;
       useHabitatStore.getState().setSimSource('fallback');
+      useHabitatStore.getState().setBiosimSimId(null);
       useHabitatStore.getState().startSimulation();
     }
 
@@ -181,6 +183,7 @@ export function useSimSource(): void {
         if (!mountedRef.current) return;
 
         if (simId !== null) {
+          simIdRef.current = simId;
           const history = extractHistory();
           const cmd: WorkerCommand = { type: 'SYNC_HISTORY', history };
           workerRef.current?.postMessage(cmd);
@@ -203,6 +206,9 @@ export function useSimSource(): void {
           // BioSim connected — stop client-side engine, switch to WS path
           useHabitatStore.getState().stopSimulation();
           useHabitatStore.getState().setSimSource('biosim');
+          if (simIdRef.current !== null) {
+            useHabitatStore.getState().setBiosimSimId(simIdRef.current);
+          }
           retryCountRef.current = 0;
           startRAFLoop();
           break;
@@ -217,6 +223,7 @@ export function useSimSource(): void {
           // Stop RAF loop before any state transition (FALL-04 invariant)
           stopRAFLoop();
           useHabitatStore.getState().setSimSource('disconnected');
+          useHabitatStore.getState().setBiosimSimId(null);
           scheduleRetry();
           break;
 
@@ -238,6 +245,7 @@ export function useSimSource(): void {
       if (!mountedRef.current) return;
       if (simId === null) return;
 
+      simIdRef.current = simId;
       useHabitatStore.getState().setSimSource('connecting');
       const history = extractHistory();
       const syncCmd: WorkerCommand = { type: 'SYNC_HISTORY', history };
@@ -252,6 +260,7 @@ export function useSimSource(): void {
       if (!mountedRef.current) return;
 
       if (simId !== null) {
+        simIdRef.current = simId;
         const history = extractHistory();
         const syncCmd: WorkerCommand = { type: 'SYNC_HISTORY', history };
         worker.postMessage(syncCmd);
@@ -298,6 +307,7 @@ export function useSimSource(): void {
 
       // Null out remaining refs
       pendingReadingsRef.current = null;
+      simIdRef.current = null;
     };
   }, []);
 }
