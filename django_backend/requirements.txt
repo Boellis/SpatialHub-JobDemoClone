@@ -6,3 +6,5 @@ django-cors-headers
 google-cloud-pubsub>=2.20.0
 pytest>=7.0
 pytest-django>=4.0
+pytest-asyncio>=0.23
+aiohttp>=3.9
