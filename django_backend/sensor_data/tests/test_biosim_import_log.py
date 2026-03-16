@@ -43,7 +43,7 @@ def test_command_class_importable():
 
 
 # ---------------------------------------------------------------------------
-# Test 2: discover_sim_id returns simID from mock GET /api/simulation/active
+# Test 2: discover_sim_id returns simID from mock GET /api/simulation
 # ---------------------------------------------------------------------------
 def test_discover_sim_id_returns_first_id():
     from sensor_data.management.commands.biosim_import_log import discover_sim_id
@@ -55,7 +55,7 @@ def test_discover_sim_id_returns_first_id():
     with patch("requests.get", return_value=mock_response) as mock_get:
         result = discover_sim_id("http://biosim:8009")
 
-    mock_get.assert_called_once_with("http://biosim:8009/api/simulation/active")
+    mock_get.assert_called_once_with("http://biosim:8009/api/simulation")
     assert result == 42
 
 

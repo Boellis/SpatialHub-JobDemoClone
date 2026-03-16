@@ -28,7 +28,7 @@ BIOSIM_URL = os.environ.get("BIOSIM_URL", "http://biosim:8009")
 
 def discover_sim_id(biosim_url):
     """
-    GET /api/simulation/active and return the first simulation ID.
+    GET /api/simulation and return the first simulation ID.
 
     Handles both response shapes:
       - {"simulations": [1]}  (wrapped)
@@ -36,7 +36,7 @@ def discover_sim_id(biosim_url):
 
     Raises CommandError if no active simulation is found.
     """
-    resp = requests.get(f"{biosim_url}/api/simulation/active")
+    resp = requests.get(f"{biosim_url}/api/simulation")
     resp.raise_for_status()
     data = resp.json()
 

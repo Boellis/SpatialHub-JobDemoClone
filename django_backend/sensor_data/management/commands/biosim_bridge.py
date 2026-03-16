@@ -3,7 +3,7 @@ biosim_bridge.py — Long-running Django management command that ingests BioSim
 WebSocket ticks into the enriched_sensor_data table.
 
 Connection lifecycle:
-  1. HTTP probe GET /api/simulation/active -> discover simID
+  1. HTTP probe GET /api/simulation -> discover simID
   2. WebSocket connect ws://{host}/ws/simulation/{simID}
   3. Per-tick: biosim_tick_to_rows(modules) -> bulk_create (via asyncio.to_thread)
   4. On disconnect: exponential backoff + re-probe for new simID
@@ -31,13 +31,13 @@ BACKOFF_DELAYS = [1, 2, 4, 8, 16, 30]
 
 async def probe_sim_id(session, biosim_url):
     """
-    GET /api/simulation/active and return the first simID, or None.
+    GET /api/simulation and return the first simID, or None.
 
     Handles two response shapes:
       {"simulations": [1]}  -- wrapped dict
       [1]                   -- bare list
     """
-    url = biosim_url.rstrip('/') + '/api/simulation/active'
+    url = biosim_url.rstrip('/') + '/api/simulation'
     async with session.get(url) as resp:
         data = await resp.json(content_type=None)
 
