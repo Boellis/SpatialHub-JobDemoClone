@@ -71,11 +71,11 @@ Plans:
   3. HabitatHUD displays a green "BioSim Connected" badge or amber "Fallback Mode" badge — never both, never neither
   4. Navigating away from `/habitat` and back five times leaves exactly one WebSocket connection open in DevTools
   5. 3D scene holds 60fps during peak telemetry throughput with WebSocket data processing off the main render thread
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 07-01: useSimSource + useBioSimWS hooks — WebSocket lifecycle, RAF buffering, Web Worker
-- [ ] 07-02: habitatStore update + HabitatView wiring + HabitatHUD badge
+- [ ] 07-01-PLAN.md — Type contracts, Worker-owned WebSocket, useSimSource orchestration hook with probe/fallback/reconnection/RAF buffer
+- [ ] 07-02-PLAN.md — ConnectionBadge component, HabitatHUD integration, HabitatView rewire, visual verification
 
 ### Phase 8: AnomalyDrawer Rewire
 **Goal**: AnomalyDrawer buttons trigger real BioSim malfunctions (with cascading physics failures) in BioSim mode and preserve existing bias-curve behavior in fallback mode — no JSX changes to AnomalyDrawer
@@ -109,7 +109,7 @@ Plans:
 
 ## Progress
 
-**Execution Order:** 5 → 6 → 7 → 8 → 9 (Phases 7-8 depend on 6; Phase 9 depends on 6 and can parallel 7-8)
+**Execution Order:** 5 -> 6 -> 7 -> 8 -> 9 (Phases 7-8 depend on 6; Phase 9 depends on 6 and can parallel 7-8)
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -118,7 +118,7 @@ Plans:
 | 3. UI Panels and Live Data | v1.0 | 2/2 | Complete | 2026-03-13 |
 | 4. Anomaly System | v1.0 | 2/2 | Complete | 2026-03-14 |
 | 5. Docker Infrastructure | v2.0 | 2/3 | Gap closure | - |
-| 6. Data Mapping Layer | 2/2 | Complete   | 2026-03-16 | - |
-| 7. Frontend WebSocket + Fallback | v2.0 | 0/2 | Not started | - |
+| 6. Data Mapping Layer | v2.0 | 2/2 | Complete | 2026-03-16 |
+| 7. Frontend WebSocket + Fallback | v2.0 | 0/2 | Planned | - |
 | 8. AnomalyDrawer Rewire | v2.0 | 0/1 | Not started | - |
 | 9. Django Bridge + Historical Pipeline | v2.0 | 0/2 | Not started | - |
