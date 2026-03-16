@@ -160,3 +160,220 @@ describe('biosimMalfunctions service', () => {
 // ---------------------------------------------------------------------------
 // habitatStore anomaly branching tests (added in Task 2)
 // ---------------------------------------------------------------------------
+
+import { useHabitatStore } from '../store/habitatStore';
+
+describe('habitatStore anomaly branching', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+    // Reset store state: simSource back to connecting, clear anomalies and biosim fields
+    useHabitatStore.setState({
+      simSource: 'connecting',
+      biosimSimId: null,
+      biosimMalfunctionIds: {},
+      anomalies: {},
+      scenarioAnnouncements: [],
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  describe('triggerAnomaly in BioSim mode', () => {
+    it('fires POST to correct URL when simSource is biosim and biosimSimId is set', async () => {
+      const mockFetch = vi.mocked(fetch);
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ malfunctionID: 42 }),
+      } as Response);
+
+      useHabitatStore.setState({ simSource: 'biosim', biosimSimId: '1' });
+      useHabitatStore.getState().triggerAnomaly('co2-spike');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:8009/api/simulation/1/modules/VCCR/malfunctions',
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+
+    it('anomalies[co2-spike] has phase peak immediately (sentinel for button active state)', () => {
+      const mockFetch = vi.mocked(fetch);
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ malfunctionID: 42 }),
+      } as Response);
+
+      useHabitatStore.setState({ simSource: 'biosim', biosimSimId: '1' });
+      useHabitatStore.getState().triggerAnomaly('co2-spike');
+
+      const state = useHabitatStore.getState();
+      expect(state.anomalies['co2-spike']).toBeDefined();
+      expect(state.anomalies['co2-spike'].phase).toBe('peak');
+    });
+
+    it('biosimMalfunctionIds has the real ID after POST resolves', async () => {
+      const mockFetch = vi.mocked(fetch);
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ malfunctionID: 42 }),
+      } as Response);
+
+      useHabitatStore.setState({ simSource: 'biosim', biosimSimId: '1' });
+      useHabitatStore.getState().triggerAnomaly('co2-spike');
+
+      // Flush all pending microtasks and promises
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+      expect(useHabitatStore.getState().biosimMalfunctionIds['co2-spike']).toBe(42);
+    });
+
+    it('calling triggerAnomaly again on active scenario triggers cancelAnomaly (toggle)', async () => {
+      const mockFetch = vi.mocked(fetch);
+      // First call: POST
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ malfunctionID: 42 }),
+      } as Response);
+      // Second call: DELETE (from cancelAnomaly)
+      mockFetch.mockResolvedValueOnce({ ok: true } as Response);
+
+      useHabitatStore.setState({ simSource: 'biosim', biosimSimId: '1' });
+      useHabitatStore.getState().triggerAnomaly('co2-spike');
+
+      // Wait for POST to resolve and real ID to be stored
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+      // Trigger again — should toggle (cancel)
+      useHabitatStore.getState().triggerAnomaly('co2-spike');
+
+      // anomalies entry should now be idle
+      expect(useHabitatStore.getState().anomalies['co2-spike'].phase).toBe('idle');
+      // biosimMalfunctionIds entry should be removed
+      expect(useHabitatStore.getState().biosimMalfunctionIds['co2-spike']).toBeUndefined();
+    });
+  });
+
+  describe('cancelAnomaly in BioSim mode', () => {
+    it('fires DELETE with stored malfunctionID', () => {
+      const mockFetch = vi.mocked(fetch);
+      mockFetch.mockResolvedValueOnce({ ok: true } as Response);
+
+      useHabitatStore.setState({
+        simSource: 'biosim',
+        biosimSimId: '1',
+        biosimMalfunctionIds: { 'co2-spike': 99 },
+        anomalies: { 'co2-spike': { phase: 'peak', ticksInPhase: 0, biasFactor: 1 } },
+      });
+
+      useHabitatStore.getState().cancelAnomaly('co2-spike');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:8009/api/simulation/1/modules/VCCR/malfunctions/99',
+        expect.objectContaining({ method: 'DELETE' })
+      );
+    });
+
+    it('anomalies entry is reset to idle phase', () => {
+      vi.mocked(fetch).mockResolvedValueOnce({ ok: true } as Response);
+
+      useHabitatStore.setState({
+        simSource: 'biosim',
+        biosimSimId: '1',
+        biosimMalfunctionIds: { 'co2-spike': 99 },
+        anomalies: { 'co2-spike': { phase: 'peak', ticksInPhase: 0, biasFactor: 1 } },
+      });
+
+      useHabitatStore.getState().cancelAnomaly('co2-spike');
+
+      expect(useHabitatStore.getState().anomalies['co2-spike'].phase).toBe('idle');
+    });
+
+    it('biosimMalfunctionIds entry is removed', () => {
+      vi.mocked(fetch).mockResolvedValueOnce({ ok: true } as Response);
+
+      useHabitatStore.setState({
+        simSource: 'biosim',
+        biosimSimId: '1',
+        biosimMalfunctionIds: { 'co2-spike': 99 },
+        anomalies: { 'co2-spike': { phase: 'peak', ticksInPhase: 0, biasFactor: 1 } },
+      });
+
+      useHabitatStore.getState().cancelAnomaly('co2-spike');
+
+      expect(useHabitatStore.getState().biosimMalfunctionIds['co2-spike']).toBeUndefined();
+    });
+  });
+
+  describe('triggerAnomaly in fallback mode', () => {
+    it('does NOT fire fetch when simSource is fallback', () => {
+      const mockFetch = vi.mocked(fetch);
+
+      useHabitatStore.setState({ simSource: 'fallback', biosimSimId: null });
+      useHabitatStore.getState().triggerAnomaly('co2-spike');
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('anomalies[co2-spike] has phase onset (existing behavior)', () => {
+      vi.mocked(fetch);
+
+      useHabitatStore.setState({ simSource: 'fallback', biosimSimId: null });
+      useHabitatStore.getState().triggerAnomaly('co2-spike');
+
+      const state = useHabitatStore.getState();
+      expect(state.anomalies['co2-spike']).toBeDefined();
+      expect(state.anomalies['co2-spike'].phase).toBe('onset');
+    });
+
+    it('onset ticksInPhase is 0 and biasFactor is 0 (existing behavior)', () => {
+      useHabitatStore.setState({ simSource: 'fallback', biosimSimId: null });
+      useHabitatStore.getState().triggerAnomaly('co2-spike');
+
+      const entry = useHabitatStore.getState().anomalies['co2-spike'];
+      expect(entry.ticksInPhase).toBe(0);
+      expect(entry.biasFactor).toBe(0);
+    });
+  });
+
+  describe('cancelAnomaly in fallback mode', () => {
+    it('transitions to recovery phase (existing behavior)', () => {
+      useHabitatStore.setState({
+        simSource: 'fallback',
+        biosimSimId: null,
+        anomalies: { 'co2-spike': { phase: 'onset', ticksInPhase: 3, biasFactor: 0.5 } },
+      });
+
+      useHabitatStore.getState().cancelAnomaly('co2-spike');
+
+      const entry = useHabitatStore.getState().anomalies['co2-spike'];
+      expect(entry.phase).toBe('recovery');
+      expect(entry.ticksInPhase).toBe(0);
+      expect(entry.biasFactor).toBe(0.5); // preserved from before
+    });
+  });
+
+  describe('setSimSource clears biosimMalfunctionIds', () => {
+    it('clears biosimMalfunctionIds when transitioning away from biosim', () => {
+      useHabitatStore.setState({
+        simSource: 'biosim',
+        biosimMalfunctionIds: { 'co2-spike': 42 },
+      });
+
+      useHabitatStore.getState().setSimSource('fallback');
+
+      expect(useHabitatStore.getState().biosimMalfunctionIds).toEqual({});
+    });
+
+    it('does NOT clear biosimMalfunctionIds when staying on biosim', () => {
+      useHabitatStore.setState({
+        simSource: 'biosim',
+        biosimMalfunctionIds: { 'co2-spike': 42 },
+      });
+
+      useHabitatStore.getState().setSimSource('biosim');
+
+      expect(useHabitatStore.getState().biosimMalfunctionIds).toEqual({ 'co2-spike': 42 });
+    });
+  });
+});

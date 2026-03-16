@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import type { AnomalyPhase, AnomalyScenarioState, ScenarioAnnouncement, SensorReading, ZoneState, ZoneStatus, HabitatState, SimSource } from '../types/habitat';
 import { ANOMALY_SCENARIOS } from '../simulation/anomalies';
 import { ZONE_CONFIGS } from '../simulation/constants';
+import { postMalfunction, deleteMalfunction, BIOSIM_MALFUNCTION_MAP } from '../simulation/biosimMalfunctions';
 
 // Build the initial zone state from ZONE_CONFIGS — all sensors at nominal, all green
 function buildInitialZones(): Record<string, ZoneState> {
@@ -60,7 +61,16 @@ export const useHabitatStore = create<HabitatState>()((set, get) => ({
   anomalies: {} as Record<string, AnomalyScenarioState>,
   scenarioAnnouncements: [] as ScenarioAnnouncement[],
   simSource: 'connecting' as SimSource,
-  setSimSource: (source: SimSource) => set({ simSource: source }),
+  biosimSimId: null as string | null,
+  biosimMalfunctionIds: {} as Record<string, number>,
+  setBiosimSimId: (id: string | null) => set({ biosimSimId: id }),
+  setSimSource: (source: SimSource) => {
+    const update: Partial<HabitatState> = { simSource: source };
+    if (source !== 'biosim') {
+      update.biosimMalfunctionIds = {};
+    }
+    set(update as HabitatState);
+  },
 
   startSimulation: () => {
     if (get().isRunning) {
@@ -126,15 +136,81 @@ export const useHabitatStore = create<HabitatState>()((set, get) => ({
   setSelectedZoneId: (zoneId: string | null) => set({ selectedZoneId: zoneId }),
 
   triggerAnomaly: (scenarioId: string) => {
+    const { simSource, biosimSimId, biosimMalfunctionIds, anomalies } = get();
+
+    if (simSource === 'biosim' && biosimSimId !== null) {
+      // BioSim path
+
+      // Toggle: if already active (sentinel -1 or real ID), cancel it instead
+      if (biosimMalfunctionIds[scenarioId] !== undefined) {
+        get().cancelAnomaly(scenarioId);
+        return;
+      }
+
+      const mapping = BIOSIM_MALFUNCTION_MAP[scenarioId];
+      if (!mapping) return;
+
+      // Optimistic pending guard: set sentinel so AnomalyDrawer isActive works immediately
+      // and double-clicks are blocked (biosimMalfunctionIds[-1] is the sentinel)
+      set((s) => ({
+        anomalies: {
+          ...s.anomalies,
+          [scenarioId]: { phase: 'peak', ticksInPhase: 0, biasFactor: 1 },
+        },
+        biosimMalfunctionIds: {
+          ...s.biosimMalfunctionIds,
+          [scenarioId]: -1,
+        },
+      }));
+
+      // Fire POST — update with real ID on success, rollback on failure
+      postMalfunction(biosimSimId, mapping.moduleName, mapping.intensity, mapping.length)
+        .then((malfunctionId) => {
+          if (malfunctionId !== null) {
+            // Update sentinel with real ID and push announcement
+            const scenario = ANOMALY_SCENARIOS.find((s) => s.id === scenarioId);
+            set((s) => ({
+              biosimMalfunctionIds: {
+                ...s.biosimMalfunctionIds,
+                [scenarioId]: malfunctionId,
+              },
+              scenarioAnnouncements: scenario
+                ? [
+                    ...s.scenarioAnnouncements,
+                    {
+                      scenarioId,
+                      label: scenario.label,
+                      zoneName: scenario.zoneName,
+                      zoneId: scenario.zoneId,
+                      timestamp: Date.now(),
+                    },
+                  ]
+                : s.scenarioAnnouncements,
+            }));
+          } else {
+            // POST failed — rollback sentinel
+            set((s) => {
+              const newAnomalies = { ...s.anomalies };
+              delete newAnomalies[scenarioId];
+              const newMalfunctionIds = { ...s.biosimMalfunctionIds };
+              delete newMalfunctionIds[scenarioId];
+              return { anomalies: newAnomalies, biosimMalfunctionIds: newMalfunctionIds };
+            });
+          }
+        });
+
+      return;
+    }
+
+    // Fallback path — existing onset/recovery bias-curve logic UNCHANGED
     const scenario = ANOMALY_SCENARIOS.find((s) => s.id === scenarioId);
     if (!scenario) return;
 
-    const state = get();
-    const current = state.anomalies[scenarioId];
+    const current = anomalies[scenarioId];
 
     // Toggle: if already active, cancel it instead
     if (current && current.phase !== 'idle') {
-      state.cancelAnomaly(scenarioId);
+      get().cancelAnomaly(scenarioId);
       return;
     }
 
@@ -157,8 +233,35 @@ export const useHabitatStore = create<HabitatState>()((set, get) => ({
   },
 
   cancelAnomaly: (scenarioId: string) => {
-    const state = get();
-    const current = state.anomalies[scenarioId];
+    const { simSource, biosimSimId, biosimMalfunctionIds, anomalies } = get();
+
+    if (simSource === 'biosim' && biosimSimId !== null) {
+      // BioSim path
+      const malfunctionId = biosimMalfunctionIds[scenarioId];
+      if (malfunctionId === undefined) return;
+
+      const mapping = BIOSIM_MALFUNCTION_MAP[scenarioId];
+      if (!mapping) return;
+
+      // Optimistic UI update — clear locally immediately
+      set((s) => {
+        const newAnomalies = {
+          ...s.anomalies,
+          [scenarioId]: { phase: 'idle' as const, ticksInPhase: 0, biasFactor: 0 },
+        };
+        const newMalfunctionIds = { ...s.biosimMalfunctionIds };
+        delete newMalfunctionIds[scenarioId];
+        return { anomalies: newAnomalies, biosimMalfunctionIds: newMalfunctionIds };
+      });
+
+      // Fire DELETE — fire and forget (UI already cleared)
+      deleteMalfunction(biosimSimId, mapping.moduleName, malfunctionId);
+
+      return;
+    }
+
+    // Fallback path — existing recovery transition logic UNCHANGED
+    const current = anomalies[scenarioId];
     if (!current || current.phase === 'idle') return;
 
     set((s) => ({
