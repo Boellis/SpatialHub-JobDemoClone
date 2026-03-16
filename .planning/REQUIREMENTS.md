@@ -26,7 +26,7 @@ Requirements for BioSim integration milestone. Each maps to roadmap phases.
 - [ ] **PERF-01**: WebSocket data processing runs in a Web Worker to keep main thread free for rendering
 - [ ] **PERF-02**: Zustand store uses granular selectors so only affected zone/sensor components re-render on tick
 - [x] **PERF-03**: Memory-bounded rolling buffers (fixed-size ring buffers for sparkline history, no unbounded arrays)
-- [ ] **PERF-04**: Django bridge batches writes (bulk_create per tick batch, not individual row inserts)
+- [x] **PERF-04**: Django bridge batches writes (bulk_create per tick batch, not individual row inserts)
 - [ ] **PERF-05**: 3D scene maintains 60fps during peak telemetry throughput (10+ ticks/sec)
 - [ ] **PERF-06**: Sub-100ms latency from BioSim state change to visual update in habitat view
 - [ ] **PERF-07**: Frontend handles 10+ ticks/sec burst rate without dropping messages or leaking memory
@@ -95,7 +95,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PERF-01 | Phase 7 | Pending |
 | PERF-02 | Phase 7 | Pending |
 | PERF-03 | Phase 6 | Complete |
-| PERF-04 | Phase 6 | Pending |
+| PERF-04 | Phase 6 | Complete |
 | PERF-05 | Phase 7 | Pending |
 | PERF-06 | Phase 7 | Pending |
 | PERF-07 | Phase 7 | Pending |

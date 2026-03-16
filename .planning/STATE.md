@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: BioSim Integration
-status: in-progress
-stopped_at: Completed 06-01-PLAN.md
-last_updated: "2026-03-16T03:28:41Z"
-last_activity: 2026-03-16 — Phase 6 Plan 1 complete (biosimMapper.ts TDD, 20 tests passing)
+status: completed
+stopped_at: Completed 06-data-mapping-layer-06-02-PLAN.md
+last_updated: "2026-03-16T03:34:59.322Z"
+last_activity: 2026-03-16 — biosimMapper.ts implemented via TDD, 20 fixture-pinned tests passing
 progress:
   total_phases: 5
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
   percent: 0
 ---
 
@@ -51,6 +51,8 @@ Key v2.0 architectural decisions (pending confirmation):
 - [Phase 06-01-data-mapping]: BIOSIM_SENSOR_THRESHOLDS separate from ZONE_CONFIGS — BioSim operates at different ranges (e.g., gb-humidity green 15-35% vs client-sim 45-65%)
 - [Phase 06-01-data-mapping]: deriveBioSimStatus unexported — keeps BioSim threshold logic contained in biosimMapper.ts
 - [Phase 06-01-data-mapping]: mapBioSimToHabitatReadings existingHistory parameter optional — mapper stays pure, Phase 7 hook manages state continuity
+- [Phase 06-data-mapping-layer]: device_addr set to zone ID string for natural /trends?device_addr= queries in Phase 9
+- [Phase 06-data-mapping-layer]: biosim_tick_to_rows is a pure function with no DB calls — caller (Phase 9 bridge) owns bulk_create
 
 ### Pending Todos
 
@@ -64,6 +66,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T03:28:41Z
-Stopped at: Completed 06-01-PLAN.md
-Resume file: .planning/phases/06-data-mapping-layer/06-02-PLAN.md
+Last session: 2026-03-16T03:34:59.268Z
+Stopped at: Completed 06-data-mapping-layer-06-02-PLAN.md
+Resume file: None

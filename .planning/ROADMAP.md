@@ -22,7 +22,7 @@
 **Milestone Goal:** Replace client-side simulation with NASA BioSim physics — real interconnected subsystem dynamics, Docker infrastructure, WebSocket data pipelines, Django historical ingest, and graceful fallback for reviewers without Docker.
 
 - [x] **Phase 5: Docker Infrastructure** — Full stack starts with `docker compose up`; BioSim running and module JSON captured (completed 2026-03-15)
-- [ ] **Phase 6: Data Mapping Layer** — Pure translation functions converting BioSim physics output to ZoneState/SensorReading types
+- [x] **Phase 6: Data Mapping Layer** — Pure translation functions converting BioSim physics output to ZoneState/SensorReading types (completed 2026-03-16)
 - [ ] **Phase 7: Frontend WebSocket + Fallback** — 3D habitat driven by real BioSim physics; auto-fallback to client-side sim when BioSim unavailable
 - [ ] **Phase 8: AnomalyDrawer Rewire** — AnomalyDrawer triggers real BioSim malfunctions with cascading physics failures
 - [ ] **Phase 9: Django Bridge + Historical Pipeline** — Django async bridge ingests BioSim ticks; /trends serves real simulation history
@@ -55,7 +55,7 @@ Plans:
   2. Unit tests for `biosimMapper.ts` pass against the Phase 5 JSON fixture, covering all four habitat zones
   3. `biosim_ingest.py` converts a BioSim tick to valid `EnrichedSensorData` rows with documented unit conversions (mol, Pa, flow rates)
   4. Sparkline history uses fixed-size ring buffers — no unbounded array growth under sustained telemetry
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 06-01-PLAN.md — biosimMapper.ts: vitest setup, BIOSIM_SENSOR_THRESHOLDS, TDD pure mapper with ring buffer (TELE-02, PERF-03) — completed 2026-03-16
@@ -118,7 +118,7 @@ Plans:
 | 3. UI Panels and Live Data | v1.0 | 2/2 | Complete | 2026-03-13 |
 | 4. Anomaly System | v1.0 | 2/2 | Complete | 2026-03-14 |
 | 5. Docker Infrastructure | v2.0 | 2/3 | Gap closure | - |
-| 6. Data Mapping Layer | v2.0 | 1/2 | In progress | - |
+| 6. Data Mapping Layer | 2/2 | Complete   | 2026-03-16 | - |
 | 7. Frontend WebSocket + Fallback | v2.0 | 0/2 | Not started | - |
 | 8. AnomalyDrawer Rewire | v2.0 | 0/1 | Not started | - |
 | 9. Django Bridge + Historical Pipeline | v2.0 | 0/2 | Not started | - |
