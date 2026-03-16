@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: BioSim Integration
 status: completed
-stopped_at: Phase 7 context gathered
-last_updated: "2026-03-16T04:12:47.835Z"
+stopped_at: Completed 07-01-PLAN.md
+last_updated: "2026-03-16T05:09:19.514Z"
 last_activity: 2026-03-16 — biosimMapper.ts implemented via TDD, 20 fixture-pinned tests passing
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 7
+  completed_plans: 6
   percent: 0
 ---
 
@@ -53,6 +53,8 @@ Key v2.0 architectural decisions (pending confirmation):
 - [Phase 06-01-data-mapping]: mapBioSimToHabitatReadings existingHistory parameter optional — mapper stays pure, Phase 7 hook manages state continuity
 - [Phase 06-data-mapping-layer]: device_addr set to zone ID string for natural /trends?device_addr= queries in Phase 9
 - [Phase 06-data-mapping-layer]: biosim_tick_to_rows is a pure function with no DB calls — caller (Phase 9 bridge) owns bulk_create
+- [Phase 07]: Worker logic tested via inline re-implementation mirroring biosimWorker.ts — @vitest/web-worker incompatible with Vite module Worker import paths in jsdom
+- [Phase 07]: probeBioSim, wsUrl, RETRY_DELAYS exported from useSimSource.ts — enables pure-function unit testing of state machine inputs without hook infrastructure
 
 ### Pending Todos
 
@@ -66,6 +68,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T04:12:47.819Z
-Stopped at: Phase 7 context gathered
-Resume file: .planning/phases/07-frontend-websocket-fallback/07-CONTEXT.md
+Last session: 2026-03-16T05:09:19.509Z
+Stopped at: Completed 07-01-PLAN.md
+Resume file: None

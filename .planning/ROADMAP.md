@@ -71,7 +71,7 @@ Plans:
   3. HabitatHUD displays a green "BioSim Connected" badge or amber "Fallback Mode" badge — never both, never neither
   4. Navigating away from `/habitat` and back five times leaves exactly one WebSocket connection open in DevTools
   5. 3D scene holds 60fps during peak telemetry throughput with WebSocket data processing off the main render thread
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 07-01-PLAN.md — Type contracts, Worker-owned WebSocket, useSimSource orchestration hook with probe/fallback/reconnection/RAF buffer
@@ -119,6 +119,6 @@ Plans:
 | 4. Anomaly System | v1.0 | 2/2 | Complete | 2026-03-14 |
 | 5. Docker Infrastructure | v2.0 | 2/3 | Gap closure | - |
 | 6. Data Mapping Layer | v2.0 | 2/2 | Complete | 2026-03-16 |
-| 7. Frontend WebSocket + Fallback | v2.0 | 0/2 | Planned | - |
+| 7. Frontend WebSocket + Fallback | 1/2 | In Progress|  | - |
 | 8. AnomalyDrawer Rewire | v2.0 | 0/1 | Not started | - |
 | 9. Django Bridge + Historical Pipeline | v2.0 | 0/2 | Not started | - |

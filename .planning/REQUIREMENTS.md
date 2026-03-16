@@ -16,27 +16,27 @@ Requirements for BioSim integration milestone. Each maps to roadmap phases.
 
 ### Telemetry
 
-- [ ] **TELE-01**: Frontend WebSocket hook (`useBioSimWS`) connects to BioSim WS and drives habitatStore
+- [x] **TELE-01**: Frontend WebSocket hook (`useBioSimWS`) connects to BioSim WS and drives habitatStore
 - [x] **TELE-02**: Pure mapping function (`biosimMapper.ts`) translates BioSim module hierarchy to ZoneState/SensorReading types
-- [ ] **TELE-03**: WebSocket messages buffered via useRef and flushed on requestAnimationFrame cadence
-- [ ] **TELE-04**: 3D habitat scene displays real BioSim physics data with no component changes
+- [x] **TELE-03**: WebSocket messages buffered via useRef and flushed on requestAnimationFrame cadence
+- [x] **TELE-04**: 3D habitat scene displays real BioSim physics data with no component changes
 
 ### Performance
 
-- [ ] **PERF-01**: WebSocket data processing runs in a Web Worker to keep main thread free for rendering
-- [ ] **PERF-02**: Zustand store uses granular selectors so only affected zone/sensor components re-render on tick
+- [x] **PERF-01**: WebSocket data processing runs in a Web Worker to keep main thread free for rendering
+- [x] **PERF-02**: Zustand store uses granular selectors so only affected zone/sensor components re-render on tick
 - [x] **PERF-03**: Memory-bounded rolling buffers (fixed-size ring buffers for sparkline history, no unbounded arrays)
 - [x] **PERF-04**: Django bridge batches writes (bulk_create per tick batch, not individual row inserts)
-- [ ] **PERF-05**: 3D scene maintains 60fps during peak telemetry throughput (10+ ticks/sec)
-- [ ] **PERF-06**: Sub-100ms latency from BioSim state change to visual update in habitat view
-- [ ] **PERF-07**: Frontend handles 10+ ticks/sec burst rate without dropping messages or leaking memory
+- [x] **PERF-05**: 3D scene maintains 60fps during peak telemetry throughput (10+ ticks/sec)
+- [x] **PERF-06**: Sub-100ms latency from BioSim state change to visual update in habitat view
+- [x] **PERF-07**: Frontend handles 10+ ticks/sec burst rate without dropping messages or leaking memory
 
 ### Fallback
 
-- [ ] **FALL-01**: `useSimSource` hook auto-detects BioSim availability within 2-5 seconds
-- [ ] **FALL-02**: Habitat gracefully falls back to client-side simulation when BioSim unavailable
+- [x] **FALL-01**: `useSimSource` hook auto-detects BioSim availability within 2-5 seconds
+- [x] **FALL-02**: Habitat gracefully falls back to client-side simulation when BioSim unavailable
 - [ ] **FALL-03**: HabitatHUD shows connection badge ("BioSim Connected" green / "Fallback Mode" amber)
-- [ ] **FALL-04**: Exactly one data source active at any time (state machine enforced)
+- [x] **FALL-04**: Exactly one data source active at any time (state machine enforced)
 
 ### Anomaly
 
@@ -88,21 +88,21 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INFRA-02 | Phase 5 | Complete |
 | INFRA-03 | Phase 5 | Complete |
 | INFRA-04 | Phase 5 | Complete |
-| TELE-01 | Phase 7 | Pending |
+| TELE-01 | Phase 7 | Complete |
 | TELE-02 | Phase 6 | Complete |
-| TELE-03 | Phase 7 | Pending |
-| TELE-04 | Phase 7 | Pending |
-| PERF-01 | Phase 7 | Pending |
-| PERF-02 | Phase 7 | Pending |
+| TELE-03 | Phase 7 | Complete |
+| TELE-04 | Phase 7 | Complete |
+| PERF-01 | Phase 7 | Complete |
+| PERF-02 | Phase 7 | Complete |
 | PERF-03 | Phase 6 | Complete |
 | PERF-04 | Phase 6 | Complete |
-| PERF-05 | Phase 7 | Pending |
-| PERF-06 | Phase 7 | Pending |
-| PERF-07 | Phase 7 | Pending |
-| FALL-01 | Phase 7 | Pending |
-| FALL-02 | Phase 7 | Pending |
+| PERF-05 | Phase 7 | Complete |
+| PERF-06 | Phase 7 | Complete |
+| PERF-07 | Phase 7 | Complete |
+| FALL-01 | Phase 7 | Complete |
+| FALL-02 | Phase 7 | Complete |
 | FALL-03 | Phase 7 | Pending |
-| FALL-04 | Phase 7 | Pending |
+| FALL-04 | Phase 7 | Complete |
 | ANOM-01 | Phase 8 | Pending |
 | ANOM-02 | Phase 8 | Pending |
 | ANOM-03 | Phase 8 | Pending |
