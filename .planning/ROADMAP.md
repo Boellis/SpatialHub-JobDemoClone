@@ -24,7 +24,7 @@
 - [x] **Phase 5: Docker Infrastructure** — Full stack starts with `docker compose up`; BioSim running and module JSON captured (completed 2026-03-15)
 - [x] **Phase 6: Data Mapping Layer** — Pure translation functions converting BioSim physics output to ZoneState/SensorReading types (completed 2026-03-16)
 - [x] **Phase 7: Frontend WebSocket + Fallback** — 3D habitat driven by real BioSim physics; auto-fallback to client-side sim when BioSim unavailable (completed 2026-03-16)
-- [ ] **Phase 8: AnomalyDrawer Rewire** — AnomalyDrawer triggers real BioSim malfunctions with cascading physics failures
+- [x] **Phase 8: AnomalyDrawer Rewire** — AnomalyDrawer triggers real BioSim malfunctions with cascading physics failures (completed 2026-03-16)
 - [ ] **Phase 9: Django Bridge + Historical Pipeline** — Django async bridge ingests BioSim ticks; /trends serves real simulation history
 
 ## Phase Details
@@ -86,7 +86,7 @@ Plans:
   2. Clicking cancel sends a DELETE to BioSim using the stored malfunction ID — bias ramp-down is not used in BioSim mode
   3. Optional delay field in AnomalyDrawer schedules malfunction onset via `tickToOccur` parameter
   4. In fallback (engine) mode, all four existing anomaly scenarios behave identically to v1.0
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 08-01-PLAN.md — biosimMalfunctions service, habitatStore dual-path triggerAnomaly/cancelAnomaly, unit tests (ANOM-01, ANOM-02, ANOM-03, ANOM-04)
@@ -121,5 +121,5 @@ Plans:
 | 5. Docker Infrastructure | v2.0 | 2/3 | Gap closure | - |
 | 6. Data Mapping Layer | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 7. Frontend WebSocket + Fallback | v2.0 | 2/2 | Complete | 2026-03-16 |
-| 8. AnomalyDrawer Rewire | 1/2 | In Progress|  | - |
+| 8. AnomalyDrawer Rewire | 2/2 | Complete   | 2026-03-16 | - |
 | 9. Django Bridge + Historical Pipeline | v2.0 | 0/2 | Not started | - |
