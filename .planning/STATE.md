@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: BioSim Integration
 status: completed
-stopped_at: Completed 07-02-PLAN.md
-last_updated: "2026-03-16T05:50:18.886Z"
+stopped_at: Completed 08-01-PLAN.md
+last_updated: "2026-03-16T10:57:44.932Z"
 last_activity: 2026-03-16 — biosimMapper.ts implemented via TDD, 20 fixture-pinned tests passing
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 9
+  completed_plans: 8
   percent: 0
 ---
 
@@ -57,6 +57,8 @@ Key v2.0 architectural decisions (pending confirmation):
 - [Phase 07]: probeBioSim, wsUrl, RETRY_DELAYS exported from useSimSource.ts — enables pure-function unit testing of state machine inputs without hook infrastructure
 - [Phase 07-frontend-websocket-fallback]: ConnectionBadge uses Record<SimSource, BadgeConfig> map (not switch/if) — adding a 5th state requires one map entry only
 - [Phase 07-frontend-websocket-fallback]: BioSim probe response is wrapped { simulations: [1] } not a bare array — probe updated to handle both shapes
+- [Phase 08-anomalydrawer-rewire]: Optimistic sentinel pattern: biosimMalfunctionIds[-1] guards double-click and makes AnomalyDrawer isActive work before POST resolves
+- [Phase 08-anomalydrawer-rewire]: deleteMalfunction is fire-and-forget — UI clears optimistically, no rollback needed for cancel in BioSim mode
 
 ### Pending Todos
 
@@ -70,6 +72,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T05:45:07.651Z
-Stopped at: Completed 07-02-PLAN.md
+Last session: 2026-03-16T10:57:44.921Z
+Stopped at: Completed 08-01-PLAN.md
 Resume file: None

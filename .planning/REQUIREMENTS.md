@@ -40,10 +40,10 @@ Requirements for BioSim integration milestone. Each maps to roadmap phases.
 
 ### Anomaly
 
-- [ ] **ANOM-01**: AnomalyDrawer buttons POST real malfunctions to BioSim REST API in BioSim mode
-- [ ] **ANOM-02**: Anomaly cancel sends DELETE to BioSim malfunction endpoint using stored malfunction IDs
-- [ ] **ANOM-03**: AnomalyDrawer supports malfunction scheduling via `tickToOccur` delay field
-- [ ] **ANOM-04**: Existing anomaly behavior preserved in fallback (client-side) mode
+- [x] **ANOM-01**: AnomalyDrawer buttons POST real malfunctions to BioSim REST API in BioSim mode
+- [x] **ANOM-02**: Anomaly cancel sends DELETE to BioSim malfunction endpoint using stored malfunction IDs
+- [x] **ANOM-03**: AnomalyDrawer supports malfunction scheduling via `tickToOccur` delay field
+- [x] **ANOM-04**: Existing anomaly behavior preserved in fallback (client-side) mode
 
 ### Pipeline
 
@@ -103,10 +103,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FALL-02 | Phase 7 | Complete |
 | FALL-03 | Phase 7 | Complete |
 | FALL-04 | Phase 7 | Complete |
-| ANOM-01 | Phase 8 | Pending |
-| ANOM-02 | Phase 8 | Pending |
-| ANOM-03 | Phase 8 | Pending |
-| ANOM-04 | Phase 8 | Pending |
+| ANOM-01 | Phase 8 | Complete |
+| ANOM-02 | Phase 8 | Complete |
+| ANOM-03 | Phase 8 | Complete |
+| ANOM-04 | Phase 8 | Complete |
 | PIPE-01 | Phase 9 | Pending |
 | PIPE-02 | Phase 9 | Pending |
 | PIPE-03 | Phase 9 | Pending |
