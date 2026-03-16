@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { useHabitatStore } from '../../store/habitatStore';
 import { ZONE_CONFIGS } from '../../simulation/constants';
 import type { ZoneStatus } from '../../types/habitat';
+import { ConnectionBadge } from './ConnectionBadge';
 
 // Zone abbreviations for the compact status row
 const ZONE_ABBREVIATIONS: Record<string, string> = {
@@ -199,6 +200,9 @@ export const HabitatHUD = () => {
           );
         })}
       </div>
+
+      {/* Row 6: Connection badge — data source indicator (BioSim/Fallback/etc.) */}
+      <ConnectionBadge />
     </div>
   );
 };

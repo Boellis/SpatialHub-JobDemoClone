@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { MarsEnvironment } from '../components/habitat/MarsEnvironment';
 import { HabitatStructure } from '../components/habitat/HabitatStructure';
@@ -7,6 +6,7 @@ import { HabitatHUD } from '../components/habitat/HabitatHUD';
 import { AlertBanner } from '../components/habitat/AlertBanner';
 import { AnomalyDrawer } from '../components/habitat/AnomalyDrawer';
 import { useHabitatStore } from '../store/habitatStore';
+import { useSimSource } from '../hooks/useSimSource';
 
 // Full-screen R3F Canvas for the Mars habitat scene.
 // Camera is elevated and pulled back to give an overview of the habitat area
@@ -18,19 +18,13 @@ import { useHabitatStore } from '../store/habitatStore';
 // and drive smooth camera transitions on zone select/deselect.
 
 const HabitatView = () => {
-  // Start the simulation on mount so dome glow is reactive from the first frame.
+  // useSimSource manages the full data pipeline: starts client-side engine immediately,
+  // probes BioSim, switches to Worker-owned WebSocket when available, falls back on disconnect.
   // Note: hooks must live in the React component (outside Canvas), not inside R3F nodes.
-  const startSimulation = useHabitatStore((s) => s.startSimulation);
-  const isRunning = useHabitatStore((s) => s.isRunning);
+  useSimSource();
+
   const selectedZoneId = useHabitatStore((s) => s.selectedZoneId);
   const setSelectedZoneId = useHabitatStore((s) => s.setSelectedZoneId);
-
-  useEffect(() => {
-    if (!isRunning) {
-      startSimulation();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   return (
     <div
