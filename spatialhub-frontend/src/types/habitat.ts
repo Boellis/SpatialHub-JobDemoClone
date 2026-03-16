@@ -65,6 +65,8 @@ export interface ScenarioAnnouncement {
   timestamp: number;
 }
 
+export type SimSource = 'connecting' | 'biosim' | 'fallback' | 'disconnected';
+
 export interface HabitatState {
   zones: Record<string, ZoneState>;
   solElapsed: number;   // seconds elapsed in current sol cycle
@@ -73,16 +75,30 @@ export interface HabitatState {
   selectedZoneId: string | null;
   anomalies: Record<string, AnomalyScenarioState>;
   scenarioAnnouncements: ScenarioAnnouncement[];
+  simSource: SimSource;
   startSimulation: () => void;
   stopSimulation: () => void;
   tick: (readings: Record<string, Record<string, SensorReading>>) => void;
   getZoneStatus: (zoneId: string) => ZoneStatus;
   setSelectedZoneId: (zoneId: string | null) => void;
+  setSimSource: (source: SimSource) => void;
   triggerAnomaly: (scenarioId: string) => void;
   cancelAnomaly: (scenarioId: string) => void;
   tickAnomalies: () => void;
   dismissAnnouncement: (timestamp: number) => void;
 }
+
+// Worker <-> Main thread message protocol for biosimWorker
+export type WorkerCommand =
+  | { type: 'CONNECT'; wsUrl: string }
+  | { type: 'DISCONNECT' }
+  | { type: 'SYNC_HISTORY'; history: Record<string, Record<string, number[]>> };
+
+export type WorkerMessage =
+  | { type: 'READINGS'; readings: Record<string, Record<string, SensorReading>> }
+  | { type: 'WS_OPEN' }
+  | { type: 'WS_CLOSE'; code: number }
+  | { type: 'WS_ERROR' };
 
 // For the Django API response shape
 export interface HabitatZone {

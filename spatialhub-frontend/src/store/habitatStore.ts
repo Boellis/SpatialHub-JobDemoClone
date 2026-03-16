@@ -3,7 +3,7 @@
 // The simulation engine writes to this store every 2 seconds.
 
 import { create } from 'zustand';
-import type { AnomalyPhase, AnomalyScenarioState, ScenarioAnnouncement, SensorReading, ZoneState, ZoneStatus, HabitatState } from '../types/habitat';
+import type { AnomalyPhase, AnomalyScenarioState, ScenarioAnnouncement, SensorReading, ZoneState, ZoneStatus, HabitatState, SimSource } from '../types/habitat';
 import { ANOMALY_SCENARIOS } from '../simulation/anomalies';
 import { ZONE_CONFIGS } from '../simulation/constants';
 
@@ -59,6 +59,8 @@ export const useHabitatStore = create<HabitatState>()((set, get) => ({
   selectedZoneId: null,
   anomalies: {} as Record<string, AnomalyScenarioState>,
   scenarioAnnouncements: [] as ScenarioAnnouncement[],
+  simSource: 'connecting' as SimSource,
+  setSimSource: (source: SimSource) => set({ simSource: source }),
 
   startSimulation: () => {
     if (get().isRunning) {
@@ -259,6 +261,8 @@ export const selectAllZoneStatuses = () => (state: HabitatState): Record<string,
   );
 
 export const selectSelectedZoneId = (state: HabitatState) => state.selectedZoneId;
+
+export const selectSimSource = (state: HabitatState) => state.simSource;
 
 // Expose to window in dev mode for DevTools verification
 if (import.meta.env.DEV) {
