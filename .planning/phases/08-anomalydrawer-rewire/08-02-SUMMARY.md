@@ -18,10 +18,11 @@ key_files:
 decisions:
   - "simIdRef (useRef) captures simId at all 3 probe sites so WS_OPEN handler has the value without closure issues"
   - "setBiosimSimId(null) called on both WS_CLOSE and startFallback — separate clear points cover disconnected-then-fallback path"
+requirements-completed: [ANOM-01, ANOM-02, ANOM-04]
 metrics:
-  duration: "5m"
+  duration: "10m"
   completed_date: "2026-03-16"
-  tasks_completed: 1
+  tasks_completed: 2
   tasks_total: 2
   files_modified: 2
 ---
@@ -73,7 +74,7 @@ AnomalyDrawer.tsx: NOT modified (verified via `git diff`).
 | Task | Commit | Description |
 | ---- | ------ | ----------- |
 | 1 | c602ad3 | feat(08-02): wire biosimSimId lifecycle in useSimSource |
-| 2 | (pending human verification) | End-to-end anomaly flow checkpoint |
+| 2 | (checkpoint approved) | End-to-end anomaly flow — human verified |
 
 ## Deviations from Plan
 

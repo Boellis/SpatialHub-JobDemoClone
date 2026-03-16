@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: BioSim Integration
 status: completed
-stopped_at: "Completed 08-02-PLAN.md Task 1 — checkpoint:human-verify at Task 2"
-last_updated: "2026-03-16T11:02:53.397Z"
+stopped_at: Completed 08-02-PLAN.md — plan complete, all tasks done, human verification approved
+last_updated: "2026-03-16T17:23:13.773Z"
 last_activity: 2026-03-16 — biosimMapper.ts implemented via TDD, 20 fixture-pinned tests passing
 progress:
   total_phases: 5
@@ -60,6 +60,7 @@ Key v2.0 architectural decisions (pending confirmation):
 - [Phase 08-anomalydrawer-rewire]: Optimistic sentinel pattern: biosimMalfunctionIds[-1] guards double-click and makes AnomalyDrawer isActive work before POST resolves
 - [Phase 08-anomalydrawer-rewire]: deleteMalfunction is fire-and-forget — UI clears optimistically, no rollback needed for cancel in BioSim mode
 - [Phase 08-anomalydrawer-rewire]: simIdRef (useRef) captures simId at all 3 probe sites so WS_OPEN handler has the value; setBiosimSimId(null) called separately on WS_CLOSE and startFallback
+- [Phase 08-anomalydrawer-rewire]: simIdRef (useRef) captures simId at all 3 probe sites so WS_OPEN handler has the value without closure issues
 
 ### Pending Todos
 
@@ -73,6 +74,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T11:02:47.757Z
-Stopped at: Completed 08-02-PLAN.md Task 1 — checkpoint:human-verify at Task 2
+Last session: 2026-03-16T17:23:13.768Z
+Stopped at: Completed 08-02-PLAN.md — plan complete, all tasks done, human verification approved
 Resume file: None
