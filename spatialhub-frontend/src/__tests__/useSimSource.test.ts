@@ -163,8 +163,18 @@ describe('probeBioSim', () => {
     await expect(probeBioSim()).resolves.toBe('1');
   });
 
-  it('returns null when json is not an array', async () => {
+  it('returns null when json is not an array and has no simulations key', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 1 }) }));
+    await expect(probeBioSim()).resolves.toBeNull();
+  });
+
+  it('returns simId string from wrapped object { simulations: [1] }', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ simulations: [1] }) }));
+    await expect(probeBioSim()).resolves.toBe('1');
+  });
+
+  it('returns null from wrapped object with empty simulations array', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ simulations: [] }) }));
     await expect(probeBioSim()).resolves.toBeNull();
   });
 });

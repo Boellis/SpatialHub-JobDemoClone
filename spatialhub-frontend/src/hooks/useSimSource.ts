@@ -59,9 +59,17 @@ export async function probeBioSim(): Promise<string | null> {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data: unknown = await response.json();
-    if (!Array.isArray(data) || data.length === 0) return null;
 
-    const first = data[0];
+    // Handle both bare array `[1]` and wrapped `{ simulations: [1] }` formats
+    const arr: unknown[] | null =
+      Array.isArray(data) ? data
+      : (data && typeof data === 'object' && 'simulations' in data && Array.isArray((data as { simulations: unknown }).simulations))
+        ? (data as { simulations: unknown[] }).simulations
+        : null;
+
+    if (!arr || arr.length === 0) return null;
+
+    const first = arr[0];
     // Handle [1] (numeric) or [{ id: 1 }] (object) formats
     if (typeof first === 'number') return String(first);
     if (first && typeof first === 'object' && 'id' in first) return String((first as { id: unknown }).id);
