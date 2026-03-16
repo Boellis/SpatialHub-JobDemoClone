@@ -51,7 +51,7 @@ Requirements for BioSim integration milestone. Each maps to roadmap phases.
 - [x] **PIPE-02**: Bridge writes BioSim tick data to `enriched_sensor_data` via `asyncio.to_thread()`
 - [x] **PIPE-03**: `/api/enriched/` endpoint serves real BioSim historical data with no API changes
 - [x] **PIPE-04**: `/trends` page displays real BioSim simulation history
-- [ ] **PIPE-05**: Tick log bulk import from BioSim `/log` endpoint into `enriched_sensor_data`
+- [x] **PIPE-05**: Tick log bulk import from BioSim `/log` endpoint into `enriched_sensor_data`
 
 ### Observability
 
@@ -111,7 +111,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PIPE-02 | Phase 9 | Complete |
 | PIPE-03 | Phase 9 | Complete |
 | PIPE-04 | Phase 9 | Complete |
-| PIPE-05 | Phase 9 | Pending |
+| PIPE-05 | Phase 9 | Complete |
 | OBS-01 | Phase 5 | Complete |
 
 **Coverage:**

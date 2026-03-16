@@ -25,7 +25,7 @@
 - [x] **Phase 6: Data Mapping Layer** — Pure translation functions converting BioSim physics output to ZoneState/SensorReading types (completed 2026-03-16)
 - [x] **Phase 7: Frontend WebSocket + Fallback** — 3D habitat driven by real BioSim physics; auto-fallback to client-side sim when BioSim unavailable (completed 2026-03-16)
 - [x] **Phase 8: AnomalyDrawer Rewire** — AnomalyDrawer triggers real BioSim malfunctions with cascading physics failures (completed 2026-03-16)
-- [ ] **Phase 9: Django Bridge + Historical Pipeline** — Django async bridge ingests BioSim ticks; /trends serves real simulation history
+- [x] **Phase 9: Django Bridge + Historical Pipeline** — Django async bridge ingests BioSim ticks; /trends serves real simulation history (completed 2026-03-16)
 
 ## Phase Details
 
@@ -102,7 +102,7 @@ Plans:
   3. The `/trends` page renders graphs with real BioSim physics data — not simulated Brownian motion
   4. The bridge docker service starts successfully after BioSim is healthy (no silent crash on race condition)
   5. Bulk import from BioSim `/log` endpoint populates historical rows in `enriched_sensor_data` on command
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 09-01-PLAN.md — biosim_bridge async WS management command + Docker bridge service (PIPE-01, PIPE-02, PIPE-03, PIPE-04)
@@ -122,4 +122,4 @@ Plans:
 | 6. Data Mapping Layer | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 7. Frontend WebSocket + Fallback | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 8. AnomalyDrawer Rewire | 2/2 | Complete   | 2026-03-16 | - |
-| 9. Django Bridge + Historical Pipeline | 1/2 | In Progress|  | - |
+| 9. Django Bridge + Historical Pipeline | 2/2 | Complete   | 2026-03-16 | - |

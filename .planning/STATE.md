@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: BioSim Integration
 status: completed
-stopped_at: "Completed 09-01: biosim_bridge management command + Docker service"
-last_updated: "2026-03-16T19:01:46.644Z"
+stopped_at: Completed 09-02-PLAN.md
+last_updated: "2026-03-16T19:04:27.209Z"
 last_activity: 2026-03-16 — biosimMapper.ts implemented via TDD, 20 fixture-pinned tests passing
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 11
-  completed_plans: 10
+  completed_plans: 11
   percent: 0
 ---
 
@@ -63,6 +63,9 @@ Key v2.0 architectural decisions (pending confirmation):
 - [Phase 08-anomalydrawer-rewire]: simIdRef (useRef) captures simId at all 3 probe sites so WS_OPEN handler has the value without closure issues
 - [Phase 09-django-bridge-historical-pipeline]: probe_sim_id, write_rows, process_tick as module-level async functions — independent unit testing without Command class
 - [Phase 09-django-bridge-historical-pipeline]: asyncio.to_thread for bulk_create — keeps async event loop unblocked during DB writes
+- [Phase 09-02]: writeTicks passed as ?writeTicks=true query param on POST /api/simulation/start (REST API, not server flag)
+- [Phase 09-02]: discover_sim_id handles both wrapped {simulations:[1]} and bare [1] response shapes
+- [Phase 09-02]: DB tests use USE_SQLITE=1 env var for local test runs without PostgreSQL
 
 ### Pending Todos
 
@@ -76,6 +79,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T19:01:46.639Z
-Stopped at: Completed 09-01: biosim_bridge management command + Docker service
+Last session: 2026-03-16T19:04:27.202Z
+Stopped at: Completed 09-02-PLAN.md
 Resume file: None
