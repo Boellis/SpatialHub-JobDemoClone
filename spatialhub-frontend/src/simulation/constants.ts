@@ -3,7 +3,7 @@
 // Django endpoint serves this same data for API integration demos, but the
 // simulation runs entirely from these client-side constants.
 
-import type { ZoneConfig } from '../types/habitat';
+import type { ZoneConfig, ThresholdConfig } from '../types/habitat';
 
 export const ZONE_CONFIGS: ZoneConfig[] = [
   {
@@ -223,3 +223,21 @@ export const SENSOR_MAP: Record<string, { sensor: ZoneConfig['sensors'][number];
 
 // Sol cycle period in seconds (compressed: 10 minutes = 600s)
 export const SOL_CYCLE_PERIOD = 600;
+
+// BioSim-specific thresholds derived from Phase 5 fixture steady-state values (tick 191).
+// Steady-state BioSim values land in green range; yellow/red reserved for anomalies.
+// These are used by biosimMapper.ts exclusively -- existing simulation uses ZONE_CONFIGS.
+export const BIOSIM_SENSOR_THRESHOLDS: Record<string, ThresholdConfig> = {
+  'gb-co2':        { green: { min: 400,  max: 1200 }, yellow: { min: 200,  max: 2500 }, red: { min: 0,    max: 5000 } },
+  'gb-temp':       { green: { min: 18,   max: 28   }, yellow: { min: 10,   max: 35   }, red: { min: -5,   max: 50   } },
+  'gb-humidity':   { green: { min: 15,   max: 35   }, yellow: { min: 8,    max: 50   }, red: { min: 0,    max: 80   } },
+  'ac-o2':         { green: { min: 19.5, max: 22.0 }, yellow: { min: 17.0, max: 25.0 }, red: { min: 14.0, max: 30.0 } },
+  'ac-pressure':   { green: { min: 97,   max: 105  }, yellow: { min: 90,   max: 115  }, red: { min: 70,   max: 140  } },
+  'ac-filtration': { green: { min: 85,   max: 100  }, yellow: { min: 60,   max: 100  }, red: { min: 0,    max: 100  } },
+  'wr-flow':       { green: { min: 8,    max: 12   }, yellow: { min: 3,    max: 20   }, red: { min: 0,    max: 50   } },
+  'wr-ph':         { green: { min: 6.0,  max: 7.5  }, yellow: { min: 5.0,  max: 8.5  }, red: { min: 3.0,  max: 11.0 } },
+  'wr-tds':        { green: { min: 0,    max: 200  }, yellow: { min: 0,    max: 600  }, red: { min: 0,    max: 2000 } },
+  'pt-power':      { green: { min: 80,   max: 120  }, yellow: { min: 60,   max: 140  }, red: { min: 30,   max: 200  } },
+  'pt-battery':    { green: { min: 75,   max: 100  }, yellow: { min: 40,   max: 100  }, red: { min: 0,    max: 100  } },
+  'pt-coolant':    { green: { min: 15,   max: 35   }, yellow: { min: 5,    max: 50   }, red: { min: -10,  max: 80   } },
+};
