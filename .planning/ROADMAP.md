@@ -102,11 +102,11 @@ Plans:
   3. The `/trends` page renders graphs with real BioSim physics data — not simulated Brownian motion
   4. The bridge docker service starts successfully after BioSim is healthy (no silent crash on race condition)
   5. Bulk import from BioSim `/log` endpoint populates historical rows in `enriched_sensor_data` on command
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 09-01: biosim_bridge management command + django-bridge Docker service
-- [ ] 09-02: Bulk tick log import command
+- [ ] 09-01-PLAN.md — biosim_bridge async WS management command + Docker bridge service (PIPE-01, PIPE-02, PIPE-03, PIPE-04)
+- [ ] 09-02-PLAN.md — biosim_import_log bulk tick importer + --writeTicks Docker flag (PIPE-05)
 
 ## Progress
 
