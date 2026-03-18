@@ -3,7 +3,8 @@
 ## Milestones
 
 - ✅ **v1.0 Mars Habitat Demo** — Phases 1-4 (shipped 2026-03-14)
-- 🚧 **v2.0 BioSim Integration** — Phases 5-9 (in progress)
+- ✅ **v2.0 BioSim Integration** — Phases 5-9 (shipped 2026-03-16)
+- 🚧 **v3.0 Physical Sensor Integration** — Phases 10-13 (in progress)
 
 ## Phases
 
@@ -17,100 +18,72 @@
 
 </details>
 
-### 🚧 v2.0 BioSim Integration (In Progress)
+<details>
+<summary>✅ v2.0 BioSim Integration (Phases 5-9) — SHIPPED 2026-03-16</summary>
 
-**Milestone Goal:** Replace client-side simulation with NASA BioSim physics — real interconnected subsystem dynamics, Docker infrastructure, WebSocket data pipelines, Django historical ingest, and graceful fallback for reviewers without Docker.
+- [x] Phase 5: Docker Infrastructure — completed 2026-03-15
+- [x] Phase 6: Data Mapping Layer — completed 2026-03-16
+- [x] Phase 7: Frontend WebSocket + Fallback — completed 2026-03-16
+- [x] Phase 8: AnomalyDrawer Rewire — completed 2026-03-16
+- [x] Phase 9: Django Bridge + Historical Pipeline — completed 2026-03-16
 
-- [x] **Phase 5: Docker Infrastructure** — Full stack starts with `docker compose up`; BioSim running and module JSON captured (completed 2026-03-15)
-- [x] **Phase 6: Data Mapping Layer** — Pure translation functions converting BioSim physics output to ZoneState/SensorReading types (completed 2026-03-16)
-- [x] **Phase 7: Frontend WebSocket + Fallback** — 3D habitat driven by real BioSim physics; auto-fallback to client-side sim when BioSim unavailable (completed 2026-03-16)
-- [x] **Phase 8: AnomalyDrawer Rewire** — AnomalyDrawer triggers real BioSim malfunctions with cascading physics failures (completed 2026-03-16)
-- [x] **Phase 9: Django Bridge + Historical Pipeline** — Django async bridge ingests BioSim ticks; /trends serves real simulation history (completed 2026-03-16)
+</details>
+
+### 🚧 v3.0 Physical Sensor Integration (In Progress)
+
+**Milestone Goal:** Connect a real Raspberry Pi with an Atlas Scientific pH sensor to the BioSim simulation — real pH readings drive BioSim's water recycling system via a closed-loop control service. Reproducible for anyone with a Pi and Atlas I2C hardware.
+
+- [ ] **Phase 10: Django Ingest + Hubcode Rewrite** — Real Pi pH data reaching the Django stack over WiFi with no GCP dependency
+- [ ] **Phase 11: Closed-Loop Control Service** — pH divergence from real sensor automatically triggers and clears BioSim water recycling malfunctions
+- [ ] **Phase 12: Frontend Real Sensor Visibility** — Real pH value overlaid in the 3D habitat Water Recycling zone with a distinct HUD badge state
+- [ ] **Phase 13: Reproducible Setup Guide** — Anyone with a Pi and Atlas I2C sensor can follow the guide end-to-end and run the full demo
 
 ## Phase Details
 
-### Phase 5: Docker Infrastructure
-**Goal**: The full stack (BioSim, Open MCT, Django, PostgreSQL) starts with a single `docker compose up`; BioSim is confirmed running and its live module JSON is captured as a test fixture for mapping work
-**Depends on**: Phase 4 (v1.0 complete)
-**Requirements**: INFRA-01, INFRA-02, INFRA-03, INFRA-04, OBS-01
+### Phase 10: Django Ingest + Hubcode Rewrite
+**Goal**: Real Pi pH readings reach the Django stack — a new `SensorIngestView` endpoint accepts POST payloads from the Pi with a distinct `hub_id`, and `hub_client.py` replaces the GCP-dependent hubcode entirely, reading Atlas I2C pH and posting to Django over WiFi via `.env` config
+**Depends on**: Phase 9 (existing Django stack and `enriched_sensor_data` model)
+**Requirements**: HUB-01, HUB-02, HUB-03, HUB-04, HUB-05, INGEST-01, INGEST-02
 **Success Criteria** (what must be TRUE):
-  1. `docker compose up` starts all four services (biosim, openmct, db, django) without manual intervention
-  2. BioSim returns a valid simID and `GET /api/simulation/{simID}` returns parseable module state JSON
-  3. `wscat ws://localhost:8009/ws/simulation/{simID}` prints live module state on every tick
-  4. Open MCT dashboard is accessible at `localhost:9091` via a nav link in the frontend
-  5. Django reads database credentials from environment variables (no hardcoded Cloud SQL credentials required for local stack)
-**Plans:** 3 plans (2 complete, 1 gap closure)
+  1. `curl -X POST http://localhost:8000/api/sensor-ingest/` with a valid JSON payload stores a row in `enriched_sensor_data` with `hub_id='pi-habitat-01'`
+  2. Pi client starts from a `.env` file with no GCP credentials and posts real Atlas I2C pH readings to the running Django stack over WiFi
+  3. Pi client parses pH correctly for all valid values including those >= 10.0 (no 4-char truncation bug)
+  4. Rows from the Pi are distinguishable from BioSim rows via `hub_id` — `GET /api/enriched/?hub_id=pi-habitat-01` returns only Pi data
+  5. When the Docker host is unreachable, the Pi client buffers readings locally and syncs when connection restores
+**Plans**: TBD
 
-Plans:
-- [x] 05-01-PLAN.md — Docker Compose four-service stack with healthchecks, BioSim auto-start, Django entrypoint
-- [x] 05-02-PLAN.md — Open MCT external nav link in frontend
-- [ ] 05-03-PLAN.md — Gap closure: capture live BioSim module state fixture (replaces placeholder)
-
-### Phase 6: Data Mapping Layer
-**Goal**: Pure translation functions (`biosimMapper.ts` and `biosim_ingest.py`) that convert BioSim's raw physics module hierarchy to the existing ZoneState/SensorReading types — tested against the Phase 5 live JSON snapshot before any live connection code is written
-**Depends on**: Phase 5 (live BioSim module JSON captured)
-**Requirements**: TELE-02, PERF-03, PERF-04
+### Phase 11: Closed-Loop Control Service
+**Goal**: A Django management command running as a Docker Compose service reads the latest real Pi pH and the latest BioSim proxy pH from the database every 10 seconds, posts a `Grey_Water_Store` malfunction to BioSim when divergence exceeds the threshold, and deletes it when pH normalizes — the causal chain (real pH drifts → zone turns red → water recycling degrades) is observable end-to-end
+**Depends on**: Phase 10 (Pi rows in `enriched_sensor_data` to compare against BioSim rows)
+**Requirements**: CTRL-01, CTRL-02, CTRL-03, CTRL-04
 **Success Criteria** (what must be TRUE):
-  1. `biosimMapper.ts` converts a real BioSim WebSocket message to a valid `Record<zoneId, Record<sensorId, SensorReading>>` with no silent zero-fills
-  2. Unit tests for `biosimMapper.ts` pass against the Phase 5 JSON fixture, covering all four habitat zones
-  3. `biosim_ingest.py` converts a BioSim tick to valid `EnrichedSensorData` rows with documented unit conversions (mol, Pa, flow rates)
-  4. Sparkline history uses fixed-size ring buffers — no unbounded array growth under sustained telemetry
-**Plans:** 2/2 plans complete
+  1. When real Pi pH diverges more than the configured threshold from BioSim's simulated `wr-ph`, the Water Recycling zone in the 3D habitat turns red within ~10 seconds
+  2. When Pi pH returns to within the threshold, the Water Recycling zone recovers automatically without manual intervention
+  3. The control service runs as a separate `control` Docker Compose service that starts after BioSim is healthy
+  4. The control loop queries both pH sources from the DB and never attempts to inject values directly into BioSim
+**Plans**: TBD
 
-Plans:
-- [x] 06-01-PLAN.md — biosimMapper.ts: vitest setup, BIOSIM_SENSOR_THRESHOLDS, TDD pure mapper with ring buffer (TELE-02, PERF-03) — completed 2026-03-16
-- [ ] 06-02-PLAN.md — biosim_ingest.py: pytest setup, TDD pure translation function for bulk_create (PERF-04)
-
-### Phase 7: Frontend WebSocket + Fallback
-**Goal**: The 3D habitat is driven by real BioSim physics when Docker is running, automatically falls back to the v1.0 client-side simulation when BioSim is unavailable, and the HabitatHUD shows which data source is active — all without any changes to 3D scene components
-**Depends on**: Phase 6 (biosimMapper.ts delivering a known-good data contract)
-**Requirements**: TELE-01, TELE-03, TELE-04, FALL-01, FALL-02, FALL-03, FALL-04, PERF-01, PERF-02, PERF-05, PERF-06, PERF-07
+### Phase 12: Frontend Real Sensor Visibility
+**Goal**: The Water Recycling zone panel shows the real Pi pH value as a secondary annotation alongside the BioSim physics reading, and the HUD connection badge gains a fifth "Real Sensor" state that activates when Pi data is flowing — without touching the BioSim WebSocket pipeline or `biosimMapper.ts`
+**Depends on**: Phase 10 (`GET /api/enriched/?hub_id=pi-habitat-01` returning data)
+**Requirements**: UI-01, UI-02
 **Success Criteria** (what must be TRUE):
-  1. Zone colors, sensor readings, and sparklines in the 3D habitat update from real BioSim physics when Docker is running
-  2. When BioSim is unreachable, the habitat detects unavailability within 5 seconds and activates client-side simulation automatically
-  3. HabitatHUD displays a green "BioSim Connected" badge or amber "Fallback Mode" badge — never both, never neither
-  4. Navigating away from `/habitat` and back five times leaves exactly one WebSocket connection open in DevTools
-  5. 3D scene holds 60fps during peak telemetry throughput with WebSocket data processing off the main render thread
-**Plans:** 2/2 plans complete
+  1. The Water Recycling zone panel displays both the BioSim simulated pH (from the existing sensor orb) and the real Pi pH as a labeled "Real pH" annotation simultaneously
+  2. The HUD badge shows a distinct "Real Sensor" state (different color from BioSim Connected and Fallback Mode) when Pi data has been polled successfully
+**Plans**: TBD
 
-Plans:
-- [ ] 07-01-PLAN.md — Type contracts, Worker-owned WebSocket, useSimSource orchestration hook with probe/fallback/reconnection/RAF buffer
-- [ ] 07-02-PLAN.md — ConnectionBadge component, HabitatHUD integration, HabitatView rewire, visual verification
-
-### Phase 8: AnomalyDrawer Rewire
-**Goal**: AnomalyDrawer buttons trigger real BioSim malfunctions (with cascading physics failures) in BioSim mode and preserve existing bias-curve behavior in fallback mode — no JSX changes to AnomalyDrawer
-**Depends on**: Phase 7 (`simSource` state exists in Zustand store)
-**Requirements**: ANOM-01, ANOM-02, ANOM-03, ANOM-04
+### Phase 13: Reproducible Setup Guide
+**Goal**: A complete step-by-step Pi setup guide exists such that anyone starting from a bare Raspberry Pi and Atlas Scientific EZO pH sensor can wire the hardware, configure I2C mode, install the Pi client, and run a validated first-sensor-reading — without needing to read source code
+**Depends on**: Phases 10-12 (all built components documented)
+**Requirements**: SETUP-01, SETUP-02
 **Success Criteria** (what must be TRUE):
-  1. Clicking an anomaly scenario in BioSim mode sends a POST to BioSim's malfunction endpoint and the habitat responds with real cascading physics failures
-  2. Clicking cancel sends a DELETE to BioSim using the stored malfunction ID — bias ramp-down is not used in BioSim mode
-  3. Optional delay field in AnomalyDrawer schedules malfunction onset via `tickToOccur` parameter
-  4. In fallback (engine) mode, all four existing anomaly scenarios behave identically to v1.0
-**Plans:** 2/2 plans complete
-
-Plans:
-- [ ] 08-01-PLAN.md — biosimMalfunctions service, habitatStore dual-path triggerAnomaly/cancelAnomaly, unit tests (ANOM-01, ANOM-02, ANOM-03, ANOM-04)
-- [ ] 08-02-PLAN.md — useSimSource biosimSimId wiring, end-to-end visual verification (ANOM-01, ANOM-02, ANOM-04)
-
-### Phase 9: Django Bridge + Historical Pipeline
-**Goal**: A long-running Django async management command independently ingests BioSim tick data into `enriched_sensor_data`, making `/api/enriched/` and `/trends` serve real simulation history — no frontend or API endpoint changes required
-**Depends on**: Phase 6 (biosim_ingest.py delivering a known-good row format)
-**Requirements**: PIPE-01, PIPE-02, PIPE-03, PIPE-04, PIPE-05
-**Success Criteria** (what must be TRUE):
-  1. `python manage.py biosim_bridge` connects to BioSim WebSocket and writes tick rows to `enriched_sensor_data` via bulk_create
-  2. The `/api/enriched/` endpoint returns rows sourced from real BioSim simulation data after the bridge runs for 60+ seconds
-  3. The `/trends` page renders graphs with real BioSim physics data — not simulated Brownian motion
-  4. The bridge docker service starts successfully after BioSim is healthy (no silent crash on race condition)
-  5. Bulk import from BioSim `/log` endpoint populates historical rows in `enriched_sensor_data` on command
-**Plans:** 2/2 plans complete
-
-Plans:
-- [ ] 09-01-PLAN.md — biosim_bridge async WS management command + Docker bridge service (PIPE-01, PIPE-02, PIPE-03, PIPE-04)
-- [ ] 09-02-PLAN.md — biosim_import_log bulk tick importer + --writeTicks Docker flag (PIPE-05)
+  1. The guide covers wiring, EZO UART-to-I2C mode switch, I2C baud rate config, venv creation, `.env` configuration, and first run in order
+  2. Running `python hub_client.py --test` at the end of the guide produces a confirmed sensor reading and a successful POST response from Django
+**Plans**: TBD
 
 ## Progress
 
-**Execution Order:** 5 -> 6 -> 7 -> 8 -> 9 (Phases 7-8 depend on 6; Phase 9 depends on 6 and can parallel 7-8)
+**Execution Order:** 10 → 11 → 12 (12 can parallel 11 after 10) → 13
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -121,5 +94,9 @@ Plans:
 | 5. Docker Infrastructure | v2.0 | 2/3 | Gap closure | - |
 | 6. Data Mapping Layer | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 7. Frontend WebSocket + Fallback | v2.0 | 2/2 | Complete | 2026-03-16 |
-| 8. AnomalyDrawer Rewire | 2/2 | Complete   | 2026-03-16 | - |
-| 9. Django Bridge + Historical Pipeline | 2/2 | Complete   | 2026-03-16 | - |
+| 8. AnomalyDrawer Rewire | v2.0 | 2/2 | Complete | 2026-03-16 |
+| 9. Django Bridge + Historical Pipeline | v2.0 | 2/2 | Complete | 2026-03-16 |
+| 10. Django Ingest + Hubcode Rewrite | v3.0 | 0/TBD | Not started | - |
+| 11. Closed-Loop Control Service | v3.0 | 0/TBD | Not started | - |
+| 12. Frontend Real Sensor Visibility | v3.0 | 0/TBD | Not started | - |
+| 13. Reproducible Setup Guide | v3.0 | 0/TBD | Not started | - |

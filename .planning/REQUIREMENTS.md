@@ -153,29 +153,28 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PIPE-04 | Phase 9 | Complete |
 | PIPE-05 | Phase 9 | Complete |
 | OBS-01 | Phase 5 | Complete |
-
-| HUB-01 | — | Pending |
-| HUB-02 | — | Pending |
-| HUB-03 | — | Pending |
-| HUB-04 | — | Pending |
-| HUB-05 | — | Pending |
-| INGEST-01 | — | Pending |
-| INGEST-02 | — | Pending |
-| CTRL-01 | — | Pending |
-| CTRL-02 | — | Pending |
-| CTRL-03 | — | Pending |
-| CTRL-04 | — | Pending |
-| UI-01 | — | Pending |
-| UI-02 | — | Pending |
-| SETUP-01 | — | Pending |
-| SETUP-02 | — | Pending |
+| HUB-01 | Phase 10 | Pending |
+| HUB-02 | Phase 10 | Pending |
+| HUB-03 | Phase 10 | Pending |
+| HUB-04 | Phase 10 | Pending |
+| HUB-05 | Phase 10 | Pending |
+| INGEST-01 | Phase 10 | Pending |
+| INGEST-02 | Phase 10 | Pending |
+| CTRL-01 | Phase 11 | Pending |
+| CTRL-02 | Phase 11 | Pending |
+| CTRL-03 | Phase 11 | Pending |
+| CTRL-04 | Phase 11 | Pending |
+| UI-01 | Phase 12 | Pending |
+| UI-02 | Phase 12 | Pending |
+| SETUP-01 | Phase 13 | Pending |
+| SETUP-02 | Phase 13 | Pending |
 
 **Coverage:**
 - v2.0 requirements: 29 total (all complete)
 - v3.0 requirements: 15 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 15
+- Mapped to phases: 15 (Phases 10-13)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-14*
-*Last updated: 2026-03-18 — v3.0 requirements added*
+*Last updated: 2026-03-18 — v3.0 requirements mapped to Phases 10-13*
