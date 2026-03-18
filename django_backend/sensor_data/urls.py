@@ -6,6 +6,7 @@ from .views import (
     HubProvisionView,
     SendHubCommand,
     HabitatZoneListView,
+    SensorIngestView,
 )
 
 urlpatterns = [
@@ -15,4 +16,5 @@ urlpatterns = [
     path('provision/', HubProvisionView.as_view(), name='hub-provision'),
     path('send-command/', SendHubCommand.as_view(), name='send-command'),
     path('habitat/zones/', HabitatZoneListView.as_view(), name='habitat-zone-list'),
+    path('sensor-ingest/', SensorIngestView.as_view(), name='sensor-ingest'),
 ]

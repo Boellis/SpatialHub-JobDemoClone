@@ -2,7 +2,10 @@ from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
-from google.cloud import pubsub_v1
+try:
+    from google.cloud import pubsub_v1
+except ImportError:  # pragma: no cover
+    pubsub_v1 = None
 import json
 
 from .models import RawSensorData, EnrichedSensorData, HubConfig, HabitatZone
@@ -11,6 +14,7 @@ from .serializers import RawSensorSerializer, EnrichedSensorSerializer, HubConfi
 import secrets
 import string
 import traceback
+from django.utils.dateparse import parse_datetime
 
 class RawSensorListView(ListAPIView):
     queryset = RawSensorData.objects.all().order_by("-datetime")
@@ -94,5 +98,68 @@ class SendHubCommand(APIView):
             return Response({"status": "published", "msg_id": msg_id}, status=status.HTTP_200_OK)
         except Exception as e:
             print("Error in SendHubCommand:", str(e))
+            traceback.print_exc()
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+REQUIRED_FIELDS = {'hub_id', 'sensor_id', 'sensor_name', 'device_addr', 'sensor_val', 'datetime', 'location', 'owner', 'workers'}
+
+
+class SensorIngestView(APIView):
+    def post(self, request):
+        try:
+            data = request.data
+
+            # Normalise single object to list
+            if isinstance(data, dict):
+                items = [data]
+            else:
+                items = list(data)
+
+            # Reject empty batch
+            if not items:
+                return Response({"error": "Payload must not be empty"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Validate all items before touching the DB (atomic all-or-nothing)
+            rows = []
+            for idx, item in enumerate(items):
+                missing = REQUIRED_FIELDS - set(item.keys())
+                if missing:
+                    return Response(
+                        {"error": f"Item {idx}: missing required fields: {sorted(missing)}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                try:
+                    sensor_val = float(item['sensor_val'])
+                except (TypeError, ValueError):
+                    return Response(
+                        {"error": f"Item {idx}: sensor_val must be numeric, got {item['sensor_val']!r}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                parsed_dt = parse_datetime(str(item['datetime']))
+                if parsed_dt is None:
+                    return Response(
+                        {"error": f"Item {idx}: datetime is not a valid ISO datetime: {item['datetime']!r}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                rows.append(EnrichedSensorData(
+                    hub_id=item['hub_id'],
+                    sensor_id=item['sensor_id'],
+                    sensor_name=item['sensor_name'],
+                    device_addr=str(item['device_addr']),
+                    sensor_val=sensor_val,
+                    datetime=parsed_dt,
+                    location=item['location'],
+                    owner=item['owner'],
+                    workers=item['workers'],
+                ))
+
+            EnrichedSensorData.objects.bulk_create(rows)
+            return Response({"stored": len(rows)}, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
             traceback.print_exc()
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
