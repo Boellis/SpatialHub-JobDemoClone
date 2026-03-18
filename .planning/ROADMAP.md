@@ -100,7 +100,7 @@ Plans:
 | 7. Frontend WebSocket + Fallback | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 8. AnomalyDrawer Rewire | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 9. Django Bridge + Historical Pipeline | v2.0 | 2/2 | Complete | 2026-03-16 |
-| 10. Django Ingest + Hubcode Rewrite | v3.0 | 3/3 | Complete | 2026-03-18 |
+| 10. Django Ingest + Hubcode Rewrite | v3.0 | Complete    | 2026-03-18 | 2026-03-18 |
 | 11. Closed-Loop Control Service | v3.0 | 0/TBD | Not started | - |
 | 12. Frontend Real Sensor Visibility | v3.0 | 0/TBD | Not started | - |
 | 13. Reproducible Setup Guide | v3.0 | 0/TBD | Not started | - |
