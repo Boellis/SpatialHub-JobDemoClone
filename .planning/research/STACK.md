@@ -1,40 +1,47 @@
 # Stack Research
 
-**Domain:** BioSim Integration — WebSocket pipelines, Docker infrastructure, Django async bridge
-**Researched:** 2026-03-14
-**Confidence:** HIGH (all critical version claims verified against PyPI, npm, and official docs)
+**Domain:** Physical Sensor Integration — Raspberry Pi + Atlas Scientific pH sensor -> BioSim closed loop
+**Researched:** 2026-03-18
+**Confidence:** HIGH (versions verified against PyPI, Django docs, BioSim upstream config)
 
-> This document covers ONLY net-new stack additions for the v2.0 BioSim Integration milestone.
-> Existing validated stack (React 19, Vite, TypeScript, R3F fiber@9.5/drei@10.7/three@0.183,
-> Zustand v5, Django 5.2, DRF, PostgreSQL) is unchanged and not re-researched here.
+> This document covers ONLY net-new stack additions for the v3.0 Physical Sensor Integration milestone.
+> Existing validated stack (React 19, Vite, TypeScript, R3F, Zustand v5, Django 5.2, DRF,
+> PostgreSQL, Docker Compose, BioSim, aiohttp>=3.9 already in requirements.txt) is unchanged
+> and not re-researched here. The previous v2.0 STACK.md (BioSim Integration) is the
+> authoritative source for WebSocket plumbing, Daphne, channels, and Docker networking.
+>
+> This file covers three new concerns only:
+> 1. Pi-side Python client (hubcode rewrite)
+> 2. Django ingest endpoint for Pi sensor data
+> 3. Control service: real pH vs BioSim pH -> malfunction injection
 
 ---
 
 ## Recommended Stack
 
-### Core Infrastructure
+### Pi-Side Python Client (hubcode rewrite)
 
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
-| Docker Compose v2 | >=2.0 (bundled with Docker Desktop) | Orchestrate BioSim + Open MCT + Django + PostgreSQL as single `docker compose up` | BioSim repo ships its own docker-compose.yml with exactly 2 services (biosim-server + openmct-biosim). We add Django and PostgreSQL services to it. v2 syntax (`docker compose` not `docker-compose`) is the current standard. |
-| BioSim (scottbell/biosim) | HEAD/main | NASA life support physics engine; provides REST API + WebSocket on port 8009 | GPL v3 copyleft — the REST/WebSocket network boundary avoids code-linking concerns. No pre-built Docker image; builds from source via Maven. Confirmed docker-compose.yml in upstream repo. |
-| Open MCT | via openmct-biosim build | NASA mission control dashboard, free alongside BioSim | Already in BioSim's docker-compose as `openmct-biosim` service building from upstream GitHub, exposed on port 9091. Zero additional configuration — just keep the service definition. |
-| eclipse-temurin | 21-jdk-jammy | JDK 21 base image for BioSim Maven build | Official `openjdk` Docker image is deprecated (Docker Hub). Eclipse Temurin is the community-endorsed replacement for JDK containers. BioSim requires JDK 21+. Use `eclipse-temurin:21-jdk-jammy` in any custom Dockerfile wrapping BioSim. |
-| PostgreSQL | 15-alpine | Local dev database in docker-compose | Already in use on Cloud SQL. Pin to `postgres:15-alpine` in the compose file for fast local iteration. Cloud SQL remains the production database — no infra changes. |
+| Python `requests` | 2.32.5 | HTTP POST sensor readings to Django REST API over WiFi | requests 2.32.5 is the current stable release (verified PyPI March 2026). No async needed — the Pi loop is a 5-second blocking cycle. requests is already in `django_backend/requirements.txt` (>=2.31.0), so the team is familiar with it and its behavior is well-understood. aiohttp would be wasted complexity here: the Pi has one thing to do and the latency of a LAN POST is <10ms. |
+| Python `python-dotenv` | 1.2.2 | Load per-device config (DJANGO_URL, HUB_ID, SENSOR_ADDR) from a `.env` file on the Pi | 1.2.2 is the latest release as of 2026-03-01 (verified via PyPI). Replaces hardcoded constants scattered across `sensor_logger.py`, `snyc_to_postgres.py`, and `basic_funcs.py`. A single `.env` on the Pi holds everything a deployer needs to change — no code edits required. Uses the same `.env` pattern already established in the Django docker-compose stack so the mental model is consistent. Requires Python >=3.10 — compatible with Pi OS Bookworm (Python 3.11). |
+| `AtlasI2C.py` | existing (no version) | Read pH from Atlas Scientific EZO pH circuit via I2C | Already in `hubcode/`. The `query_device_data()` method is what `sensor_logger.py` calls and it works. Do not replace or wrap this. The rewrite should import it as-is — zero changes needed to the driver layer. |
 
-### Django Backend Additions
+### Django Ingest Endpoint
+
+No new packages are required. The ingest endpoint is a standard DRF `APIView` POST that:
+- Deserializes JSON using a new `PiSensorDataSerializer` backed by `RawSensorData` and `EnrichedSensorData` models that already exist
+- Uses `@csrf_exempt` via DRF's `APIView` (DRF views are CSRF-exempt for non-session auth by default — no decorator needed, no middleware change)
+- Writes to `raw_sensor_data` table (existing model, no migration)
+
+The only dependency concern is that the Pi will POST to `http://<host-ip>:8000/api/pi-ingest/` and `ALLOWED_HOSTS = ["*"]` is already set in `settings.py`. CORS is not relevant here — CORS only affects browser fetch calls, not server-to-server or device-to-server HTTP. The existing `CORS_ALLOWED_ORIGINS` list does not need to be changed.
+
+### Control Service (closed-loop pH comparator)
 
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
-| `websockets` | 16.0 | Async WebSocket client in the Django bridge management command | Latest (released January 2026, verified on PyPI). Requires Python >=3.10; project uses 3.11. Official docs show the exact Django integration pattern: call `django.setup()`, run an asyncio event loop, wrap all ORM writes with `asyncio.to_thread()` because Django 5.2 ORM is still synchronous-only. Simpler and more correct than using Django Channels as a WS _client_. |
-| `daphne` | 4.2.1 | ASGI server replacing Gunicorn in the docker-compose Django service | Latest (July 2025, verified on PyPI). Required because Gunicorn is a WSGI server — it cannot handle WebSocket upgrades. Even if Django only serves HTTP in v2.0, switching to Daphne now means no server-swap pain when a Django WS proxy endpoint is added later. Daphne is the official Django Channels HTTP/WebSocket server. |
-| `channels` | 4.3.2 | Django ASGI layer | Latest (November 2025, verified on PyPI). Supports Django 4.2–6.0 (project uses 5.2 — confirmed compatible), Python >=3.9. Only strictly needed if Django exposes its own WebSocket endpoint to the browser. The v2.0 architecture has the frontend connecting directly to BioSim's WebSocket — add `channels` when a Django proxy endpoint becomes necessary. Include it in requirements now to unblock future phases. |
-
-### Frontend Additions
-
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| Native browser `WebSocket` API | Browser built-in | Connect to BioSim WebSocket at `ws://localhost:8009/ws/simulation/{simID}` | **No npm package needed.** `react-use-websocket` v4.0.0 — the obvious candidate — explicitly does NOT support React 19. Confirmed by maintainer in GitHub issue #256 (December 2024). Installing it requires `--legacy-peer-deps` which is a fragile hack that breaks on clean installs. A custom `useBioSimWebSocket` hook wrapping the native WebSocket API is 40–60 lines, zero dependencies, and gives full control over the fallback detection logic this project needs. |
+| `aiohttp` | >=3.9 (already in requirements.txt; latest 3.13.3) | Async HTTP client to POST malfunctions to BioSim REST API and GET current BioSim simulation state | Already a direct dependency in `requirements.txt` and actively used in `biosim_bridge.py`. The bridge management command proves the pattern works: `aiohttp.ClientSession` + `asyncio` for BioSim REST calls. The control service is the same pattern — one async loop, one session. No new install. |
+| Django management command | built-in | Run the control service as a long-running process inside the same Django container | Already the established pattern (see `biosim_bridge.py`). Keeps the control loop inside the existing Docker service — no new container, no new orchestration. The command is started alongside the bridge via docker-compose `command` override or added to the entrypoint script. |
 
 ---
 
@@ -42,8 +49,8 @@
 
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| `aiohttp` | Already in repo (`simulate_devices.py`) | Async HTTP for one-off REST calls to BioSim (start simulation, inject malfunctions) | Use for `POST /api/simulation/start` and `POST /api/simulation/{simID}/modules/{name}/malfunctions` from the Django management command. Already installed — no new dependency. |
-| `channels-redis` | 4.x | Redis-backed channel layer for Django Channels group messaging | Do NOT add in v2.0. Only relevant if multiple Django consumers need to broadcast to each other. Adding it now means adding Redis as a Docker service with zero current benefit. |
+| Python `configparser` (stdlib) | stdlib | Alternative to python-dotenv if .env syntax is unfamiliar | Only if the deployer population strongly prefers `.ini` files. python-dotenv is the recommended choice because it matches the docker-compose `.env` file pattern already in the repo. |
+| `pytest-requests-mock` or `responses` | any | Mock the Django REST endpoint during Pi client unit tests | Add only if you write tests for the hubcode client. Not needed for production. |
 
 ---
 
@@ -51,25 +58,29 @@
 
 | Tool | Purpose | Notes |
 |------|---------|-------|
-| Vite dev server proxy (`server.proxy`) | Forward `ws://localhost:PORT/ws/biosim/*` to BioSim container during frontend dev | Add `server.proxy` entry in `vite.config.ts` with `ws: true`. This avoids browser CORS issues when the frontend (on Vite's port 5173) connects to BioSim (port 8009). In production/docker-compose, the frontend connects directly to `ws://localhost:8009`. |
-| `docker compose watch` | Auto-rebuild Django service on file change in docker-compose | Available in Docker Compose v2.22+. Avoids the need for volume mounts plus manual restarts during Django development inside Docker. |
+| `curl` on the Pi | Manual smoke test before running hubcode | `curl -X POST http://<host>:8000/api/pi-ingest/ -H "Content-Type: application/json" -d '{"hub_id":"test","sensor_name":"ph","sensor_val":7.2,"device_addr":"99","datetime":"2026-03-18T00:00:00Z","sensor_id":"test_99"}'`. Confirms network path before debugging Python. |
+| `i2cdetect -y 1` | Detect Atlas Scientific sensor on Pi I2C bus | Run before starting hubcode. Atlas EZO pH default address is 99 (0x63). |
+| Docker compose `watch` | Auto-rebuild Django service during control service development | Available in Docker Compose v2.22+. Avoids manual restart when editing the management command. |
 
 ---
 
 ## Installation
 
 ```bash
-# Django backend — add to django_backend/requirements.txt
-websockets>=16.0
-daphne>=4.2.1
-channels>=4.3.2
+# Pi-side (run on the Raspberry Pi)
+pip install requests==2.32.5 python-dotenv==1.2.2
 
-# Frontend — NO new npm packages
-# Write a custom useBioSimWebSocket hook using the native WebSocket API
-# No npm install needed
+# Create /home/pi/spatialhub/.env with:
+# DJANGO_URL=http://192.168.1.X:8000
+# HUB_ID=Xy12Ab34Cd56Ef78Gh90
+# SENSOR_ADDR=99
 
-# Docker — no pip install needed; Docker handles all Java/Maven dependencies
-# BioSim builds from source inside its own container
+# Django backend — NO new packages needed
+# The control service uses aiohttp (already in requirements.txt)
+# The ingest endpoint uses existing DRF + models
+
+# Verify aiohttp version in requirements.txt is >=3.9 (already satisfied)
+grep aiohttp django_backend/requirements.txt
 ```
 
 ---
@@ -78,12 +89,13 @@ channels>=4.3.2
 
 | Recommended | Alternative | When to Use Alternative |
 |-------------|-------------|-------------------------|
-| Native WebSocket + custom hook | `react-use-websocket` v4 | Only if project downgrades to React 18 or lower. The library explicitly targets React 18 and is confirmed incompatible with React 19 (maintainer, Dec 2024). |
-| `websockets` management command | Celery + Redis | Only when you need distributed task queues, retry policies, fan-out, or horizontal worker scaling across machines. For a single long-running async WS bridge, Celery + broker is 5x the infrastructure for zero benefit. Community consensus in 2025: management command is the right call for simple polling loops. |
-| `websockets` management command | Django Channels `WebsocketConsumer` | Use Channels consumers when Django is _serving_ WebSocket connections to clients. Here Django is a WS _client_ connecting to BioSim — Channels adds the wrong abstraction layer. The `websockets` library is the correct client-side primitive. |
-| `daphne` | `uvicorn` | Use uvicorn if you need HTTP/2 support or if you are not using Django Channels at all. Daphne is the official Channels-compatible ASGI server and the simpler choice when Channels is already in the stack. |
-| `eclipse-temurin:21-jdk-jammy` | `openjdk:21` | The official `openjdk` image is deprecated on Docker Hub. Temurin is Eclipse Foundation's replacement. Do not use `openjdk` for new Dockerfiles. |
-| BioSim via Docker compose | BioSim running natively on host | Viable for development on machines with JDK 21. Docker isolates the Java dependency from the Python/Node environment, prevents port conflicts, matches the target architecture, and lets reviewers run the full stack with one command. |
+| `requests` on Pi | `aiohttp` on Pi | Only if the Pi loop is genuinely concurrent (multiple sensors posting simultaneously). For a single-sensor 5-second polling loop, the async overhead of aiohttp is pure noise. |
+| `python-dotenv` | Hardcoded constants (current state) | Never. The current `sensor_logger.py` has HUB_ID and SENSOR_ADDR hardcoded. Anyone deploying a second Pi has to edit Python source. This is the exact problem dotenv solves. |
+| `python-dotenv` | `configparser` (stdlib) | Use configparser only if avoiding third-party packages is a hard constraint. The API is more verbose and `.ini` format is less readable than `.env` for simple key=value config. |
+| `python-dotenv` | environment variables via shell export | Valid but brittle on Pi — environment variables are lost on reboot/session change without `~/.bashrc` modifications. A `.env` file survives reboots and is versioned alongside the code. |
+| Django management command | Celery task | Celery requires a broker (Redis), a worker process, and task serialization — 5x the complexity for a single comparison loop. The bridge management command pattern already works and is proven in this codebase. |
+| Django management command | Separate Python script (not Django) | Valid, but loses access to the ORM for reading the latest Pi reading from the database and loses the logging/signal handling that management commands provide. |
+| POST to `raw_sensor_data` via existing RawSensorData model | Write directly to `enriched_sensor_data` | Write to `raw_sensor_data` first. That preserves the existing data pipeline semantics (raw data = device output, enriched = processed/located). The control service can read from `raw_sensor_data` to get the latest real pH. |
 
 ---
 
@@ -91,88 +103,79 @@ channels>=4.3.2
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| `react-use-websocket` | Does not support React 19 (confirmed by maintainer in GitHub issue #256, December 2024). Using `--legacy-peer-deps` to force-install it breaks on clean `npm install` — exactly what a portfolio reviewer will run. | Native browser `WebSocket` API with a custom `useBioSimWebSocket` hook |
-| `Celery` + Redis broker | Complete overkill for one long-running async task. Adds 2 new Docker services (Celery worker + Redis), complex configuration, and operational surface area with zero benefit. | Async `management command` (`python manage.py run_biosim_bridge`) using asyncio event loop |
-| `channels-redis` | Premature addition. The v2.0 bridge is a standalone async management command, not a Channels consumer group. Adding Redis as a Docker service for future-proofing only creates a service that starts and does nothing. | Add only when multi-consumer broadcasting via Channels is actually implemented |
-| `SockJS` | Designed for servers that do not support standard WebSockets. BioSim serves a compliant RFC 6455 WebSocket. SockJS overhead and server-side protocol negotiation are unnecessary. | Native `WebSocket` API |
-| `gunicorn` (as ASGI server) | Gunicorn is a WSGI server. It cannot handle WebSocket connection upgrades. If kept in the Docker service CMD, any future Django WS endpoint will silently fail with a 400. | `daphne` with `asgi.py` application entrypoint |
-| `aiohttp` as WS client | `aiohttp` has a WebSocket client but it is less idiomatic and less documented than the `websockets` library for pure WebSocket client use. Keep `aiohttp` for the async HTTP calls it already handles. | `websockets` for the bridge WS client |
-| `socket.io` | Requires a Socket.IO server. BioSim runs a standard WebSocket server. Socket.IO's protocol is not compatible with a plain WS server. | Native `WebSocket` API |
+| `google-cloud-pubsub` on the Pi | The v3.0 goal is explicitly to remove the GCP dependency from hubcode. The current `snyc_to_postgres.py` and `basic_funcs.py` both import pubsub and require a service account JSON file at a hardcoded path — this is what the rewrite eliminates. | `requests` POST directly to Django REST API over WiFi |
+| MQTT broker (Mosquitto, HiveMQ) | Adds a new broker service to the Docker stack and a new protocol to the Pi client for no gain. The Django REST API already exists and the Pi posts infrequently (every 5 seconds). MQTT shines for high-frequency fan-out to many subscribers — this use case has one producer and one consumer. | HTTP POST via `requests` |
+| SQLite local buffering on Pi (current approach) | The current `sensor_logger.py` inserts to a local SQLite DB and a separate `snyc_to_postgres.py` script syncs it. This two-process pattern made sense with Pub/Sub (async, unreliable cloud path). With a direct LAN POST, the round-trip is <10ms and failure is immediately detectable. The local buffer adds state management complexity with no benefit on a reliable LAN. | Direct POST in the sensor loop; log failures to a flat file for debugging |
+| Separate control container | The control service is ~100 lines of Python comparing two float values and conditionally calling `aiohttp.post()`. Spinning up a new Docker service for this is over-engineering. | Django management command in the existing `django` or `bridge` container |
+| Django Signals for ingest side-effects | Signals are asynchronous within the request/response cycle but fire synchronously and can cause unexpected latency on the POST endpoint. The control service should read the latest Pi reading on its own polling schedule, not be triggered by signals. | Management command polling loop with a configurable interval |
+| `websockets` library for BioSim API calls in the control service | The control service only calls BioSim's REST API (GET simulation state, POST malfunction) — not the WebSocket stream. `aiohttp` is already available and is the correct tool for REST calls. | `aiohttp.ClientSession` for REST; `websockets` library is for the bridge's WS subscription |
 
 ---
 
-## Stack Patterns by Variant
+## BioSim Malfunction API — What the Control Service Can Actually Inject
 
-**Frontend connects DIRECTLY to BioSim WebSocket (recommended for v2.0):**
-- No Django WS proxy needed
-- `channels` package in requirements but not wired up yet
-- Vite dev proxy forwards `/ws/biosim/*` → `ws://localhost:8009` to avoid browser CORS during dev
-- In production/docker, browser connects to `ws://localhost:8009/ws/simulation/{simID}` directly
-- Django bridge management command runs independently in a separate process for data ingestion
+This is the critical integration point. Based on reading the BioSim default config (`configuration/default.biosim`) and the research doc:
 
-**Frontend connects to a DJANGO WebSocket proxy (deferred to v3.0+ if needed):**
-- Add `channels>=4.3.2` wiring: `routing.py`, updated `asgi.py`
-- Django `AsyncWebsocketConsumer` proxies BioSim WS to browser
-- Run `daphne` instead of `gunicorn` (already switched in v2.0)
-- Benefit: centralised auth, single origin for frontend WS connections
+**Water-related modules in default BioSim config (exact names verified from source):**
 
-**BioSim is unavailable (fallback mode):**
-- `useBioSimWebSocket` hook attempts connection, catches `onerror` / `onclose` within a configurable timeout (3 seconds recommended)
-- Sets `biosimAvailable: false` in Zustand store
-- Existing `simulation/engine.ts` resumes as the data source
-- No additional library — this is application logic, not a new dependency
+| Module Name | What It Represents | Malfunction Effect |
+|-------------|-------------------|-------------------|
+| `Grey_Water_Store` | Grey water storage level | Degraded water recycling capacity |
+| `Dirty_Water_Store` | Dirty/wastewater storage | Increased waste accumulation |
+| `Potable_Water_Store` | Potable water output | Reduced clean water availability |
+| `VCCR` | CO2 removal system (air quality) | Secondary: atmosphere degrades if water-to-O2 cycle is disrupted |
+| `OGS` | Oxygen generation | Secondary: O2 drops if water electrolysis is compromised |
 
----
+**There is no `WaterRS` module in the default BioSim configuration.** The existing `biosim_ingest.py` maps water quality to `Grey_Water_Store` fill ratio as a pH proxy (`wr-ph`). The control service should inject malfunctions into `Grey_Water_Store` when real pH diverges, since that is the module the frontend's water-recycling zone reads.
 
-## Docker Compose Service Layout
-
-The BioSim upstream `docker-compose.yml` (verified via GitHub) defines:
-- `biosim-server`: builds from current directory (the biosim repo), maps port 8009:8009, mounts `./logs`
-- `openmct-biosim`: builds from the upstream openmct-biosim GitHub repo, maps port 9091:80
-
-Our extended `docker-compose.yml` adds:
-
-```yaml
-# Extends biosim's two services with django + postgres
-services:
-  biosim:
-    build:
-      context: ./biosim   # git submodule or cloned directory
-    ports: ["8009:8009"]
-    volumes:
-      - ./logs:/app/logs
-    command: ["--writeTicks"]  # enables /api/simulation/{simID}/log endpoint
-
-  openmct:
-    build:
-      context: https://github.com/scottbell/openmct-biosim.git
-    ports: ["9091:80"]
-    depends_on: [biosim]
-
-  db:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_DB: spatialhub_db
-      POSTGRES_USER: spatialhub
-      POSTGRES_PASSWORD: localpassword
-    ports: ["5432:5432"]
-
-  django:
-    build: .
-    # Switch from gunicorn to daphne for ASGI support
-    command: daphne -b 0.0.0.0 -p 8080 spatialhub_backend.asgi:application
-    ports: ["8080:8080"]
-    depends_on: [db, biosim]
-    environment:
-      USE_SQLITE: "0"
-      DB_HOST: db
-      DB_NAME: spatialhub_db
-      DB_USER: spatialhub
-      DB_PASS: localpassword
-      BIOSIM_WS_URL: "ws://biosim:8009"   # service-name DNS inside Docker network
+**Malfunction payload (confirmed from BioSim README):**
+```json
+{
+  "intensity": "SEVERE_MALF",
+  "duration": "TEMPORARY_MALF"
+}
 ```
 
-**Docker networking:** All services share the default bridge network. Inside the network, Django reaches BioSim at `ws://biosim:8009` (service name). The browser (outside Docker) reaches BioSim at `ws://localhost:8009` (host-mapped port). The Vite dev proxy bridges the CORS gap during frontend development.
+**POST endpoint:**
+```
+POST http://biosim:8009/api/simulation/{simID}/modules/Grey_Water_Store/malfunctions
+```
+
+**Intensity levels (confirmed):** `SEVERE_MALF`, `MEDIUM_MALF`, `LOW_MALF`
+**Duration levels (confirmed):** `TEMPORARY_MALF`, `PERMANENT_MALF`
+
+**Control logic recommendation:**
+
+```
+if abs(real_ph - biosim_ph) > THRESHOLD_MODERATE:  # e.g., 0.5 pH units
+    inject LOW_MALF / TEMPORARY_MALF into Grey_Water_Store
+if abs(real_ph - biosim_ph) > THRESHOLD_SEVERE:    # e.g., 1.5 pH units
+    inject SEVERE_MALF / TEMPORARY_MALF into Grey_Water_Store
+if abs(real_ph - biosim_ph) <= THRESHOLD_CLEAR:    # e.g., back within 0.2 pH units
+    DELETE malfunctions from Grey_Water_Store (clear endpoint)
+```
+
+The BioSim `wr-ph` proxy in `biosim_ingest.py` is `(grey_water_level / grey_water_capacity) * 1.5 + 6.0`. When Grey_Water_Store is malfunctioning, its fill ratio changes, which changes the `wr-ph` reading in the frontend — creating the visual closed loop. The control service needs to GET the current simID from `/api/simulation` on startup and cache it; simID is stable for the container lifetime.
+
+---
+
+## Pi-to-Docker Networking
+
+No new infrastructure needed. The Pi posts to the host machine's LAN IP on port 8000 (the Docker-mapped Django port). The host machine's Docker Desktop or Docker Engine maps `0.0.0.0:8000` → Django container port 8000.
+
+**Connection string format for Pi `.env`:**
+```
+DJANGO_URL=http://192.168.1.X:8000
+```
+
+**What must be true for this to work:**
+- Pi and the host machine are on the same LAN (same WiFi network or wired subnet)
+- Docker is running with `-p 8000:8000` (already in `docker-compose.yml`: `"8000:8000"`)
+- `ALLOWED_HOSTS = ["*"]` in Django settings (already set)
+- No firewall on the host blocks port 8000 (macOS: System Preferences > Firewall; Linux: `ufw allow 8000`)
+
+**Finding the host IP on macOS:** `ipconfig getifaddr en0` (WiFi) or `en1` (ethernet)
+**Finding the host IP on Linux:** `ip route get 1 | awk '{print $7; exit}'`
 
 ---
 
@@ -180,29 +183,28 @@ services:
 
 | Package | Compatible With | Notes |
 |---------|-----------------|-------|
-| `channels` 4.3.2 | Django 4.2, 5.1, 5.2, 6.0 | Project uses Django 5.2 — fully supported. Verified on PyPI. |
-| `channels` 4.3.2 | Python >=3.9 | Project uses Python 3.11 — no issue. |
-| `daphne` 4.2.1 | Python >=3.9, Django Channels 4.x | Pair with `channels`. Replace `gunicorn` in the service CMD — do not run both. |
-| `websockets` 16.0 | Python >=3.10 | Project uses Python 3.11 — fine. All Django ORM calls in the bridge MUST use `asyncio.to_thread()`. Django 5.2 ORM does not support native async I/O. |
-| `eclipse-temurin:21-jdk-jammy` | BioSim Maven build, JDK 21+ | Replaces deprecated `openjdk` Docker image. |
-| Django 5.2 async ORM | Partial async | `QuerySet` evaluation and `.save()` are synchronous. Wrap all DB writes in `asyncio.to_thread(lambda: obj.save())` inside the async bridge. |
-| Native `WebSocket` API | React 19, all modern browsers | No React peer dependency at all. Works in any browser with WebSocket support (97%+ of current browsers). |
+| `requests` 2.32.5 | Python 3.9+ | Pi OS Bookworm ships Python 3.11 — fine. Pi OS Bullseye ships Python 3.9 — also fine. |
+| `python-dotenv` 1.2.2 | Python 3.10+ | Pi OS Bookworm (Python 3.11) works. Pi OS Bullseye (Python 3.9) does NOT work — use python-dotenv 1.0.1 (last version supporting Python 3.9) or upgrade the Pi OS. |
+| `aiohttp` 3.13.3 | Python 3.9+ | Already in `requirements.txt` as `aiohttp>=3.9`. 3.13.3 released January 3, 2026. |
+| Django 5.2 + DRF | `@csrf_exempt` not needed for DRF `APIView` | DRF's `APIView` enforces its own authentication/permission classes and bypasses Django's session-based CSRF for non-browser clients. A Pi POSTing JSON with no session cookie is not subject to CSRF checks. Confirmed in DRF source: `CSRFExemptSessionAuthentication` is the default. |
+| BioSim malfunction API | `Grey_Water_Store` module | Verified as present in `configuration/default.biosim`. Module name is case-sensitive in the URL path. |
 
 ---
 
 ## Sources
 
-- [PyPI channels 4.3.2](https://pypi.org/project/channels/) — version, Django/Python compatibility (HIGH confidence)
-- [PyPI daphne 4.2.1](https://pypi.org/project/daphne/) — version, Python compatibility (HIGH confidence)
-- [PyPI websockets 16.0](https://pypi.org/project/websockets/) — version, Python requirements (HIGH confidence)
-- [Django Channels deploying docs](https://channels.readthedocs.io/en/latest/deploying.html) — Daphne as the recommended ASGI server for Channels projects (HIGH confidence)
-- [websockets Django integration guide](https://websockets.readthedocs.io/en/stable/howto/django.html) — `asyncio.to_thread()` for ORM, `django.setup()` pattern, management command approach (HIGH confidence)
-- [scottbell/biosim docker-compose.yml](https://raw.githubusercontent.com/scottbell/biosim/main/docker-compose.yml) — confirmed service names, ports (8009, 9091), build directives, no pre-built image (HIGH confidence)
-- [Docker Hub eclipse-temurin](https://hub.docker.com/_/eclipse-temurin/) — confirmed replacement for deprecated `openjdk` Docker image (HIGH confidence)
-- [GitHub robtaussig/react-use-websocket issue #256](https://github.com/robtaussig/react-use-websocket/issues/256) — maintainer confirmed React 19 is NOT supported (HIGH confidence)
-- [Docker Compose networking docs](https://docs.docker.com/compose/how-tos/networking/) — service-name DNS resolution on shared bridge network (HIGH confidence)
-- WebSearch: Celery vs management command for simple polling — community consensus in 2025 favors management command for single-task use cases (MEDIUM confidence — multiple sources agree)
+- [PyPI requests 2.32.5](https://pypi.org/project/requests/) — current stable version, Python >=3.9 requirement (HIGH confidence)
+- [PyPI python-dotenv 1.2.2](https://pypi.org/project/python-dotenv/) — current stable version, Python >=3.10 requirement (HIGH confidence)
+- [PyPI aiohttp 3.13.3](https://pypi.org/project/aiohttp/) — current stable version as of January 2026 (HIGH confidence)
+- [BioSim default.biosim config](https://raw.githubusercontent.com/scottbell/biosim/main/configuration/default.biosim) — authoritative module names including `Grey_Water_Store`, `Dirty_Water_Store`, `Potable_Water_Store`; confirmed no `WaterRS` module in default config (HIGH confidence)
+- [BioSim GitHub README — malfunction API](https://github.com/scottbell/biosim) — confirmed payload structure, intensity/duration values, endpoint pattern (HIGH confidence)
+- [Django REST Framework CSRF docs](https://www.django-rest-framework.org/api-guide/authentication/#sessionauthentication) — confirmed DRF APIView is CSRF-exempt for non-session auth (HIGH confidence)
+- [Django `ALLOWED_HOSTS` docs](https://docs.djangoproject.com/en/5.2/ref/settings/#allowed-hosts) — wildcard `"*"` already set in `settings.py`, confirmed accepts Pi requests (HIGH confidence)
+- `django_backend/requirements.txt` in this repo — confirmed `aiohttp>=3.9` already present, no new install needed for control service (HIGH confidence, direct read)
+- `docker-compose.yml` in this repo — confirmed `"8000:8000"` port mapping, Django accessible at host LAN IP (HIGH confidence, direct read)
+- `django_backend/sensor_data/biosim_ingest.py` in this repo — confirmed `wr-ph` is derived from `Grey_Water_Store` fill ratio, identifying the correct malfunction injection target (HIGH confidence, direct read)
+- WebSearch: DRF POST endpoint patterns for IoT sensor data 2025 — confirmed APIView POST pattern, no special IoT libraries needed (MEDIUM confidence)
 
 ---
-*Stack research for: BioSim Integration (v2.0 milestone)*
-*Researched: 2026-03-14*
+*Stack research for: Physical Sensor Integration (v3.0 milestone)*
+*Researched: 2026-03-18*

@@ -1,228 +1,210 @@
 # Project Research Summary
 
-**Project:** SpatialHub Mars Habitat Demo — BioSim Integration (v2.0)
-**Domain:** Real-time physics simulation integration with IoT telemetry visualization (Docker + WebSocket + Django async bridge + 3D React frontend)
-**Researched:** 2026-03-14
+**Project:** SpatialHub Mars Habitat Demo — Physical Sensor Integration (v3.0)
+**Domain:** IoT closed-loop control — real hardware driving a physics simulation
+**Researched:** 2026-03-18
 **Confidence:** HIGH
 
 ## Executive Summary
 
-This milestone replaces SpatialHub's client-side Brownian motion simulation with NASA's open-source BioSim life support physics engine, creating a genuine IoT telemetry + real-time physics integration story for the portfolio. BioSim ships its own Docker Compose configuration (biosim-server + openmct-biosim), so the infrastructure work is additive: extend the existing compose file with Django and PostgreSQL services rather than building from scratch. The entire stack starts with a single `docker compose up`. The frontend connects directly to BioSim's WebSocket at `ws://localhost:8009/ws/simulation/{simID}` using a custom hook over the native browser WebSocket API — no new npm packages needed, and no Django proxy in the live data path.
+SpatialHub v3.0 is a closed-loop integration milestone: a Raspberry Pi running an Atlas Scientific EZO pH sensor must drive BioSim's physics simulation by triggering malfunctions when real sensor readings diverge from simulation proxies. This is not a data logging project — it is a digital twin that responds to physical reality. The architecture is a comparator loop, not a value injector: BioSim has no endpoint to receive external state; the only lever available is its malfunction API. The whole milestone narrative depends on the reviewer watching a causal chain — pH drifts, zone turns red, water recycling degrades — entirely driven by real hardware.
 
-The recommended architecture has two parallel, fully decoupled data consumers reading from a single BioSim WebSocket source: the React frontend (for live 3D visualization) and a Django management command bridge (for PostgreSQL persistence and historical trends). This separation is the central design decision. It keeps the deployment simple (no Redis, no Celery, no Django Channels activation for v2.0), preserves the existing `/api/enriched/` and `/trends` endpoints with zero frontend changes, and allows both consumers to be developed and tested independently after Docker infrastructure is confirmed working. The fallback story — where the demo degrades gracefully to the v1.0 client-side simulation when BioSim is unavailable — preserves the portfolio asset for reviewers without Docker.
+The recommended approach is deliberately minimal in new infrastructure. No new packages are needed on the Django side. The Pi client is a config-driven Python script using `requests` and `python-dotenv` that replaces the existing GCP-Pub/Sub-dependent `snyc_to_postgres.py`. The control service is a Django management command (identical pattern to the existing `biosim_bridge`) added as a new Docker Compose service. The frontend change is a secondary pH annotation in the Water Recycling zone panel, polled from the existing `/api/enriched/` endpoint. Every major component has a direct existing analog to follow.
 
-The dominant risks are infrastructure startup ordering (BioSim's JVM takes 30-90 seconds to boot; `depends_on` without `condition: service_healthy` causes the bridge to crash silently), the async/sync boundary in the Django bridge (Django ORM requires `asyncio.to_thread()` inside async context or it raises `SynchronousOnlyOperation`), and the BioSim data model translation (BioSim exposes roughly 20 modules with nested properties and raw physical units; the habitat model expects 4 zones with human-readable sensor percentages). All three are solvable with known patterns — they must simply be addressed in the right phase order.
+The key risks are all hardware setup concerns, not software design concerns. Two of them will silently corrupt every demo that has not addressed them: the Atlas EZO ships in UART mode (I2C shows nothing until manually switched), and the existing `AtlasI2C.py` truncates pH values above 9.999 due to a hard-coded 4-character slice. Both must be fixed before any code is written or tested. The third systemic risk is namespace collision between BioSim and Pi data in `enriched_sensor_data` — distinct `hub_id` values prevent this with zero migration.
+
+---
 
 ## Key Findings
 
 ### Recommended Stack
 
-The existing validated stack (React 19, Vite, TypeScript, R3F/drei/three, Zustand v5, Django 5.2, DRF, PostgreSQL) is unchanged. V2.0 adds only what is strictly necessary to support BioSim integration.
+The stack for v3.0 adds exactly two new Pi-side packages and zero new Django packages. `requests==2.32.5` handles HTTP POST from the Pi; `python-dotenv==1.2.2` (or `1.0.1` for Pi OS Bullseye/Python 3.9) replaces hardcoded constants with a `.env` config file. On the Django side, the control loop reuses `aiohttp>=3.9` already in `requirements.txt`, following the exact `asyncio.run()` pattern established in `biosim_bridge.py`. No Celery, no MQTT, no Redis, no new Docker images.
 
-**Core technologies (net-new only):**
-- **Docker Compose v2**: Orchestrates BioSim + Open MCT + Django + PostgreSQL as `docker compose up`. BioSim has no pre-built image; builds from Maven source inside its own container. Use `eclipse-temurin:21-jdk-jammy` as the JDK base — the official `openjdk` Docker image is deprecated on Docker Hub.
-- **`websockets` 16.0**: Async WebSocket client library for the Django bridge management command. All ORM calls inside the async event loop must use `asyncio.to_thread()` — Django 5.2 ORM is synchronous-only. This is the correct primitive for a WS _client_; Django Channels is for _serving_ WS connections, not consuming them.
-- **`daphne` 4.2.1**: ASGI server replacing Gunicorn in the Django Docker service. Required so future WebSocket endpoint additions don't force a server swap. Pairs with `channels` 4.3.2, which is included in requirements now but not wired up in v2.0.
-- **Native browser `WebSocket` API**: Zero npm packages. `react-use-websocket` v4.0.0 explicitly does NOT support React 19 — confirmed by the maintainer in GitHub issue #256 (December 2024). A custom `useBioSimWebSocket` hook wrapping the native API is 40-60 lines, has no peer dependency problem, and gives complete control over the fallback detection logic.
-- **BioSim (scottbell/biosim HEAD)**: NASA life support physics engine. REST API + WebSocket on port 8009. GPL v3 — network communication over the Docker bridge network is safe; copying source files or linking against the Java library is not.
-- **Open MCT (via BioSim's compose file)**: Ships preconfigured and zero-config on port 9091 as part of BioSim's own docker-compose. Access via a new tab link from the nav — do not iframe it.
+**Core technologies:**
+- `requests 2.32.5` (Pi): HTTP POST to Django — simpler and correct for a 5s polling loop on LAN; aiohttp adds complexity for zero gain
+- `python-dotenv 1.2.2` (Pi): replaces hardcoded GCP paths and hub IDs with a `.env` file that survives reboots and is version-controlled; use `1.0.1` on Pi OS Bullseye (Python 3.9)
+- `aiohttp >=3.9` (Django, already present): async HTTP client for BioSim malfunction POST/DELETE — same library, same pattern as the bridge
+- Django management command (built-in): runs the control loop in the existing Django image as a second Docker Compose service; no new Dockerfile, no broker, no task queue
+- `AtlasI2C.py` (existing, unchanged except for the 4-char strip bug fix): the I2C driver already works — do not wrap or replace it
+
+**What NOT to use:** `google-cloud-pubsub` on the Pi (the explicit v3.0 goal is eliminating this dependency), MQTT (adds a broker for a single producer/consumer at 5s intervals), WebSocket from Pi to Django (requires django-channels ASGI stack; HTTP POST at 5s intervals is trivially debuggable and already handled by DRF), or `AppConfig.ready()` threads for the control loop (fires in every Gunicorn worker — multiple control loops, duplicate malfunction POSTs).
 
 ### Expected Features
 
-**Must have (v2.0 table stakes):**
-- Docker Compose stack — `docker compose up` starts all four services; no manual setup required for a reviewer
-- BioSim simulation auto-start — simulation begins on Django startup with bundled XML config; no manual curl required
-- Frontend WebSocket client (`useBioSimWS`) — replaces `engine.ts` setInterval as the live data source; drives `habitatStore` with real physics
-- Module-to-zone translation layer (`biosimMapper.ts`) — pure function mapping BioSim module hierarchy to existing `ZoneState`/`SensorReading` types
-- Fallback mode — detects BioSim unavailable within 2-5 seconds, activates `engine.ts`, shows amber "Fallback Mode" badge in HabitatHUD; exactly one data source active at any time
-- Real malfunction injection — AnomalyDrawer buttons POST to BioSim API; existing component JSX is untouched
-- Django bridge ingest (`biosim_bridge` management command) — writes BioSim tick data to `enriched_sensor_data`; drives `POST /tick` every 2s
-- Open MCT nav link — one line of JSX pointing to `http://localhost:9091`
+The milestone is well-scoped. Six features constitute the v3.0 launch set; four more are explicit v3.x polish; everything else is deferred indefinitely.
 
-**Should have (v2.x after validation):**
-- Historical tick log in `/trends` — `GET /api/simulation/{simID}/log` bulk-inserted into `enriched_sensor_data`; `/trends` shows real sim data with no frontend changes
-- Malfunction scheduling (`tickToOccur`) — optional delay field in AnomalyDrawer; low effort, high demo value
-- Malfunction ID tracking and real DELETE on cancel — store POST response ID; DELETE on AnomalyDrawer cancel instead of bias ramp-down
+**Must have (v3.0 table stakes):**
+- Hubcode rewrite — config-driven Pi client, no GCP dependency, direct `requests.post()` over WiFi
+- Django `SensorIngestView` at `POST /api/sensor-ingest/` — writes to existing `EnrichedSensorData` model, no migration
+- Control service (`ph_control_loop` management command) — reads latest real pH vs. BioSim proxy pH from DB every 10s, triggers `Grey_Water_Store` malfunction on divergence, auto-clears on recovery
+- Real pH visible in Water Recycling zone panel — secondary annotation, polled from `/api/enriched/?hub_id=pi-habitat-01` every 10s; no store or WebSocket changes
+- HUD badge `real-sensor` state — 5th `SimSource` state, one entry in `BADGE_CONFIG`, reuses existing `badgePulse` animation
+- Pi setup guide with `--test` validation flag — reproducibility is a portfolio credibility signal, not optional
 
-**Defer to v3+ (not this milestone):**
-- Custom Open MCT telemetry plugin — weeks of work for zero visual gain beyond what ships pre-configured
-- Tick rate UI control — breaks the push-model WebSocket architecture
-- Multiple XML mission scenarios selectable at runtime — scope creep with no portfolio ROI
-- Authentication or session management — BioSim has no auth model; out of scope per PROJECT.md
+**Should have (v3.x polish, add after P1 verified end-to-end):**
+- `LIVE HW` tag on the pH value in ZonePanel — visually distinguishes hardware from simulated readings
+- pH sparkline continuity — inject real readings into existing ring buffer via `appendRingBuffer` (already exported from `biosimMapper.ts`)
+- Control service decision logging — timestamped malfunction trigger/clear events to file
+- Auto-recovery DELETE malfunction — already designed into the control service; low effort once P1 is running
+
+**Defer indefinitely (v4+):**
+- Multiple sensor types (DO, EC, CO2) — weeks of work per sensor for marginal portfolio value; the architecture is extensible, state that explicitly
+- MQTT transport — production-realistic but adds a broker with no additional demo signal
+- Sensor calibration UI — Atlas calibration is a hardware CLI procedure; no web UI needed
 
 ### Architecture Approach
 
-The architecture has two fully decoupled data consumers on a single BioSim WebSocket source. The React frontend subscribes via `useBioSimWS` hook and drives the Zustand store with `store.tick(readings)` — the same signature `engine.ts` already uses. The Django bridge subscribes via a long-running async management command and writes rows to `enriched_sensor_data` via `asyncio.to_thread(bulk_create)`. Neither consumer knows or cares about the other. Source-awareness in the frontend is isolated to `useSimSource` (availability probe) and `habitatStore` (routing in `triggerAnomaly`). All 3D scene components (`HabitatStructure`, `ZonePanel`, `HabitatHUD`, etc.) are zero-touch — they read `ZoneState` from the store and don't care where it came from.
+The v3.0 architecture adds two new Docker Compose services (`control` and `SensorIngestView`) and one new component on the Pi, while leaving the entire existing v2.0 stack — BioSim WebSocket pipeline, `biosimMapper.ts`, `habitatStore.ts`, `useSimSource.ts`, `biosimWorker.ts`, the bridge service — completely untouched. The key architectural insight is using PostgreSQL as an integration bus: the Pi posts on its own 5s schedule, BioSim ticks at its own rate, and the control loop queries the stable `.latest()` snapshot from each source every 10s. This decoupling intentionally introduces ~10s latency, which prevents thrashing malfunctions on momentary sensor noise.
 
 **Major components:**
-1. **`useBioSimWS` hook** (`src/simulation/useBioSimWS.ts`) — WebSocket lifecycle, reconnect, RAF-buffered tick dispatch to store; mounted only in `HabitatView.tsx`, not inside the R3F Canvas
-2. **`biosimMapper.ts`** (`src/simulation/biosimMapper.ts`) — pure TypeScript; BioSim module hierarchy → `Record<zoneId, Record<sensorId, SensorReading>>`; independently unit-testable with real BioSim state snapshots
-3. **`useSimSource` hook** (`src/simulation/useSimSource.ts`) — HTTP probe to BioSim `/api/simulation` with 2s timeout; sets `simSource` in Zustand; activates either `useBioSimWS` or `createSimulationEngine()`, never both simultaneously
-4. **`biosim_bridge` management command** (`sensor_data/management/commands/biosim_bridge.py`) — long-running asyncio process; uses `asyncio.to_thread()` for all ORM writes; runs as a separate `django-bridge` Docker service sharing the Django image
-5. **`biosim_ingest.py`** (`sensor_data/biosim_ingest.py`) — pure Python; BioSim state → `EnrichedSensorData` rows; no ORM imports, no async — independently testable
-6. **`docker-compose.yml`** (repo root) — extends BioSim's two services with django, django-bridge, and db services; healthchecks with `start_period: 90s` for JVM boot time; `BIOSIM_WRITE_TICKS=true` env var set from the start
+1. `hub_client.py` (NEW, Pi) — config-driven YAML, reads Atlas I2C pH, POSTs to Django, SQLite buffer for offline resilience; replaces `basic_funcs.py` + `snyc_to_postgres.py` entirely
+2. `SensorIngestView` (NEW, Django) — 15-line DRF `APIView` POST that validates payload and writes one `EnrichedSensorData` row with `hub_id='pi-habitat-01'`; no serializer, no enrichment step needed because the Pi sends all metadata fields directly
+3. `ph_control_loop` management command (NEW, Django) — async management command, same `asyncio.run()` pattern as `biosim_bridge.py`; reads real pH vs. BioSim proxy pH from DB, POST/DELETE `Grey_Water_Store` malfunctions; runs as a separate `control` Docker service
+4. Water Recycling zone panel (MODIFIED, React) — adds a `useEffect`-based 10s polling fetch for `pi-habitat-01` readings; renders secondary "Real pH" annotation alongside existing BioSim sensor orb
+5. `docker-compose.yml` (MODIFIED) — adds `control` service; one-liner diff from the existing `bridge` service
+6. All other components (UNCHANGED) — BioSim WS pipeline, `biosimMapper.ts`, `habitatStore.ts`, `useSimSource.ts`, the bridge — zero changes required
+
+**Build order enforced by dependencies:** `SensorIngestView` first (testable with `curl` immediately, no hardware needed) → `hub_client.py` rewrite (develop against local Django) → `ph_control_loop` (smoke-test with manually inserted DB rows) → `control` Docker service (one-liner diff) → frontend real pH overlay → end-to-end test.
+
+**Critical architectural constraint:** BioSim has no state injection API. The closed loop must operate via the malfunction API (`POST/DELETE /api/simulation/{id}/modules/Grey_Water_Store/malfunctions`). Any design or plan mentioning "inject pH into BioSim" or "override BioSim water store" is architecturally wrong. The `wr-ph` sensor orb in the 3D scene must continue showing BioSim's physics output so that the visual response to the malfunction is observable.
 
 ### Critical Pitfalls
 
-1. **Docker startup race (BioSim JVM takes 30-90s)** — Use `condition: service_healthy` not `condition: service_started` in `depends_on`. Define the BioSim healthcheck with `start_period: 90s` before writing any bridge code. The bridge must also implement its own exponential backoff retry loop. Failure mode: bridge crashes silently at startup, no data flows into PostgreSQL, no error surfaced to the user.
+1. **4-character pH strip bug in `AtlasI2C.py`** — `read_device_data()` slices `[0:4]`, silently truncating pH >= 10.0 (e.g., `10.14` becomes `10.1`). Replace with `stripped_response.strip('\x00').strip()` before casting to float. Fix before writing any hubcode. Unit test: parse `"7.312"`, `"10.14"`, `"14.00"` — all must return correct floats.
 
-2. **Django async/sync ORM boundary** — Inside the asyncio event loop, all Django ORM calls must use `asyncio.to_thread()`. Calling ORM directly raises `SynchronousOnlyOperation` or blocks the event loop, causing WebSocket message drops. Call `django.db.close_old_connections()` periodically to prevent connection pool exhaustion in the long-running bridge command.
+2. **Atlas EZO ships in UART mode** — `i2cdetect -y 1` shows nothing at address 0x63 until PGND-TX jumper is installed and board is power-cycled. Setup guide Step 1: confirm solid blue LED; verify with `sudo i2cdetect -y 1`. Without this, the entire milestone fails and no software debugging will help.
 
-3. **BioSim data model translation** — BioSim exposes raw physical units (mol, Pa, flow rates) in a deep module hierarchy. The habitat model expects human-readable percentages in a flat 4-zone structure. Map explicitly with documented unit conversions in `biosimMapper.ts`. Run the mapper against a real `GET /api/simulation/{simID}` response — captured during Phase 1 — before writing any component code. Do not trust module name strings from docs without live verification.
+3. **I2C bus speed default 400 kHz causes intermittent sensor drop-off** — Atlas EZO is rated 10–100 kHz; at 400 kHz it drops off after 30–60 minutes with `IOError: [Errno 121] Remote I/O error` requiring physical power-cycle. Fix: `dtparam=i2c_arm_baudrate=10000` in `/boot/firmware/config.txt`. Low effort, high consequence if missing.
 
-4. **Fallback race condition (both engine and WS active simultaneously)** — Implement fallback as a state machine (`CONNECTING → LIVE | FALLBACK → RECOVERING`), not a one-time check. Stop `engine.ts` before switching to BioSim. Enforce exactly one active data source via a `dataSource: 'biosim' | 'engine' | 'none'` flag in Zustand. Failure mode: flickering zone statuses, duplicate store updates, incoherent sensor history.
+4. **hub_id namespace collision between Pi and BioSim data** — if the Pi writes rows with `hub_id='biosim-habitat-01'`, data sources become indistinguishable, `/trends` returns a meaningless blend, and retroactive correction is painful. Fix: Pi uses `hub_id='pi-habitat-01'` and `sensor_id='wr-ph-real'` — set in config before any data is written.
 
-5. **WebSocket cleanup on navigation** — The `useEffect` cleanup must call `ws.close()` and null out `ws.onmessage`. Without it, stale handlers continue writing to the store after unmount, and each return to `/habitat` opens another connection. Test by navigating away and back 5 times; verify only one WS connection in DevTools Network > WS panel.
+5. **Pi OS Bookworm blocks system-wide pip** — `pip install requests` fails with `externally-managed-environment` on Bookworm (current Pi OS default). Setup guide must document `python3 -m venv --system-site-packages ~/spatialhub-venv` as Step 1 of software installation.
 
-6. **WebSocket message flooding React re-renders** — BioSim can broadcast faster than the 2s tick rate configured in the XML. Buffer incoming messages in a `useRef` array and flush only the most recent state snapshot on each `requestAnimationFrame` cadence. Do not call `store.setState()` directly from the `onmessage` callback.
+---
 
 ## Implications for Roadmap
 
-Research reveals a clear dependency chain that dictates phase order. Phase 1 (Docker + BioSim smoke test) is the hard prerequisite for everything else — no mapping work, no bridge work, and no frontend integration work can be meaningfully executed against speculative BioSim API responses. The actual module hierarchy must be confirmed from a live `GET /api/simulation/{simID}` response before any code that parses BioSim output is written.
+Based on the dependency graph in FEATURES.md and the build order in ARCHITECTURE.md, three phases are the natural structure for this milestone.
 
-### Phase 1: Docker Infrastructure and BioSim Smoke Test
+### Phase 1: Hubcode Rewrite + Django Ingest Endpoint
 
-**Rationale:** Everything downstream depends on BioSim running and the actual module hierarchy being known. This is the single hard blocking dependency in the entire milestone. No mapping work is valid without live confirmation.
+**Rationale:** This is the unlock for everything. Without a Pi successfully POSTing to Django, there is no real data, no control service comparison, no closed loop. The Django endpoint is standalone — testable with `curl` before any Pi hardware is involved — and its existence allows all subsequent phases to develop against real DB rows.
 
-**Delivers:** `docker compose up` starts all four services (biosim, openmct, db, django); BioSim returns a valid simID; `GET /api/simulation/{simID}` JSON response is captured and saved as a test fixture; `wscat ws://localhost:8009/ws/simulation/1` prints valid module state JSON; healthchecks confirmed working.
+**Delivers:** Pi client (`hub_client.py`) that posts real Atlas I2C pH readings to Django over WiFi with no GCP dependency; Django `SensorIngestView` endpoint that writes readings to `enriched_sensor_data` with a distinct `hub_id`; Pi setup guide with hardware wiring, I2C config, venv setup, and `--test` validation command.
 
-**Addresses:** Docker Compose stack, BioSim simulation auto-start, `BIOSIM_WRITE_TICKS=true` env var (must be set before any tick data is collected — cannot be enabled retroactively)
+**Addresses features:** Hubcode rewrite, Django real sensor ingest endpoint, Pi setup guide, `--test` validation flag.
 
-**Avoids:** Pitfall 18 (Docker startup race — define healthchecks here before writing any bridge code), Pitfall 22 (GPL boundary — network communication only, no source file copying)
+**Avoids pitfalls:**
+- Fix `AtlasI2C.py` 4-char strip bug before writing a single line of hubcode (Pitfall 1)
+- Document EZO UART→I2C mode switch as setup guide Step 1 (Pitfall 2)
+- Document `dtparam=i2c_arm_baudrate=10000` as required Pi config (Pitfall 3)
+- Delete `snyc_to_postgres.py` entirely; no GCP imports in new `requirements.txt` (Pitfall 5 from PITFALLS.md)
+- Document venv creation as setup guide Step 1 of software installation (Pitfall 6 from PITFALLS.md)
+- Use static IP for dev machine in Pi config and document before demo (Pitfall 7 from PITFALLS.md)
+- Set `hub_id='pi-habitat-01'` and `sensor_id='wr-ph-real'` from day one (Pitfall 4 above / Pitfall 8 from PITFALLS.md)
 
-**Key deliverable:** A saved JSON snapshot of real BioSim module state at `ws://localhost:8009/ws/simulation/{simID}`. This snapshot is the ground-truth spec for all mapping work in Phase 2.
+**Research flag:** Standard patterns — DRF APIView POST, requests HTTP client, python-dotenv config. Skip `/gsd:research-phase`.
 
-### Phase 2: BioSim Data Mapping Layer
+---
 
-**Rationale:** Translation is the most complex and most error-prone integration concern. Building it as a pure function before wiring any live connections makes it independently testable. All subsequent phases depend on a known-good data contract between BioSim's module output and the existing `ZoneState`/`SensorReading` types.
+### Phase 2: Closed-Loop Control Service
 
-**Delivers:** `biosimMapper.ts` (TypeScript) and `biosim_ingest.py` (Python) — both pure functions with unit tests fed by the Phase 1 JSON snapshot; exact module name strings confirmed against live data; unit conversion formulas (mol → %, Pa → %, flow rates → proxy values) documented and verified.
+**Rationale:** Depends on Phase 1 being live so there are real rows in `enriched_sensor_data` to query. The control loop can be smoke-tested by inserting fake `pi-habitat-01` rows manually — physical Pi hardware not required. The `control` Docker Compose service is a one-liner diff from the existing `bridge` service, which is the proven pattern.
 
-**Uses:** TypeScript (existing), Python (existing) — no new dependencies in this phase
+**Delivers:** Django management command (`ph_control_loop`) that reads latest real pH vs. BioSim proxy pH from DB every 10s, POSTs scaled malfunctions to `Grey_Water_Store` when divergence exceeds threshold, and DELETEs malfunction on recovery; `control` Docker service added to `docker-compose.yml`; intensity scaling (LOW/MEDIUM/SEVERE) based on divergence magnitude.
 
-**Implements:** `biosimMapper.ts` and `biosim_ingest.py` component boundaries from ARCHITECTURE.md
+**Addresses features:** Control service (pH divergence → BioSim malfunction), auto-recovery DELETE malfunction.
 
-**Avoids:** Pitfall 19 (BioSim data model mismatch — explicit unit conversions, `null` returns for unmapped properties rather than silent zero), Pitfall 9 (anomaly simulation unrealism — cascades emerge correctly from physics if mapping is accurate)
+**Uses:** `aiohttp` (already in `requirements.txt`), `asyncio.run()` pattern from `biosim_bridge.py`, BioSim malfunction API at `POST/DELETE http://biosim:8009/api/simulation/{id}/modules/Grey_Water_Store/malfunctions`.
 
-### Phase 3: Frontend WebSocket Client and Fallback Mode
+**Avoids pitfalls:**
+- Phase plan must state "malfunction trigger, not value injector" explicitly (PITFALLS.md Pitfall 4)
+- Query DB rows with recency guard (within last 2 ticks) to avoid comparing against stale BioSim bridge lag data
+- Run as separate Docker service, NOT as `AppConfig.ready()` thread, to avoid duplicate loops in multiple Gunicorn workers
 
-**Rationale:** Once the mapping layer is tested against real snapshots, wiring the WS client is mechanical. Fallback mode must be built in the same phase — the state machine design cannot be safely retrofitted after components are already reading from the store.
+**Research flag:** BioSim malfunction API patterns are verified (HIGH confidence). `biosim_bridge.py` is the exact template. Skip `/gsd:research-phase`.
 
-**Delivers:** `useBioSimWS` hook; `useSimSource` hook; `habitatStore` updated with `simSource`, `simId`, `activeMalfunctionIds`; `HabitatView.tsx` updated to use `useSimSource` instead of `startSimulation()`; HabitatHUD badge ("BioSim Connected" green / "Fallback Mode" amber); 3D scene responds to real BioSim physics when Docker is running, falls back to `engine.ts` when it is not.
+---
 
-**Uses:** Native browser `WebSocket` API (no npm install), Zustand v5 (existing), React 19 (existing)
+### Phase 3: Frontend Real Sensor Visibility + HUD Badge
 
-**Implements:** Pattern 1 (WS hook as tick provider) and Pattern 2 (source swapping via useSimSource) from ARCHITECTURE.md
+**Rationale:** Can proceed in parallel with Phase 2 after Phase 1 is live, since it only requires `GET /api/enriched/?hub_id=pi-habitat-01` to return data. Grouped last because the full demo story — "pH drifts, zone turns red, LIVE HW badge is green" — only reads coherently once the control loop is wired. The frontend changes are intentionally minimal and localized.
 
-**Avoids:** Pitfall 16 (WS cleanup on navigation — cleanup in useEffect return), Pitfall 17 (WS message flooding — RAF buffer flush), Pitfall 21 (fallback race condition — state machine with `dataSource` mutex)
+**Delivers:** Secondary "Real pH" annotation in Water Recycling zone panel polled every 10s from existing endpoint; new `real-sensor` SimSource state in `ConnectionBadge` that activates on first successful Pi reading poll; `LIVE HW` tag on the pH value in ZonePanel (P2 polish, add after P1 verified).
 
-### Phase 4: AnomalyDrawer Rewire and Real Malfunction Injection
+**Addresses features:** Real pH visible in Water Recycling zone, HUD badge `real-sensor` state, `LIVE HW` tag on pH reading.
 
-**Rationale:** Depends on Phase 3 (`simSource` must exist in the Zustand store). AnomalyDrawer JSX is untouched — source routing lives entirely in `habitatStore.triggerAnomaly()`. Low complexity once the store additions from Phase 3 are in place.
+**Implements:** Water Recycling zone panel modification (the one MODIFIED React component), `SimSource` type extension (one new string literal), `BADGE_CONFIG` map addition (one new entry) — all minimal, localized changes. Reuses existing `badgePulse` keyframe animation already in `ConnectionBadge.tsx`.
 
-**Delivers:** `triggerAnomaly` routes to BioSim malfunction API (`POST /api/simulation/{simID}/modules/{module}/malfunctions`) in `'biosim'` mode; existing anomaly bias behavior preserved in `'engine'` fallback mode; malfunction IDs stored in Zustand for cancel support.
+**Avoids pitfalls:**
+- Do NOT replace `wr-ph` in `biosimMapper.ts` with the real reading — the BioSim physics proxy must remain as the primary sensor orb so the malfunction response is visible (Anti-Pattern 2 from ARCHITECTURE.md)
+- Real pH is a secondary annotation, not a replacement; both values displayed simultaneously
+- Use Option B (frontend polls `/api/enriched/` directly) — not Option A (bridge injection) — to keep real sensor display independent of BioSim availability
 
-**Uses:** Native `fetch()` to BioSim REST (no new dependencies)
+**Research flag:** Standard React polling pattern (useEffect + fetch). Skip `/gsd:research-phase`.
 
-**Implements:** Pattern 4 (source-aware AnomalyDrawer dispatch) from ARCHITECTURE.md
-
-**Avoids:** Anti-Pattern 2 (source logic scattered in components — routing lives in the store, not in AnomalyDrawer.tsx), Pitfall 3 (blocking main thread — malfunction POST is async fetch, not synchronous)
-
-### Phase 5: Django Bridge (Parallel with Phases 2-4)
-
-**Rationale:** The bridge is independent of all frontend work. It can be developed in parallel once Phase 1 delivers a running BioSim. It shares `biosim_ingest.py` with Phase 2 mapping work, so that module's completion unblocks both consumers.
-
-**Delivers:** `biosim_bridge` management command; `django-bridge` Docker service definition in compose; BioSim tick data appearing in `enriched_sensor_data`; `/api/enriched/` and `/trends` serving real simulation data with no endpoint or frontend changes.
-
-**Uses:** `websockets` 16.0 (new), `daphne` 4.2.1 (new), `channels` 4.3.2 (new, not yet wired); `asyncio.to_thread()` throughout for ORM writes
-
-**Implements:** Pattern 5 (management command bridge) from ARCHITECTURE.md
-
-**Avoids:** Pitfall 18 (startup race — bridge retries with exponential backoff), Pitfall 20 (async/sync ORM boundary — `asyncio.to_thread()` wraps all `bulk_create` calls)
-
-### Phase 6: Open MCT Link and Docker Polish
-
-**Rationale:** Lowest effort, highest credibility gain. The openmct-biosim service is already running from Phase 1 at port 9091. This phase adds the nav link and tidies the compose file for one-command reviewer experience.
-
-**Delivers:** Nav link from the frontend app to `http://localhost:9091` (opens in new tab); docker-compose with all healthchecks and `depends_on` conditions verified; compose output is clean with no error noise on `docker compose up`.
-
-**Uses:** Open MCT (already in BioSim's compose, zero configuration required)
-
-**Implements:** Open MCT standalone nav link (not iframe) from ARCHITECTURE.md
-
-**Avoids:** Anti-Pattern 6 (iframe crops Open MCT's full-viewport layout — new tab is correct)
-
-### Phase 7: v2.x Enhancements (Post End-to-End Validation)
-
-**Rationale:** Add only once the full pipeline (Phases 1-6) is verified working end-to-end. Historical log import and malfunction scheduling are additive, not load-bearing. Do not start this phase until `/trends` shows live BioSim data and the fallback mode is confirmed working on a clean non-Docker environment.
-
-**Delivers:** Historical tick log in `/trends` (Django `import_biosim_log` command using `GET /api/simulation/{simID}/log`); malfunction scheduling (`tickToOccur` field in AnomalyDrawer); real `DELETE` on cancel using stored malfunction IDs.
+---
 
 ### Phase Ordering Rationale
 
-- **Phase 1 must be first.** No mapping, bridge, or frontend integration code can be correctly written against speculative BioSim output. The module names in the docs are examples; live inspection is required before any translation logic is written.
-- **Phase 2 enables Phases 3, 4, and 5.** The mapping layer is the shared contract. Both the frontend hook and the Django bridge depend on knowing the exact BioSim property paths and unit conversions.
-- **Phases 3, 4, and 5 can proceed in parallel** after Phase 2. Frontend WS work (Phases 3-4) and bridge work (Phase 5) are completely independent — they consume BioSim independently and write to independent destinations.
-- **Phase 4 depends on Phase 3.** `simSource` state must exist in the Zustand store before `triggerAnomaly` routing can be implemented.
-- **Phase 6 can be done any time after Phase 1.** The Open MCT service is already running; this phase is just the nav link.
-- **Phase 7 gates on end-to-end validation.** Do not add enhancements until the core pipeline is working and verified in both Docker and static-hosting (fallback) modes.
+- **Phases 1 and 2 are sequentially dependent**: the control service reads from `enriched_sensor_data`; rows must exist before the loop has anything to compare. Phase 1 delivers the data; Phase 2 consumes it.
+- **Phase 3 can proceed in parallel with Phase 2**: both depend on Phase 1 producing data; neither depends on the other. In practice, Phase 2 is more complex and should be the primary focus after Phase 1.
+- **Hardware setup can proceed in parallel with all phases**: Pi hardware testing (`i2cdetect`, UART→I2C switch, baud rate config) is independent of the Django stack work and can run on a physical Pi concurrently.
+- **The build order within phases is dictated by testability**: write the Django endpoint first (testable with `curl`), then the Pi client (testable against the running endpoint), then the control loop (testable with manually inserted DB rows).
 
 ### Research Flags
 
-Phases requiring deeper research or live verification during planning:
+Phases needing deeper research during planning:
+- **None.** All three phases use well-documented, established patterns. The BioSim malfunction API is verified from source. The DRF POST pattern is standard. The React polling pattern has no unknowns.
 
-- **Phase 1 / Phase 2:** The BioSim module hierarchy — exact property names, nesting depth, unit types — is the highest-uncertainty area in the entire milestone. Research provides expected module names (OGS, VCCR, BiomassRS, WaterRS) but all mapping work must be deferred until a live `GET /api/simulation/{simID}` response is captured. This is a Phase 1 execution prerequisite, not a separate research task.
-- **Phase 1:** BioSim Docker build time via Maven in `eclipse-temurin:21-jdk-jammy` has not been benchmarked in this environment. First `docker compose up` may take 10-20 minutes on a cold Maven cache. Set expectations before running.
+Phases with standard patterns (skip `/gsd:research-phase`):
+- **Phase 1:** requests HTTP client + python-dotenv config — canonical IoT REST client pattern
+- **Phase 2:** asyncio management command + BioSim malfunction API — existing bridge is the exact template
+- **Phase 3:** React useEffect polling + Zustand SimSource extension — the `BADGE_CONFIG` pattern is already in the codebase
 
-Phases with well-documented patterns (research-phase optional):
-
-- **Phase 3:** Native WebSocket hook patterns and Zustand state machine design are fully specified in ARCHITECTURE.md and backed by official `websockets` docs. No additional research needed.
-- **Phase 5:** Django management command + asyncio + `websockets` library pattern is documented in the official `websockets` Django integration guide and fully specified in ARCHITECTURE.md and STACK.md.
-- **Phase 6:** One nav link. No research needed.
+---
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All version claims verified against PyPI, npm, and official docs. `react-use-websocket` React 19 incompatibility confirmed by maintainer. `eclipse-temurin` vs `openjdk` confirmed from Docker Hub. |
-| Features | HIGH | BioSim API documented from actual source repo. Feature dependency graph fully resolved. MVP vs. v2.x scope is clear and justified against PROJECT.md constraints. |
-| Architecture | HIGH | All integration points derived from actual BioSim source code and confirmed API reference. Component boundaries are precise; all "unchanged" component claims verified against actual codebase files listed in ARCHITECTURE.md sources. |
-| Pitfalls | MEDIUM | v1.0 Three.js/R3F pitfalls are pattern-knowledge (well-established, not web-verified against latest releases). BioSim v2.0 pitfalls are HIGH confidence for Django/WebSocket/Docker (official docs verified); MEDIUM for BioSim-specific runtime behavior (limited external documentation, inferred from architecture research). |
+| Stack | HIGH | All versions verified via PyPI; aiohttp/DRF patterns confirmed against repo source; BioSim malfunction API confirmed against `configuration/default.biosim` and README; no `WaterRS` in default config confirmed (use `Grey_Water_Store`) |
+| Features | HIGH | Integration surface derived from direct codebase analysis; anti-features well-reasoned; MEDIUM confidence only on closed-loop UX conventions (no canonical portfolio standard exists — reasoned from hiring feedback patterns) |
+| Architecture | HIGH | All findings derived from direct source code reads with file paths and line numbers; zero guesswork; build order validated against component dependencies; all existing file paths confirmed |
+| Pitfalls | HIGH | Pitfalls 1, 5, and 8 confirmed via direct code analysis with line numbers; hardware pitfalls 2, 3, 6 confirmed via Atlas Scientific datasheets and Raspberry Pi Forums; Pitfall 4 confirmed via BioSim GitHub (no state injection endpoint exists) |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **BioSim module name verification (Phase 1 execution):** The exact module names and property paths returned by a live `GET /api/simulation/{simID}` must be captured before writing `biosimMapper.ts` or `biosim_ingest.py`. Treat the Phase 1 JSON snapshot as the ground truth specification, not the BioSim docs.
-- **BioSim XML scenario tuning (Phase 1-2):** The bundled XML mission config will need to be tuned for demo pacing — appropriate tick rate, crew size, and resource levels that produce interesting sensor dynamics without the crew dying in the first 10 minutes. This is discovered through integration testing, not pre-researchable.
-- **Django settings.py PostgreSQL credentials for local Docker:** `settings.py` currently uses Cloud SQL credentials. The docker-compose environment variables (`DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS`) must be wired into `settings.py` as fallback defaults for the local stack to connect. Minor, but required before the bridge can write to the local database.
-- **BioSim Docker build time on first pull:** Maven dependency downloads during `docker build` may take significant time on a cold cache. This does not affect architecture but affects developer experience during Phase 1 and should be documented in the setup notes.
+- **pH divergence threshold tuning**: the control service uses `DIVERGENCE_THRESHOLD = 0.5` pH units as a starting value. This must be validated against the actual sensor noise floor on the physical Pi before the demo. A probe in still water typically drifts ±0.02–0.05 pH units; 0.5 gives 10x headroom. If the BioSim proxy `wr-ph` range is narrow (6.0–7.5 per the `biosim_ingest.py` formula), thresholds below 0.5 may thrash malfunctions. Validate during Phase 2 integration testing.
+- **simID stability on BioSim restart**: the architecture doc recommends probing BioSim `GET /api/simulation` fresh each control loop cycle to handle restarts. Confirm this is the actual behavior of the BioSim API (does it return the same simID after restart or a new one?). Low risk for a demo; document the restart sequence in the setup guide.
+- **Offline buffer scope decision**: ARCHITECTURE.md recommends SQLite buffering for Pi offline resilience, but FEATURES.md notes that direct LAN POST failure is immediately detectable and the buffer adds complexity. Phase 1 planning must make a final call: either include basic SQLite buffering (the existing pattern already demonstrates this) or log failures to a flat file only.
+
+---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- [PyPI channels 4.3.2](https://pypi.org/project/channels/) — version, Django/Python compatibility
-- [PyPI daphne 4.2.1](https://pypi.org/project/daphne/) — version, Python compatibility
-- [PyPI websockets 16.0](https://pypi.org/project/websockets/) — version, Python requirements, Django integration pattern
-- [websockets Django integration guide](https://websockets.readthedocs.io/en/stable/howto/django.html) — `asyncio.to_thread()` pattern, `django.setup()` in management commands
-- [Django Channels deploying docs](https://channels.readthedocs.io/en/latest/deploying.html) — Daphne as official ASGI server for Channels projects
-- [scottbell/biosim docker-compose.yml](https://raw.githubusercontent.com/scottbell/biosim/main/docker-compose.yml) — confirmed service names, ports (8009, 9091), build directives, no pre-built image
-- [Docker Hub eclipse-temurin](https://hub.docker.com/_/eclipse-temurin/) — replacement for deprecated `openjdk` Docker image
-- [Docker Compose networking docs](https://docs.docker.com/compose/how-tos/networking/) — service-name DNS resolution on shared bridge network
-- [Docker Compose healthcheck reference](https://docs.docker.com/reference/compose-file/services/) — `condition: service_healthy`, `start_period`
-- Existing codebase (source of truth for all component boundary claims): `habitatStore.ts`, `engine.ts`, `anomalies.ts`, `AnomalyDrawer.tsx`, `HabitatView.tsx`, `habitat.ts`, `models.py`, `views.py`, `settings.py`, `asgi.py`, `Dockerfile`
-- BioSim GitHub (scottbell/biosim): API reference, WebSocket protocol, malfunction parameters
-- Open MCT official (nasa.github.io/openmct): embedding patterns, plugin architecture
+- Direct codebase analysis: `hubcode/AtlasI2C.py` (4-char strip bug, lines 150–151), `hubcode/snyc_to_postgres.py` (GCP hard-coding, lines 7–9), `django_backend/sensor_data/views.py`, `django_backend/sensor_data/models.py`, `django_backend/sensor_data/biosim_ingest.py` (hub_id namespace, `wr-ph` proxy formula, line 134), `django_backend/sensor_data/management/commands/biosim_bridge.py`, `spatialhub-frontend/src/simulation/biosimMapper.ts`, `spatialhub-frontend/src/workers/biosimWorker.ts`, `spatialhub-frontend/src/hooks/useSimSource.ts`, `spatialhub-frontend/src/components/habitat/ConnectionBadge.tsx`, `spatialhub-frontend/src/store/habitatStore.ts`, `docker-compose.yml`
+- [BioSim default.biosim config](https://raw.githubusercontent.com/scottbell/biosim/main/configuration/default.biosim) — confirmed `Grey_Water_Store` module name; no `WaterRS` in default config
+- [BioSim GitHub README](https://github.com/scottbell/biosim) — malfunction API endpoint pattern, intensity/duration values confirmed
+- [PyPI requests 2.32.5](https://pypi.org/project/requests/) — current stable, Python >=3.9
+- [PyPI python-dotenv 1.2.2](https://pypi.org/project/python-dotenv/) — current stable, Python >=3.10; use 1.0.1 for Python 3.9
+- [PyPI aiohttp 3.13.3](https://pypi.org/project/aiohttp/) — current stable as of January 2026
+- [Atlas Scientific pH EZO Datasheet](https://files.atlas-scientific.com/pH_EZO_Datasheet.pdf) — I2C timing specs, 10–100 kHz operating range
+- [Django REST Framework CSRF docs](https://www.django-rest-framework.org/api-guide/authentication/#sessionauthentication) — APIView CSRF exemption confirmed for non-session auth
 
 ### Secondary (MEDIUM confidence)
-- [GitHub robtaussig/react-use-websocket issue #256](https://github.com/robtaussig/react-use-websocket/issues/256) — maintainer confirmed React 19 incompatibility (December 2024)
-- WebSocket fallback patterns (multiple sources) — exponential backoff, status indicator UX, state machine design
-- WebSearch: Celery vs. management command for simple polling (2025) — community consensus favors management command for single-task use cases
-- BioSim research paper (ISAIRAS 2003) — subsystem module architecture (pre-dates current codebase)
+- [Raspberry Pi Forums: Atlas Scientific I2C issues](https://forums.raspberrypi.com/viewtopic.php?t=304760) — UART vs I2C mode confusion, community-confirmed
+- [Raspberry Pi Forums: Bookworm Python pip blocked](https://forums.raspberrypi.com/viewtopic.php?t=358063) — PEP 668 enforcement, venv workaround
+- [Pimoroni: Python venv on Bookworm](https://pimoroni.github.io/venv-python/) — `--system-site-packages` pattern
+- WebSearch (IoT portfolio norms): causal chain visibility, "minimal done well > broad done poorly," reproducibility as credibility signal
 
 ### Tertiary (LOW confidence)
-- BioSim XML scenario tuning parameters — inferred from architecture; must be validated against live simulation behavior during Phase 1-2
+- Hiring feedback patterns (inferred): closed-loop architecture distinguishes "IoT homework" from "digital twin"; `--test` flag signals production-readiness thinking — reasonable inference, not citable
 
 ---
-*Research completed: 2026-03-14*
+*Research completed: 2026-03-18*
 *Ready for roadmap: yes*
