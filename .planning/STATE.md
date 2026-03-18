@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Physical Sensor Integration
 status: planning
-stopped_at: Completed 10-02-PLAN.md (Hubcode Rewrite)
-last_updated: "2026-03-18T18:59:43.212Z"
+stopped_at: Completed 10-01-PLAN.md
+last_updated: "2026-03-18T19:02:48.641Z"
 last_activity: 2026-03-18 — v3.0 roadmap created (Phases 10-13)
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -48,6 +48,8 @@ Key v3.0 architectural decisions:
 - Frontend polls `/api/enriched/?hub_id=pi-habitat-01` directly (not via bridge injection) for real sensor display
 - [Phase 10-django-ingest-hubcode-rewrite]: atlas_i2c.py: MSB glitch handling inlined into read_value(), detect_devices() is static, no Python 2 compat
 - [Phase 10-django-ingest-hubcode-rewrite]: hub_client.py: sync_readings sends batch list, prunes only on 201, timezone-aware UTC datetime
+- [Phase 10-01]: Validate entire batch before touching DB — all-or-nothing; any invalid item rejects the whole POST
+- [Phase 10-01]: pubsub_v1 import made optional (try/except) so views.py loads in local test env without GCP SDK
 
 ### Pending Todos
 
@@ -62,6 +64,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-18T18:59:43.206Z
-Stopped at: Completed 10-02-PLAN.md (Hubcode Rewrite)
+Last session: 2026-03-18T19:02:37.920Z
+Stopped at: Completed 10-01-PLAN.md
 Resume file: None

@@ -71,8 +71,8 @@ Requirements for physical sensor integration milestone. Each maps to roadmap pha
 
 ### Data Ingest
 
-- [ ] **INGEST-01**: Django POST endpoint receives sensor readings from Pi and stores them in `EnrichedSensorData` with distinct `hub_id`
-- [ ] **INGEST-02**: Real Pi sensor data distinguishable from BioSim data via `hub_id` field (`pi-habitat-01` vs `biosim-habitat-01`)
+- [x] **INGEST-01**: Django POST endpoint receives sensor readings from Pi and stores them in `EnrichedSensorData` with distinct `hub_id`
+- [x] **INGEST-02**: Real Pi sensor data distinguishable from BioSim data via `hub_id` field (`pi-habitat-01` vs `biosim-habitat-01`)
 
 ### Closed-Loop Control
 
@@ -158,8 +158,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HUB-03 | Phase 10 | Complete |
 | HUB-04 | Phase 10 | Complete |
 | HUB-05 | Phase 10 | Complete |
-| INGEST-01 | Phase 10 | Pending |
-| INGEST-02 | Phase 10 | Pending |
+| INGEST-01 | Phase 10 | Complete |
+| INGEST-02 | Phase 10 | Complete |
 | CTRL-01 | Phase 11 | Pending |
 | CTRL-02 | Phase 11 | Pending |
 | CTRL-03 | Phase 11 | Pending |

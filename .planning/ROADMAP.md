@@ -50,7 +50,7 @@
   3. Pi client parses pH correctly for all valid values including those >= 10.0 (no 4-char truncation bug)
   4. Rows from the Pi are distinguishable from BioSim rows via `hub_id` — `GET /api/enriched/?hub_id=pi-habitat-01` returns only Pi data
   5. When the Docker host is unreachable, the Pi client buffers readings locally and syncs when connection restores
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 Plans:
 - [ ] 10-01-PLAN.md — Django SensorIngestView endpoint + tests (TDD)
 - [ ] 10-02-PLAN.md — AtlasI2C driver rewrite + hub_client.py + buffer + old file cleanup
@@ -100,7 +100,7 @@ Plans:
 | 7. Frontend WebSocket + Fallback | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 8. AnomalyDrawer Rewire | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 9. Django Bridge + Historical Pipeline | v2.0 | 2/2 | Complete | 2026-03-16 |
-| 10. Django Ingest + Hubcode Rewrite | 1/3 | In Progress|  | - |
+| 10. Django Ingest + Hubcode Rewrite | 2/3 | In Progress|  | - |
 | 11. Closed-Loop Control Service | v3.0 | 0/TBD | Not started | - |
 | 12. Frontend Real Sensor Visibility | v3.0 | 0/TBD | Not started | - |
 | 13. Reproducible Setup Guide | v3.0 | 0/TBD | Not started | - |
