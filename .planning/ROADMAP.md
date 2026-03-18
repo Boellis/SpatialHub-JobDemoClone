@@ -33,7 +33,7 @@
 
 **Milestone Goal:** Connect a real Raspberry Pi with an Atlas Scientific pH sensor to the BioSim simulation — real pH readings drive BioSim's water recycling system via a closed-loop control service. Reproducible for anyone with a Pi and Atlas I2C hardware.
 
-- [ ] **Phase 10: Django Ingest + Hubcode Rewrite** — Real Pi pH data reaching the Django stack over WiFi with no GCP dependency
+- [x] **Phase 10: Django Ingest + Hubcode Rewrite** — Real Pi pH data reaching the Django stack over WiFi with no GCP dependency (completed 2026-03-18)
 - [ ] **Phase 11: Closed-Loop Control Service** — pH divergence from real sensor automatically triggers and clears BioSim water recycling malfunctions
 - [ ] **Phase 12: Frontend Real Sensor Visibility** — Real pH value overlaid in the 3D habitat Water Recycling zone with a distinct HUD badge state
 - [ ] **Phase 13: Reproducible Setup Guide** — Anyone with a Pi and Atlas I2C sensor can follow the guide end-to-end and run the full demo
@@ -50,7 +50,7 @@
   3. Pi client parses pH correctly for all valid values including those >= 10.0 (no 4-char truncation bug)
   4. Rows from the Pi are distinguishable from BioSim rows via `hub_id` — `GET /api/enriched/?hub_id=pi-habitat-01` returns only Pi data
   5. When the Docker host is unreachable, the Pi client buffers readings locally and syncs when connection restores
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 - [ ] 10-01-PLAN.md — Django SensorIngestView endpoint + tests (TDD)
 - [ ] 10-02-PLAN.md — AtlasI2C driver rewrite + hub_client.py + buffer + old file cleanup
@@ -100,7 +100,7 @@ Plans:
 | 7. Frontend WebSocket + Fallback | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 8. AnomalyDrawer Rewire | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 9. Django Bridge + Historical Pipeline | v2.0 | 2/2 | Complete | 2026-03-16 |
-| 10. Django Ingest + Hubcode Rewrite | 2/3 | In Progress|  | - |
+| 10. Django Ingest + Hubcode Rewrite | v3.0 | 3/3 | Complete | 2026-03-18 |
 | 11. Closed-Loop Control Service | v3.0 | 0/TBD | Not started | - |
 | 12. Frontend Real Sensor Visibility | v3.0 | 0/TBD | Not started | - |
 | 13. Reproducible Setup Guide | v3.0 | 0/TBD | Not started | - |

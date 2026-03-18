@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Physical Sensor Integration
 status: planning
-stopped_at: Completed 10-01-PLAN.md
-last_updated: "2026-03-18T19:02:48.641Z"
+stopped_at: Completed 10-03-PLAN.md
+last_updated: "2026-03-18T19:45:21.885Z"
 last_activity: 2026-03-18 — v3.0 roadmap created (Phases 10-13)
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
+  completed_plans: 3
   percent: 0
 ---
 
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** 3D habitat visualization with live sensor data that feels real, responsive, and impressive enough to make someone say "this could actually run a Mars greenhouse."
-**Current focus:** v3.0 Physical Sensor Integration — Phase 10: Django Ingest + Hubcode Rewrite
+**Current focus:** v3.0 Physical Sensor Integration — Phase 11: Closed-Loop Control Service (next)
 
 ## Current Position
 
 Milestone: v3.0 Physical Sensor Integration
-Phase: 10 of 13 (Django Ingest + Hubcode Rewrite)
-Plan: — (ready to plan)
-Status: Ready to plan
-Last activity: 2026-03-18 — v3.0 roadmap created (Phases 10-13)
+Phase: 10 of 13 COMPLETE — next: Phase 11 (Closed-Loop Control Service)
+Plan: Phase 10 all 3 plans complete
+Status: Phase 10 complete — Phase 11 ready to plan
+Last activity: 2026-03-18 — Phase 10 (Django Ingest + Hubcode Rewrite) complete
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██████████] 100% (Phase 10 plans: 3/3)
 
 ## Accumulated Context
 
@@ -50,6 +50,7 @@ Key v3.0 architectural decisions:
 - [Phase 10-django-ingest-hubcode-rewrite]: hub_client.py: sync_readings sends batch list, prunes only on 201, timezone-aware UTC datetime
 - [Phase 10-01]: Validate entire batch before touching DB — all-or-nothing; any invalid item rejects the whole POST
 - [Phase 10-01]: pubsub_v1 import made optional (try/except) so views.py loads in local test env without GCP SDK
+- [Phase 10-django-ingest-hubcode-rewrite]: Integration verification (plan 03): Wave 1 plans 01+02 connect correctly — 72 tests green, curl confirms all contract truths, user approved Phase 10 as complete
 
 ### Pending Todos
 
@@ -58,12 +59,12 @@ None.
 ### Blockers/Concerns
 
 - Atlas EZO ships in UART mode — I2C shows nothing until PGND-TX jumper is installed and power-cycled; document as Setup Guide Step 1
-- `AtlasI2C.py` 4-char truncation bug (`[0:4]` slice) must be fixed before any hubcode is written or tested
+- [RESOLVED Phase 10-02] AtlasI2C.py 4-char truncation bug fixed in atlas_i2c.py — no [0:4] slice, full float precision
 - I2C baud rate must be set to 10000 Hz in `/boot/firmware/config.txt` — default 400 kHz causes drop-off after 30-60 min
 - pH divergence threshold (default 0.5 units) must be validated against actual sensor noise floor on physical Pi during Phase 11
 
 ## Session Continuity
 
-Last session: 2026-03-18T19:02:37.920Z
-Stopped at: Completed 10-01-PLAN.md
+Last session: 2026-03-18T19:45:16.072Z
+Stopped at: Completed 10-03-PLAN.md
 Resume file: None
