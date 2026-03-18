@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Physical Sensor Integration
 status: planning
-stopped_at: Phase 10 context gathered
-last_updated: "2026-03-18T18:15:55.808Z"
+stopped_at: Completed 10-02-PLAN.md (Hubcode Rewrite)
+last_updated: "2026-03-18T18:59:43.212Z"
 last_activity: 2026-03-18 — v3.0 roadmap created (Phases 10-13)
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 3
+  completed_plans: 1
   percent: 0
 ---
 
@@ -46,6 +46,8 @@ Key v3.0 architectural decisions:
 - Pi uses `hub_id='pi-habitat-01'` and `sensor_id='wr-ph-real'` — set in config before any data is written to avoid namespace collision
 - Real pH is a secondary annotation in ZonePanel (not a replacement for BioSim `wr-ph` sensor orb)
 - Frontend polls `/api/enriched/?hub_id=pi-habitat-01` directly (not via bridge injection) for real sensor display
+- [Phase 10-django-ingest-hubcode-rewrite]: atlas_i2c.py: MSB glitch handling inlined into read_value(), detect_devices() is static, no Python 2 compat
+- [Phase 10-django-ingest-hubcode-rewrite]: hub_client.py: sync_readings sends batch list, prunes only on 201, timezone-aware UTC datetime
 
 ### Pending Todos
 
@@ -60,6 +62,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-18T18:15:55.802Z
-Stopped at: Phase 10 context gathered
-Resume file: .planning/phases/10-django-ingest-hubcode-rewrite/10-CONTEXT.md
+Last session: 2026-03-18T18:59:43.206Z
+Stopped at: Completed 10-02-PLAN.md (Hubcode Rewrite)
+Resume file: None

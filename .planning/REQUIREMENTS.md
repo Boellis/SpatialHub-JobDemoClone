@@ -63,11 +63,11 @@ Requirements for physical sensor integration milestone. Each maps to roadmap pha
 
 ### Hub Client
 
-- [ ] **HUB-01**: Config-driven Pi client reads settings from `.env` file (Docker host IP, sensor address, poll interval) — no hardcoded credentials or GCP dependency
-- [ ] **HUB-02**: Pi client POSTs sensor readings directly to Django REST API over WiFi using `requests`
-- [ ] **HUB-03**: AtlasI2C driver fixed — no 4-char truncation bug, no debug prints, handles read errors gracefully
-- [ ] **HUB-04**: SQLite offline buffer stores readings when Docker host is unreachable, syncs when connection restores
-- [ ] **HUB-05**: Pi client auto-detects all Atlas Scientific I2C devices on the bus, not just a single hardcoded address
+- [x] **HUB-01**: Config-driven Pi client reads settings from `.env` file (Docker host IP, sensor address, poll interval) — no hardcoded credentials or GCP dependency
+- [x] **HUB-02**: Pi client POSTs sensor readings directly to Django REST API over WiFi using `requests`
+- [x] **HUB-03**: AtlasI2C driver fixed — no 4-char truncation bug, no debug prints, handles read errors gracefully
+- [x] **HUB-04**: SQLite offline buffer stores readings when Docker host is unreachable, syncs when connection restores
+- [x] **HUB-05**: Pi client auto-detects all Atlas Scientific I2C devices on the bus, not just a single hardcoded address
 
 ### Data Ingest
 
@@ -153,11 +153,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PIPE-04 | Phase 9 | Complete |
 | PIPE-05 | Phase 9 | Complete |
 | OBS-01 | Phase 5 | Complete |
-| HUB-01 | Phase 10 | Pending |
-| HUB-02 | Phase 10 | Pending |
-| HUB-03 | Phase 10 | Pending |
-| HUB-04 | Phase 10 | Pending |
-| HUB-05 | Phase 10 | Pending |
+| HUB-01 | Phase 10 | Complete |
+| HUB-02 | Phase 10 | Complete |
+| HUB-03 | Phase 10 | Complete |
+| HUB-04 | Phase 10 | Complete |
+| HUB-05 | Phase 10 | Complete |
 | INGEST-01 | Phase 10 | Pending |
 | INGEST-02 | Phase 10 | Pending |
 | CTRL-01 | Phase 11 | Pending |
