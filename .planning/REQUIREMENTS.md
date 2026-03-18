@@ -1,4 +1,4 @@
-# Requirements: SpatialHub Mars Habitat — BioSim Integration
+# Requirements: SpatialHub Mars Habitat
 
 **Defined:** 2026-03-14
 **Core Value:** 3D habitat visualization powered by NASA BioSim physics that feels real, responsive, and efficient enough to run on rugged hardware at a Mars outpost
@@ -57,7 +57,41 @@ Requirements for BioSim integration milestone. Each maps to roadmap phases.
 
 - [x] **OBS-01**: Navigation link to Open MCT dashboard (opens `localhost:9091` in new tab)
 
-## v3+ Requirements
+## v3.0 Requirements
+
+Requirements for physical sensor integration milestone. Each maps to roadmap phases.
+
+### Hub Client
+
+- [ ] **HUB-01**: Config-driven Pi client reads settings from `.env` file (Docker host IP, sensor address, poll interval) — no hardcoded credentials or GCP dependency
+- [ ] **HUB-02**: Pi client POSTs sensor readings directly to Django REST API over WiFi using `requests`
+- [ ] **HUB-03**: AtlasI2C driver fixed — no 4-char truncation bug, no debug prints, handles read errors gracefully
+- [ ] **HUB-04**: SQLite offline buffer stores readings when Docker host is unreachable, syncs when connection restores
+- [ ] **HUB-05**: Pi client auto-detects all Atlas Scientific I2C devices on the bus, not just a single hardcoded address
+
+### Data Ingest
+
+- [ ] **INGEST-01**: Django POST endpoint receives sensor readings from Pi and stores them in `EnrichedSensorData` with distinct `hub_id`
+- [ ] **INGEST-02**: Real Pi sensor data distinguishable from BioSim data via `hub_id` field (`pi-habitat-01` vs `biosim-habitat-01`)
+
+### Closed-Loop Control
+
+- [ ] **CTRL-01**: Control service compares real Pi pH to BioSim's simulated water recycling pH at regular intervals
+- [ ] **CTRL-02**: pH divergence beyond configurable threshold triggers `Grey_Water_Store` malfunction via BioSim REST API
+- [ ] **CTRL-03**: Control service auto-recovers — DELETEs malfunction when real pH normalizes back to expected range
+- [ ] **CTRL-04**: Control service runs as a Docker Compose service (same image, different command)
+
+### Frontend
+
+- [ ] **UI-01**: Real Pi pH value visible in the Water Recycling zone panel alongside BioSim simulated data
+- [ ] **UI-02**: HUD connection badge shows 5th state ("Real Sensor" with distinct color) when Pi data is flowing
+
+### Setup & Docs
+
+- [ ] **SETUP-01**: Step-by-step Pi setup guide covering wiring, EZO I2C mode jumper, venv creation, `.env` configuration, and first run
+- [ ] **SETUP-02**: Guide is reproducible — anyone with a Pi and Atlas Scientific I2C sensor can follow it end-to-end
+
+## v4+ Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
 
@@ -66,6 +100,8 @@ Deferred to future release. Tracked but not in current roadmap.
 - **SCEN-01**: Multiple XML mission scenarios selectable at runtime
 - **SCEN-02**: Custom Open MCT telemetry plugin for SpatialHub-specific views
 - **SCEN-03**: Tick rate UI control for simulation speed adjustment
+- **MULTI-01**: Multiple sensor types (dissolved oxygen, EC, temperature) driving multiple BioSim modules
+- **MULTI-02**: Multiple Pi hubs feeding different habitat zones simultaneously
 
 ## Out of Scope
 
@@ -77,6 +113,10 @@ Deferred to future release. Tracked but not in current roadmap.
 | Authentication/session management | BioSim has no auth model; out of scope per PROJECT.md |
 | Embedding Open MCT in iframe | Crops full-viewport layout; new tab link is correct |
 | BioSim source code in repo | GPL v3 copyleft — network API boundary only |
+| GCP Pub/Sub pipeline | Replaced by direct REST for local reproducibility |
+| Multiple sensor types | pH only for v3.0 — architecture supports extension |
+| Custom PCB / enclosure | Standard breadboard setup for demo |
+| MQTT transport | Over-engineered for single-sensor local WiFi |
 
 ## Traceability
 
@@ -114,11 +154,28 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PIPE-05 | Phase 9 | Complete |
 | OBS-01 | Phase 5 | Complete |
 
+| HUB-01 | — | Pending |
+| HUB-02 | — | Pending |
+| HUB-03 | — | Pending |
+| HUB-04 | — | Pending |
+| HUB-05 | — | Pending |
+| INGEST-01 | — | Pending |
+| INGEST-02 | — | Pending |
+| CTRL-01 | — | Pending |
+| CTRL-02 | — | Pending |
+| CTRL-03 | — | Pending |
+| CTRL-04 | — | Pending |
+| UI-01 | — | Pending |
+| UI-02 | — | Pending |
+| SETUP-01 | — | Pending |
+| SETUP-02 | — | Pending |
+
 **Coverage:**
-- v2.0 requirements: 29 total
-- Mapped to phases: 29
-- Unmapped: 0 ✓
+- v2.0 requirements: 29 total (all complete)
+- v3.0 requirements: 15 total
+- Mapped to phases: 0 (pending roadmap)
+- Unmapped: 15
 
 ---
 *Requirements defined: 2026-03-14*
-*Last updated: 2026-03-14 — traceability filled after roadmap creation*
+*Last updated: 2026-03-18 — v3.0 requirements added*
