@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: BioSim Integration
-status: completed
-stopped_at: Completed 09-02-PLAN.md
-last_updated: "2026-03-16T19:09:10.274Z"
-last_activity: 2026-03-16 — biosimMapper.ts implemented via TDD, 20 fixture-pinned tests passing
+milestone: v3.0
+milestone_name: Physical Sensor Integration
+status: active
+stopped_at: null
+last_updated: "2026-03-18"
+last_activity: 2026-03-18 — Milestone v3.0 started
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 11
-  completed_plans: 11
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
   percent: 0
 ---
 
@@ -18,18 +18,18 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-14)
+See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** 3D habitat visualization with live sensor data that feels real, responsive, and impressive enough to make someone say "this could actually run a Mars greenhouse."
-**Current focus:** v2.0 BioSim Integration — Phase 6: Data Mapping Layer
+**Current focus:** v3.0 Physical Sensor Integration — defining requirements
 
 ## Current Position
 
-Milestone: v2.0 BioSim Integration
-Phase: 6 of 9 (Data Mapping Layer)
-Plan: 1/2 complete
-Status: Plan 1 complete, ready for Plan 2
-Last activity: 2026-03-16 — biosimMapper.ts implemented via TDD, 20 fixture-pinned tests passing
+Milestone: v3.0 Physical Sensor Integration
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-18 — Milestone v3.0 started
 
 Progress: [░░░░░░░░░░] 0%
 

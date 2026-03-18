@@ -27,46 +27,47 @@ The 3D habitat visualization with live sensor data must feel real, responsive, a
 - ✓ 4 anomaly scenarios with gradual onset/recovery curves — v1.0
 - ✓ Visual drama: flashing zones, alert escalation, sensor spikes — v1.0
 - ✓ AnomalyDrawer UI for triggering and cancelling scenarios — v1.0
+- ✓ BioSim Docker integration (NASA life support simulator as physics engine) — v2.0
+- ✓ Frontend WebSocket client connecting directly to BioSim for live data — v2.0
+- ✓ Django bridge service ingesting BioSim ticks into enriched_sensor_data — v2.0
+- ✓ AnomalyDrawer rewired to POST real malfunctions to BioSim API — v2.0
+- ✓ Fallback mode: auto-detect BioSim availability, fall back to client-side sim — v2.0
+- ✓ Full docker-compose stack (Django + BioSim + Open MCT + PostgreSQL) — v2.0
+- ✓ Open MCT route/link alongside 3D habitat — v2.0
+- ✓ Existing /api/enriched/ and /trends serve real BioSim historical data — v2.0
 
 ### Active
 
-- [ ] BioSim Docker integration (NASA life support simulator as physics engine)
-- [ ] Frontend WebSocket client connecting directly to BioSim for live data
-- [ ] Django bridge service ingesting BioSim ticks into enriched_sensor_data
-- [ ] AnomalyDrawer rewired to POST real malfunctions to BioSim API
-- [ ] Fallback mode: auto-detect BioSim availability, fall back to client-side sim
-- [ ] Full docker-compose stack (Django + BioSim + Open MCT + PostgreSQL)
-- [ ] Open MCT route/link alongside 3D habitat
-- [ ] Existing /api/enriched/ and /trends serve real BioSim historical data
+- [ ] Raspberry Pi with Atlas Scientific pH sensor feeds real data into BioSim simulation
+- [ ] Closed-loop control: real pH divergence triggers BioSim water recycling malfunctions
+- [ ] Hubcode rewrite: config-driven, no GCP dependency, direct REST to Docker stack
+- [ ] Real sensor data visible in 3D habitat alongside BioSim physics
+- [ ] Reproducible setup: anyone with a Pi + Atlas I2C sensor can follow a guide and run it
 
-## Current Milestone: v2.0 BioSim Integration
+## Current Milestone: v3.0 Physical Sensor Integration
 
-**Goal:** Replace the client-side simulation engine with NASA's BioSim physics simulator, adding real interconnected subsystem dynamics, Docker infrastructure, WebSocket data pipelines, and full backend data ingestion.
+**Goal:** Connect a real Raspberry Pi with an Atlas Scientific pH sensor to the BioSim simulation — real pH readings drive BioSim's water recycling system via a closed-loop control service. Reproducible for anyone with a Pi and Atlas I2C hardware.
 
 **Target features:**
-- BioSim as Docker service with full-stack docker-compose
-- Direct WebSocket connection from frontend to BioSim for live telemetry
-- Django bridge independently ingesting BioSim data for historical queries
-- AnomalyDrawer triggering real BioSim malfunctions (cascading failures)
-- Automatic fallback to client-side sim when BioSim unavailable
-- Open MCT NASA dashboard exposed alongside 3D habitat
-- Full data pipeline: BioSim → Django → enriched_sensor_data → /api/enriched/ → /trends
+- Hubcode rewrite: config-driven Python client, no GCP dependency, posts directly to Docker stack over WiFi
+- Django API endpoint to receive real sensor data from the Pi
+- Control service comparing real pH to BioSim simulated pH, triggering malfunctions on divergence
+- Real sensor data overlaid in the 3D habitat's water recycling zone
+- Reproducible Pi setup guide with configuration, wiring, and first-run instructions
 
 ### Out of Scope
 
-- Real hardware integration / actual Raspberry Pi changes — demo only
 - Authentication / authorization — not needed for portfolio demo
 - Mobile-responsive 3D experience — desktop-first
 - Multiplayer / collaborative viewing — single user
-- Persistent anomaly history / incident logs — anomalies are transient demo events
-- Replacing existing pages — `/habitat` route sits alongside existing views
-- Realistic GLTF habitat model — procedural geometry with good materials looks more futuristic
+- GCP Pub/Sub pipeline — replaced by direct REST to Docker stack for v3.0
+- Multiple sensor types — pH only for this milestone (extensible for future)
+- Custom PCB or enclosure design — standard breadboard setup
 - VR/AR mode — 99% of reviewers use normal browsers
-- Custom GLSL shaders — MeshStandardMaterial with good params is sufficient
 
 ## Context
 
-- **Shipped:** v1.0 Mars Habitat Demo (2026-03-14)
+- **Shipped:** v2.0 BioSim Integration (2026-03-16), v1.0 Mars Habitat Demo (2026-03-14)
 - **Codebase:** 3,587 LOC TypeScript/TSX (frontend), 3,798 lines added across 28 files
 - **Frontend stack:** React 19, Vite, TypeScript, R3F (fiber@9.5, drei@10.7, postprocessing@3.0, three@0.183), Zustand v5
 - **Backend stack:** Django 5.2, DRF, PostgreSQL on Cloud SQL
@@ -76,7 +77,7 @@ The 3D habitat visualization with live sensor data must feel real, responsive, a
 ## Constraints
 
 - **Tech stack:** Django + React + TypeScript + Three.js (R3F)
-- **No new cloud infra:** Simulated data runs in-browser
+- **No new cloud infra:** Local Docker stack + Pi over WiFi, no GCP dependency
 - **Existing routes preserved:** `/raw`, `/enriched`, `/trends`, `/simulate`, `/unity` untouched
 - **Branch:** `feature/mars-habitat-demo`
 
@@ -97,9 +98,11 @@ The 3D habitat visualization with live sensor data must feel real, responsive, a
 | Alert cooldown in Map ref | Prevents re-render cascade on every 2s tick | ✓ Good — stable at high frequency |
 | Anomaly toggle (re-trigger = cancel) | Graceful recovery from current biasFactor, not restart | ✓ Good — intuitive UX |
 
-| BioSim via Docker + REST/WebSocket (not embedded) | GPL v3 copyleft — network API boundary avoids code linking | — Pending |
-| Full docker-compose (Django + BioSim + Open MCT + PostgreSQL) | One command to start entire stack, best for scale and onboarding | — Pending |
-| Both paths: direct WS for live + Django ingest for history | Real-time 3D + proper data pipeline, most impressive architecture | — Pending |
+| BioSim via Docker + REST/WebSocket (not embedded) | GPL v3 copyleft — network API boundary avoids code linking | ✓ Good — clean API boundary, 5-service compose |
+| Full docker-compose (Django + BioSim + Open MCT + PostgreSQL) | One command to start entire stack, best for scale and onboarding | ✓ Good — includes bridge service |
+| Both paths: direct WS for live + Django ingest for history | Real-time 3D + proper data pipeline, most impressive architecture | ✓ Good — frontend WS + Django bridge both working |
+| Pi bypasses GCP, posts directly to Docker stack | Reproducibility — no service accounts, no cloud dependency | — Pending |
+| Closed-loop: real pH drives BioSim malfunctions | Most impressive demo — real hardware influencing simulation | — Pending |
 
 ---
-*Last updated: 2026-03-14 after v2.0 milestone started*
+*Last updated: 2026-03-18 after v3.0 milestone started*
