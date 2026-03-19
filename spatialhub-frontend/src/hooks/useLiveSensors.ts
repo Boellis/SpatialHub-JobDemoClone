@@ -11,10 +11,10 @@ import { ZONE_CONFIGS } from '../simulation/constants';
 import type { SensorReading, SensorStatus, ThresholdConfig } from '../types/habitat';
 
 const POLL_INTERVAL_MS = 10_000; // poll every 10s
-const PI_HUB_ID = '9c9Kfeo4SK7BW4hw8dvQ';
+export const PI_HUB_ID = 'pi-habitat-01';
 
 // Map Pi sensor names to habitat zone/sensor IDs
-const SENSOR_MAP: Record<string, { zoneId: string; sensorId: string }> = {
+export const SENSOR_MAP: Record<string, { zoneId: string; sensorId: string }> = {
   ph: { zoneId: 'water-recycling', sensorId: 'wr-ph' },
 };
 
