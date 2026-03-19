@@ -25,6 +25,11 @@ DB_NAME="spatialhub_db"
 DB_USER="spatialhub"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+VM_NAME="spatialhub-biosim"
+STATIC_IP_NAME="spatialhub-biosim-ip"
+ZONE="us-central1-a"
+BIOSIM_TAG="biosim-server"
+REPO_URL="https://github.com/nickdemari/SpatialHub-JobDemoClone.git"
 
 # ---------------------------------------------------------------------------
 # Section 1: Validate prerequisites
@@ -227,13 +232,272 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Section 9: Reserve Static IP (idempotent)
+# ---------------------------------------------------------------------------
+echo ""
+echo "=== Reserving Static IP for BioSim VM ==="
+
+if ! gcloud compute addresses describe "$STATIC_IP_NAME" --region="$REGION" --project="$PROJECT" &>/dev/null; then
+  echo "Creating static IP $STATIC_IP_NAME ..."
+  gcloud compute addresses create "$STATIC_IP_NAME" \
+    --region="$REGION" \
+    --project="$PROJECT"
+else
+  echo "Static IP $STATIC_IP_NAME already exists — skipping."
+fi
+
+VM_IP=$(gcloud compute addresses describe "$STATIC_IP_NAME" \
+  --region="$REGION" \
+  --project="$PROJECT" \
+  --format='value(address)')
+echo "BioSim VM static IP: $VM_IP"
+
+# ---------------------------------------------------------------------------
+# Section 10: Create Firewall Rules (idempotent)
+# ---------------------------------------------------------------------------
+echo ""
+echo "=== Creating Firewall Rules for BioSim VM ==="
+
+if ! gcloud compute firewall-rules describe "allow-biosim-8009" --project="$PROJECT" &>/dev/null; then
+  echo "Creating firewall rule allow-biosim-8009 ..."
+  gcloud compute firewall-rules create "allow-biosim-8009" \
+    --project="$PROJECT" \
+    --direction=INGRESS \
+    --priority=1000 \
+    --network=default \
+    --action=ALLOW \
+    --rules=tcp:8009 \
+    --source-ranges=0.0.0.0/0 \
+    --target-tags="$BIOSIM_TAG"
+else
+  echo "Firewall rule allow-biosim-8009 already exists — skipping."
+fi
+
+if ! gcloud compute firewall-rules describe "allow-openmct-9091" --project="$PROJECT" &>/dev/null; then
+  echo "Creating firewall rule allow-openmct-9091 ..."
+  gcloud compute firewall-rules create "allow-openmct-9091" \
+    --project="$PROJECT" \
+    --direction=INGRESS \
+    --priority=1000 \
+    --network=default \
+    --action=ALLOW \
+    --rules=tcp:9091 \
+    --source-ranges=0.0.0.0/0 \
+    --target-tags="$BIOSIM_TAG"
+else
+  echo "Firewall rule allow-openmct-9091 already exists — skipping."
+fi
+
+# ---------------------------------------------------------------------------
+# Section 11: Create GCE VM (idempotent)
+# ---------------------------------------------------------------------------
+echo ""
+echo "=== Creating GCE VM for BioSim ==="
+
+if ! gcloud compute instances describe "$VM_NAME" --zone="$ZONE" --project="$PROJECT" &>/dev/null; then
+  echo "Creating GCE VM $VM_NAME ..."
+  gcloud compute instances create "$VM_NAME" \
+    --zone="$ZONE" \
+    --project="$PROJECT" \
+    --machine-type=e2-medium \
+    --image-family=debian-12 \
+    --image-project=debian-cloud \
+    --address="$STATIC_IP_NAME" \
+    --tags="$BIOSIM_TAG" \
+    --boot-disk-size=20GB
+  echo "Waiting 30s for SSH key propagation ..."
+  sleep 30
+else
+  echo "GCE VM $VM_NAME already exists — skipping creation."
+fi
+
+# ---------------------------------------------------------------------------
+# Section 12: Install Docker on VM (idempotent)
+# ---------------------------------------------------------------------------
+echo ""
+echo "=== Installing Docker on VM ==="
+
+DOCKER_CHECK=$(gcloud compute ssh "$VM_NAME" \
+  --zone="$ZONE" \
+  --project="$PROJECT" \
+  --quiet \
+  --command="command -v docker && echo FOUND || echo NOT_FOUND" 2>&1 || echo "NOT_FOUND")
+
+if [[ "$DOCKER_CHECK" != *"FOUND"* ]]; then
+  echo "Docker not found — installing ..."
+  gcloud compute ssh "$VM_NAME" \
+    --zone="$ZONE" \
+    --project="$PROJECT" \
+    --quiet \
+    --command="sudo apt-get update && sudo apt-get install -y docker.io docker-compose-plugin git curl && sudo usermod -aG docker \$USER"
+else
+  echo "Docker already installed — skipping."
+fi
+
+# ---------------------------------------------------------------------------
+# Section 13: Deploy Code to VM
+# ---------------------------------------------------------------------------
+echo ""
+echo "=== Deploying Code to VM ==="
+
+# Clone or pull the repo
+REPO_CHECK=$(gcloud compute ssh "$VM_NAME" \
+  --zone="$ZONE" \
+  --project="$PROJECT" \
+  --quiet \
+  --command="[ -d /opt/spatialhub ] && echo EXISTS || echo MISSING" 2>&1 || echo "MISSING")
+
+if [[ "$REPO_CHECK" == *"EXISTS"* ]]; then
+  echo "Repo already cloned — pulling latest ..."
+  gcloud compute ssh "$VM_NAME" \
+    --zone="$ZONE" \
+    --project="$PROJECT" \
+    --quiet \
+    --command="cd /opt/spatialhub && git pull origin main"
+else
+  echo "Cloning repo to /opt/spatialhub ..."
+  gcloud compute ssh "$VM_NAME" \
+    --zone="$ZONE" \
+    --project="$PROJECT" \
+    --quiet \
+    --command="sudo mkdir -p /opt/spatialhub && sudo chown \$USER:\$USER /opt/spatialhub && git clone ${REPO_URL} /opt/spatialhub"
+fi
+
+# Write .env file to VM
+echo "Writing .env to VM ..."
+gcloud compute ssh "$VM_NAME" \
+  --zone="$ZONE" \
+  --project="$PROJECT" \
+  --quiet \
+  --command="cat > /opt/spatialhub/.env << 'ENVEOF'
+DB_HOST=${DB_HOST}
+DB_NAME=${DB_NAME}
+DB_USER=${DB_USER}
+DB_PASS=${DB_PASS}
+SECRET_KEY=${SECRET_KEY}
+ENVEOF"
+
+# Write systemd unit file
+echo "Installing systemd unit file ..."
+gcloud compute ssh "$VM_NAME" \
+  --zone="$ZONE" \
+  --project="$PROJECT" \
+  --quiet \
+  --command="sudo tee /etc/systemd/system/spatialhub-biosim.service > /dev/null << 'UNITEOF'
+[Unit]
+Description=SpatialHub BioSim Stack
+Requires=docker.service
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/spatialhub
+ExecStart=/usr/bin/docker compose -f /opt/spatialhub/docker-compose.vm.yml up -d
+ExecStop=/usr/bin/docker compose -f /opt/spatialhub/docker-compose.vm.yml down
+
+[Install]
+WantedBy=multi-user.target
+UNITEOF"
+
+gcloud compute ssh "$VM_NAME" \
+  --zone="$ZONE" \
+  --project="$PROJECT" \
+  --quiet \
+  --command="sudo systemctl daemon-reload && sudo systemctl enable spatialhub-biosim.service"
+
+# Build and start Docker Compose stack (first build: 10-20 min for BioSim Maven)
+echo "Starting Docker Compose stack on VM (first build may take 10-20 minutes) ..."
+gcloud compute ssh "$VM_NAME" \
+  --zone="$ZONE" \
+  --project="$PROJECT" \
+  --quiet \
+  --ssh-flag="-o ServerAliveInterval=60" \
+  --command="cd /opt/spatialhub && sudo docker compose -f docker-compose.vm.yml up --build -d"
+
+# ---------------------------------------------------------------------------
+# Section 14: Wait for BioSim Readiness
+# ---------------------------------------------------------------------------
+echo ""
+echo "=== Waiting for BioSim to be Ready ==="
+
+MAX_ATTEMPTS=40
+ATTEMPT=0
+BIOSIM_READY=false
+
+while [[ "$ATTEMPT" -lt "$MAX_ATTEMPTS" ]]; do
+  ATTEMPT=$((ATTEMPT + 1))
+  echo "  Attempt $ATTEMPT/$MAX_ATTEMPTS: polling http://${VM_IP}:8009/api/simulation ..."
+  if curl -sf "http://${VM_IP}:8009/api/simulation" &>/dev/null; then
+    BIOSIM_READY=true
+    echo "BioSim is ready."
+    break
+  fi
+  sleep 3
+done
+
+if [[ "$BIOSIM_READY" != "true" ]]; then
+  echo "Error: BioSim did not respond after 120s. Check VM logs:"
+  echo "  gcloud compute ssh $VM_NAME --zone=$ZONE --project=$PROJECT --command='sudo docker compose -f /opt/spatialhub/docker-compose.vm.yml logs biosim'"
+  exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# Section 15: Rebuild Frontend with VM URLs
+# ---------------------------------------------------------------------------
+echo ""
+echo "=== Rebuilding Frontend with VM URLs ==="
+cd "$REPO_ROOT/spatialhub-frontend"
+echo "Building frontend with VITE_BIOSIM_URL=http://${VM_IP}:8009 VITE_OPENMCT_URL=http://${VM_IP}:9091"
+VITE_API_URL="${CLOUD_RUN_URL}/api" \
+  VITE_BIOSIM_URL="http://${VM_IP}:8009" \
+  VITE_OPENMCT_URL="http://${VM_IP}:9091" \
+  npm run build
+firebase deploy --only hosting --project "$PROJECT"
+
+# ---------------------------------------------------------------------------
+# Section 16: VM Smoke Checks
+# ---------------------------------------------------------------------------
+echo ""
+echo "=== VM Smoke Checks ==="
+
+# Check BioSim
+BIOSIM_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://${VM_IP}:8009/api/simulation")
+if [[ "$BIOSIM_CODE" == "200" ]]; then
+  echo "PASS: BioSim responds 200 at http://${VM_IP}:8009/api/simulation"
+else
+  echo "WARN: BioSim returned $BIOSIM_CODE at http://${VM_IP}:8009/api/simulation"
+fi
+
+# Check Open MCT
+OPENMCT_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://${VM_IP}:9091")
+if [[ "$OPENMCT_CODE" == "200" ]]; then
+  echo "PASS: Open MCT responds 200 at http://${VM_IP}:9091"
+else
+  echo "WARN: Open MCT returned $OPENMCT_CODE at http://${VM_IP}:9091"
+fi
+
+# Check bridge writes (wait for first tick then query enriched data)
+echo "Waiting 15s for bridge to write first tick ..."
+sleep 15
+BRIDGE_DATA=$(curl -s "${CLOUD_RUN_URL}/api/enriched/?hub_id=biosim-habitat-01")
+if [[ "$BRIDGE_DATA" != "[]" && -n "$BRIDGE_DATA" ]]; then
+  echo "PASS: bridge has written enriched data for biosim-habitat-01"
+else
+  echo "WARN: No enriched data yet for biosim-habitat-01 (bridge may still be catching up)"
+fi
+
+# ---------------------------------------------------------------------------
 # Final summary
 # ---------------------------------------------------------------------------
 echo ""
 echo "=== Deployment Complete ==="
-echo "Cloud Run:  ${CLOUD_RUN_URL}"
-echo "Frontend:   https://nasa-comp-demo.web.app"
-echo "Cloud SQL:  ${DB_HOST}"
+echo "Cloud Run:    ${CLOUD_RUN_URL}"
+echo "Frontend:     https://nasa-comp-demo.web.app"
+echo "Cloud SQL:    ${DB_HOST}"
+echo "BioSim VM IP: ${VM_IP}"
+echo "BioSim URL:   http://${VM_IP}:8009"
+echo "Open MCT URL: http://${VM_IP}:9091"
 echo ""
 echo "IMPORTANT: Store these values for future redeploys:"
 echo "  export SECRET_KEY='${SECRET_KEY}'"
