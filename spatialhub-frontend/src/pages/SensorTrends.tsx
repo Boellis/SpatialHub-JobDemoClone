@@ -9,7 +9,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import axios from "axios";
+import { fetchEnrichedSensorData } from "../api/api";
 
 const CHART_COLORS = [
   "#00aaff",
@@ -38,15 +38,12 @@ export const SensorTrends = () => {
   const [compareAllHubs, setCompareAllHubs] = useState<boolean>(false);
 
   useEffect(() => {
-    axios
-      .get(
-        "https://spatialhub-backend-823061962201.us-central1.run.app/api/enriched/"
-      )
-      .then((res) => {
+    fetchEnrichedSensorData(1)
+      .then((result) => {
         const flat =
-          Array.isArray(res.data) && Array.isArray(res.data[0])
-            ? res.data[0]
-            : res.data;
+          Array.isArray(result) && Array.isArray(result[0])
+            ? result[0]
+            : result;
         setData(flat);
       })
       .catch((err) => {

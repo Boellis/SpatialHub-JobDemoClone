@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import { fetchEnrichedSensorData } from "../api/api";
 
 export function EnrichedSensorData() {
   const [data, setData] = useState<any[]>([]);
@@ -9,12 +9,9 @@ export function EnrichedSensorData() {
   const itemsPerPage = 10;
 
   useEffect(() => {
-    axios
-      .get(
-        "https://spatialhub-backend-823061962201.us-central1.run.app/api/enriched/"
-      )
-      .then((res) => {
-        const flat = res.data.flat();
+    fetchEnrichedSensorData(1)
+      .then((result) => {
+        const flat = Array.isArray(result) ? result.flat() : result;
         setData(flat);
       })
       .catch(() => setError("Failed to fetch enriched sensor data"))

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import { fetchRawSensorData } from "../api/api";
 
 export function RawSensorData() {
   const [data, setData] = useState<any[]>([]);
@@ -9,12 +9,9 @@ export function RawSensorData() {
   const itemsPerPage = 10;
 
   useEffect(() => {
-    axios
-      .get(
-        "https://spatialhub-backend-823061962201.us-central1.run.app/api/raw/"
-      )
-      .then((res) => {
-        const flat = res.data.flat();
+    fetchRawSensorData()
+      .then((result) => {
+        const flat = Array.isArray(result) ? result.flat() : result;
         setData(flat);
       })
       .catch(() => setError("Failed to fetch raw sensor data"))

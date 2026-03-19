@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { fetchHubList, sendCommand } from "../api/api";
 
 const CLOUD_FUNCTION_URL =
   "https://us-central1-interviewing-457222.cloudfunctions.net/ingest_data_publisher";
-const COMMAND_URL =
-  "https://spatialhub-backend-823061962201.us-central1.run.app/api/send-command/";
 
 type SensorName = "ph" | "do" | "atemp" | "wtemp" | "hum" | "co2";
 
@@ -30,11 +29,8 @@ const SimulateDevices = () => {
   const [pumpAmount, setPumpAmount] = useState(10);
 
   useEffect(() => {
-    axios
-      .get(
-        "https://spatialhub-backend-823061962201.us-central1.run.app/api/hub/"
-      )
-      .then((res) => setHubIds(res.data.map((h: any) => h.hub_id)))
+    fetchHubList()
+      .then((hubs) => setHubIds(hubs.map((h) => h.hub_id)))
       .catch(console.error);
   }, []);
 
@@ -104,7 +100,7 @@ const SimulateDevices = () => {
       return;
     }
     try {
-      await axios.post(COMMAND_URL, {
+      await sendCommand({
         hub_id: selectedHubId,
         command: `D,${pumpAmount}`,
       });
