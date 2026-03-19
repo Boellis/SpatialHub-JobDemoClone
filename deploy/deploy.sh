@@ -462,9 +462,11 @@ fi
 echo ""
 echo "=== Rebuilding Frontend with VM URLs ==="
 cd "$REPO_ROOT/spatialhub-frontend"
-echo "Building frontend with VITE_BIOSIM_URL=http://${VM_IP}:8009 VITE_OPENMCT_URL=http://${VM_IP}:9091"
+# Use sslip.io HTTPS URL for BioSim to avoid mixed-content block (HTTPS frontend → HTTP API)
+BIOSIM_DOMAIN=$(echo "$VM_IP" | tr '.' '-').sslip.io
+echo "Building frontend with VITE_BIOSIM_URL=https://${BIOSIM_DOMAIN} VITE_OPENMCT_URL=http://${VM_IP}:9091"
 VITE_API_URL="${CLOUD_RUN_URL}/api" \
-  VITE_BIOSIM_URL="http://${VM_IP}:8009" \
+  VITE_BIOSIM_URL="https://${BIOSIM_DOMAIN}" \
   VITE_OPENMCT_URL="http://${VM_IP}:9091" \
   npm run build
 firebase deploy --only hosting --project "$PROJECT"
