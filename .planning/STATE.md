@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Physical Sensor Integration
-status: Cloud services deployed to nasa-comp-demo — Django on Cloud Run, frontend on Firebase, Cloud SQL provisioned
-stopped_at: Completed 12-01-PLAN.md — all artifacts created and committed
-last_updated: "2026-03-19T06:35:30.985Z"
+status: BioSim VM deployed to GCE (34.68.135.16) — full stack live with Caddy HTTPS, bridge writing to Cloud SQL, Pi pH sensor posting real data
+stopped_at: Completed 12-02-PLAN.md — BioSim VM stack deployed and end-to-end verified by user
+last_updated: "2026-03-19T13:47:35.316Z"
 last_activity: 2026-03-19 — Phase 11 deployed to GCP project nasa-comp-demo
 progress:
   total_phases: 7
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
   percent: 14
 ---
 
@@ -26,12 +26,12 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 ## Current Position
 
 Milestone: v3.0 Physical Sensor Integration
-Phase: 11 of 16 COMPLETE — next: Phase 12 (BioSim VM Deployment)
-Plan: Phase 11 all 2 plans complete
-Status: Cloud services deployed to nasa-comp-demo — Django on Cloud Run, frontend on Firebase, Cloud SQL provisioned
-Last activity: 2026-03-19 — Phase 11 deployed to GCP project nasa-comp-demo
+Phase: 12 of 16 COMPLETE — next: Phase 13 (Pi-to-Cloud Pipeline)
+Plan: Phase 12 all 2 plans complete
+Status: BioSim VM deployed to GCE (34.68.135.16) — full stack live with Caddy HTTPS, bridge writing to Cloud SQL, Pi pH sensor posting real data
+Last activity: 2026-03-19 — Phase 12 BioSim VM deployment verified end-to-end
 
-Progress: [█░░░░░░░░░] 14% (Phase 10 complete, 6 phases remaining)
+Progress: [██░░░░░░░░] 28% (Phase 12 complete, 4 phases remaining)
 
 ## Accumulated Context
 
@@ -59,6 +59,9 @@ Key v3.0 architectural decisions:
 - [Phase 11-cloud-services-deployment]: CSRF_TRUSTED_ORIGINS uses *.run.app wildcard to cover any Cloud Run service URL
 - [Phase 12-biosim-vm-deployment]: bridge VM compose uses explicit environment block (not env_file) with BIOSIM_URL=http://biosim:8009 and USE_SQLITE=0 hardcoded
 - [Phase 12-biosim-vm-deployment]: deploy.sh BioSim readiness poll is 40 x 3s = 120s max; Section 15 frontend rebuild runs only AFTER BioSim confirms live
+- [Phase 12-biosim-vm-deployment]: Caddy with sslip.io resolves mixed-content HTTPS/WebSocket block for Firebase->GCE VM connection
+- [Phase 12-biosim-vm-deployment]: useLiveSensors is additive annotation layer on BioSim ticks — Pi data tags readings as source='pi' for LIVE badge rendering
+- [Phase 12-biosim-vm-deployment]: teardown.sh --stop (cost management) vs --delete (full cleanup) modes for VM lifecycle
 
 ### Pending Todos
 
@@ -80,7 +83,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-19T06:35:30.977Z
-Stopped at: Completed 12-01-PLAN.md — all artifacts created and committed
+Last session: 2026-03-19T13:47:21.924Z
+Stopped at: Completed 12-02-PLAN.md — BioSim VM stack deployed and end-to-end verified by user
 Resume file: None
 Note: Phase 11 discuss-phase captured partial decisions (divergence logic, recovery, stale data, logging) before pivot — revisit during Phase 14 planning

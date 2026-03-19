@@ -35,7 +35,7 @@
 
 - [x] **Phase 10: Django Ingest + Hubcode Rewrite** — Pi client code and Django ingest endpoint built (completed 2026-03-18)
 - [x] **Phase 11: Cloud Services Deployment** — Django on Cloud Run, frontend on Firebase Hosting, Cloud SQL database — the website works in the cloud (completed 2026-03-19)
-- [ ] **Phase 12: BioSim VM Deployment** — BioSim + biosim_bridge + Open MCT on a GCE VM — 3D habitat shows live physics via cloud
+- [x] **Phase 12: BioSim VM Deployment** — BioSim + biosim_bridge + Open MCT on a GCE VM — 3D habitat shows live physics via cloud (completed 2026-03-19)
 - [ ] **Phase 13: Pi-to-Cloud Pipeline** — Hub client posts to Cloud Run endpoint — real sensor data flows from Pi to cloud database
 - [ ] **Phase 14: Closed-Loop Control Service** — pH divergence triggers BioSim malfunctions automatically from GCE VM
 - [ ] **Phase 15: Frontend Real Sensor Visibility** — Real pH overlaid in 3D habitat with distinct HUD badge state
@@ -79,10 +79,10 @@ Plans:
   3. biosim_bridge on GCE VM writes BioSim ticks to Cloud SQL `enriched_sensor_data` with `hub_id='biosim-habitat-01'`
   4. Open MCT dashboard accessible at `http://{VM_IP}:9091`
   5. AnomalyDrawer on Firebase can POST/DELETE malfunctions to BioSim on GCE VM
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
-- [ ] 12-01-PLAN.md — Create VM compose file, fix Open MCT URL, extend deploy script
-- [ ] 12-02-PLAN.md — Deploy to GCE VM and verify end-to-end
+- [x] 12-01-PLAN.md — Create VM compose file, fix Open MCT URL, extend deploy script
+- [x] 12-02-PLAN.md — Deploy to GCE VM and verify end-to-end
 
 ### Phase 13: Pi-to-Cloud Pipeline
 **Goal**: Pi `hub_client.py` posts real pH readings to the Cloud Run Django endpoint — data flows end-to-end from physical Atlas Scientific sensor through Cloud SQL to the frontend dashboard, verifiable via the existing `/enriched` page
@@ -141,7 +141,7 @@ Plans:
 | 9. Django Bridge + Historical Pipeline | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 10. Django Ingest + Hubcode Rewrite | v3.0 | 3/3 | Complete | 2026-03-18 |
 | 11. Cloud Services Deployment | v3.0 | 2/2 | Complete | 2026-03-19 |
-| 12. BioSim VM Deployment | 1/2 | In Progress|  | - |
+| 12. BioSim VM Deployment | v3.0 | 2/2 | Complete | 2026-03-19 |
 | 13. Pi-to-Cloud Pipeline | v3.0 | 0/TBD | Not started | - |
 | 14. Closed-Loop Control Service | v3.0 | 0/TBD | Not started | - |
 | 15. Frontend Real Sensor Visibility | v3.0 | 0/TBD | Not started | - |
