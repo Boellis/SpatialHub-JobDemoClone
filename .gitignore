@@ -15,3 +15,10 @@ __pycache__/
 # IDE
 .idea/
 .vscode/
+
+# MCP local config
+.mcp.json
+
+# pip install garbage (unquoted >= in shell)
+=*
+django_backend/=*

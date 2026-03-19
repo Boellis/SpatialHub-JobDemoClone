@@ -115,6 +115,10 @@ None — no external service configuration required. Tests run offline against t
 - Caller pattern: `rows = biosim_tick_to_rows(tick_payload['modules']); EnrichedSensorData.objects.bulk_create(rows)`
 - Cross-language parity verified: gb-co2 ~730 ppm, ac-o2 ~20.81%, pt-power ~100.0 kW, wr-flow ~10.0 L/min (all match TypeScript mapper)
 
+## Self-Check: PASSED
+
+All created files present on disk. Both task commits verified in git log.
+
 ---
 *Phase: 06-data-mapping-layer*
 *Completed: 2026-03-16*
