@@ -312,24 +312,39 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Section 12: Install Docker on VM (idempotent)
+# Section 12: Install Docker and base packages on VM (idempotent)
 # ---------------------------------------------------------------------------
 echo ""
-echo "=== Installing Docker on VM ==="
+echo "=== Installing Packages on VM ==="
 
+# Always ensure base packages are present (git, curl) — separate from Docker check
+echo "Ensuring git and curl are installed ..."
+gcloud compute ssh "$VM_NAME" \
+  --zone="$ZONE" \
+  --project="$PROJECT" \
+  --quiet \
+  --command="command -v git &>/dev/null && command -v curl &>/dev/null && echo 'Base packages OK' || (sudo apt-get update && sudo apt-get install -y git curl)"
+
+# Check Docker separately — verify it actually runs, not just that the binary exists
 DOCKER_CHECK=$(gcloud compute ssh "$VM_NAME" \
   --zone="$ZONE" \
   --project="$PROJECT" \
   --quiet \
-  --command="command -v docker && echo FOUND || echo NOT_FOUND" 2>&1 || echo "NOT_FOUND")
+  --command="docker --version 2>/dev/null && echo DOCKER_OK || echo DOCKER_MISSING" 2>/dev/null || echo "DOCKER_MISSING")
 
-if [[ "$DOCKER_CHECK" != *"FOUND"* ]]; then
-  echo "Docker not found — installing ..."
+if [[ "$DOCKER_CHECK" != *"DOCKER_OK"* ]]; then
+  echo "Docker not found — installing from Docker official repo ..."
   gcloud compute ssh "$VM_NAME" \
     --zone="$ZONE" \
     --project="$PROJECT" \
     --quiet \
-    --command="sudo apt-get update && sudo apt-get install -y docker.io docker-compose-plugin git curl && sudo usermod -aG docker \$USER"
+    --command="sudo install -m 0755 -d /etc/apt/keyrings \
+      && curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
+      && sudo chmod a+r /etc/apt/keyrings/docker.gpg \
+      && echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian bookworm stable' | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null \
+      && sudo apt-get update \
+      && sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin \
+      && sudo usermod -aG docker \$USER"
 else
   echo "Docker already installed — skipping."
 fi
@@ -340,28 +355,27 @@ fi
 echo ""
 echo "=== Deploying Code to VM ==="
 
-# Clone or pull the repo
-REPO_CHECK=$(gcloud compute ssh "$VM_NAME" \
+# Copy local repo to VM (avoids GitHub auth, ensures VM has exact local state)
+echo "Preparing deployment bundle ..."
+gcloud compute ssh "$VM_NAME" \
   --zone="$ZONE" \
   --project="$PROJECT" \
   --quiet \
-  --command="[ -d /opt/spatialhub ] && echo EXISTS || echo MISSING" 2>&1 || echo "MISSING")
+  --command="sudo mkdir -p /opt/spatialhub && sudo chown \$USER:\$USER /opt/spatialhub"
 
-if [[ "$REPO_CHECK" == *"EXISTS"* ]]; then
-  echo "Repo already cloned — pulling latest ..."
-  gcloud compute ssh "$VM_NAME" \
-    --zone="$ZONE" \
-    --project="$PROJECT" \
-    --quiet \
-    --command="cd /opt/spatialhub && git pull origin main"
-else
-  echo "Cloning repo to /opt/spatialhub ..."
-  gcloud compute ssh "$VM_NAME" \
-    --zone="$ZONE" \
-    --project="$PROJECT" \
-    --quiet \
-    --command="sudo mkdir -p /opt/spatialhub && sudo chown \$USER:\$USER /opt/spatialhub && git clone ${REPO_URL} /opt/spatialhub"
-fi
+echo "Syncing code to VM (excludes node_modules, venv, .git) ..."
+gcloud compute scp --recurse \
+  --zone="$ZONE" \
+  --project="$PROJECT" \
+  --quiet \
+  --compress \
+  "$REPO_ROOT/docker-compose.vm.yml" \
+  "$REPO_ROOT/biosim.Dockerfile" \
+  "$REPO_ROOT/Dockerfile" \
+  "$REPO_ROOT/django_backend" \
+  "$VM_NAME":/opt/spatialhub/
+
+echo "Code synced to VM."
 
 # Write .env file to VM
 echo "Writing .env to VM ..."

@@ -116,6 +116,18 @@ export const SensorOrb = ({ sensorId, zoneId, sensorName, unit, position }: Sens
                 }}
               />
               <span style={{ opacity: 0.85, fontSize: '10px' }}>{sensorName}</span>
+              {reading?.source === 'live' && (
+                <span style={{
+                  fontSize: '8px',
+                  fontWeight: 700,
+                  color: '#00ffcc',
+                  background: 'rgba(0, 255, 204, 0.15)',
+                  border: '1px solid rgba(0, 255, 204, 0.35)',
+                  borderRadius: '2px',
+                  padding: '0 4px',
+                  letterSpacing: '0.06em',
+                }}>LIVE</span>
+              )}
             </div>
             {/* Value row */}
             <div style={{ color: statusColor, fontWeight: 'bold', fontSize: '13px' }}>

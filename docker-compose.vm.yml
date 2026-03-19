@@ -6,6 +6,27 @@
 services:
 
   # ─────────────────────────────────────────────
+  # Caddy — HTTPS reverse proxy for BioSim API + WebSocket
+  # Auto-provisions Let's Encrypt cert via HTTP-01 challenge
+  # Resolves mixed-content block (HTTPS frontend → HTTP BioSim)
+  # ─────────────────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      DOMAIN: ${DOMAIN:-34-68-135-16.sslip.io}
+    command: caddy reverse-proxy --from ${DOMAIN:-34-68-135-16.sslip.io} --to biosim:8009
+    depends_on:
+      biosim:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
   # BioSim — life support simulation server (GPL v3)
   # Multi-stage build: Maven compile then JRE-only runtime
   # Auto-starts a simulation on boot via command override
@@ -66,3 +87,7 @@ services:
       biosim:
         condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

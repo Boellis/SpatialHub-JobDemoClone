@@ -10,8 +10,9 @@ RUN mvn package -DskipTests -q
 FROM eclipse-temurin:21-jre AS runtime
 WORKDIR /app
 # Copy built artifacts from build stage
+# Note: BioSim uses a fat jar (jar-with-dependencies), so only target/, bin/, configuration/, and etc/ are needed.
+# There is no top-level lib/ directory — dependencies are bundled into the fat jar.
 COPY --from=build /app/bin ./bin
-COPY --from=build /app/lib ./lib
 COPY --from=build /app/target ./target
 COPY --from=build /app/configuration ./configuration
 COPY --from=build /app/etc ./etc

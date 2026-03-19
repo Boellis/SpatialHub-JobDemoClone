@@ -108,14 +108,28 @@ export const useHabitatStore = create<HabitatState>()((set, get) => ({
 
   tick: (readings: Record<string, Record<string, SensorReading>>) => {
     set((state) => {
-      const updatedZones: Record<string, ZoneState> = {};
+      const updatedZones: Record<string, ZoneState> = { ...state.zones };
 
       for (const [zoneId, sensorReadings] of Object.entries(readings)) {
-        const zoneStatus = deriveZoneStatus(sensorReadings);
+        const existingZone = state.zones[zoneId];
+        // Merge incoming sensors with existing ones (preserves sensors not in this tick).
+        // Live hardware readings take priority — don't let sim/biosim overwrite them.
+        const mergedSensors = existingZone
+          ? { ...existingZone.sensors }
+          : {};
+        for (const [sensorId, reading] of Object.entries(sensorReadings)) {
+          const existing = mergedSensors[sensorId];
+          if (existing?.source === 'live' && reading.source !== 'live') {
+            // Keep the live reading; don't overwrite with sim data
+            continue;
+          }
+          mergedSensors[sensorId] = reading;
+        }
+        const zoneStatus = deriveZoneStatus(mergedSensors);
         updatedZones[zoneId] = {
           zoneId,
           status: zoneStatus,
-          sensors: sensorReadings,
+          sensors: mergedSensors,
         };
       }
 

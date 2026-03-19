@@ -101,6 +101,7 @@ interface SensorRowProps {
   status: SensorStatus;
   history: number[];
   accentColor: string;
+  isLive?: boolean;
 }
 
 const SensorRow = ({
@@ -111,48 +112,94 @@ const SensorRow = ({
   status,
   history,
   accentColor,
+  isLive,
 }: SensorRowProps) => {
   const animatedValue = useAnimatedValue(value, 200);
   const statusColor = STATUS_COLORS[status];
+
+  const liveDotColor = '#00ffcc';
 
   return (
     <div style={{
       display: 'flex',
       alignItems: 'center',
       gap: '10px',
-      padding: '10px 0',
+      padding: isLive ? '12px 0' : '10px 0',
       borderBottom: '1px solid rgba(255,255,255,0.05)',
+      ...(isLive ? {
+        background: 'rgba(0, 255, 204, 0.03)',
+        margin: '0 -20px 0 -24px',
+        padding: '12px 20px 12px 24px',
+        borderLeft: '2px solid rgba(0, 255, 204, 0.25)',
+      } : {}),
     }}>
-      {/* Status dot with glow */}
+      {/* Status dot — teal signal dot for live sensors, threshold color for sim */}
       <div style={{
         width: 8,
         height: 8,
         borderRadius: '50%',
-        background: statusColor,
-        boxShadow: `0 0 6px ${statusColor}`,
+        background: isLive ? liveDotColor : statusColor,
+        boxShadow: isLive
+          ? `0 0 6px ${liveDotColor}, 0 0 12px ${liveDotColor}44`
+          : `0 0 6px ${statusColor}`,
         flexShrink: 0,
+        ...(isLive ? { animation: 'livePulse 2s ease-in-out infinite' } : {}),
       }} />
 
-      {/* Sensor name */}
-      <span style={{
-        fontFamily: 'monospace',
-        fontSize: '12px',
-        color: 'rgba(255,255,255,0.65)',
+      {/* Sensor name + live badge */}
+      <div style={{
         flex: 1,
         minWidth: 0,
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '2px',
       }}>
-        {sensorName}
-      </span>
+        <span style={{
+          fontFamily: 'monospace',
+          fontSize: '12px',
+          color: isLive ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.65)',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+        }}>
+          {sensorName}
+          {isLive && (
+            <span style={{
+              fontSize: '9px',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              color: '#00ffcc',
+              background: 'rgba(0, 255, 204, 0.12)',
+              border: '1px solid rgba(0, 255, 204, 0.3)',
+              borderRadius: '3px',
+              padding: '1px 5px',
+              flexShrink: 0,
+            }}>
+              LIVE
+            </span>
+          )}
+        </span>
+        {isLive && (
+          <span style={{
+            fontFamily: 'monospace',
+            fontSize: '9px',
+            color: 'rgba(0, 255, 204, 0.5)',
+            letterSpacing: '0.02em',
+          }}>
+            Hardware Sensor — Raspberry Pi
+          </span>
+        )}
+      </div>
 
-      {/* Current value + unit */}
+      {/* Current value + unit — use threshold color on the value for live sensors */}
       <span style={{
         fontFamily: 'monospace',
         fontSize: '13px',
         fontWeight: 600,
-        color: '#fff',
+        color: isLive ? statusColor : '#fff',
         fontVariantNumeric: 'tabular-nums',
         transition: 'color 200ms ease-out',
         flexShrink: 0,
@@ -167,7 +214,7 @@ const SensorRow = ({
 
       {/* Sparkline */}
       <div style={{ flexShrink: 0 }}>
-        <Sparkline data={history} color={accentColor} width={72} height={22} />
+        <Sparkline data={history} color={isLive ? liveDotColor : accentColor} width={72} height={22} />
       </div>
     </div>
   );
@@ -187,6 +234,10 @@ export const ZonePanel = ({ zoneId, onClose }: ZonePanelProps) => {
         @keyframes slideInRight {
           from { transform: translateX(100%); opacity: 0; }
           to   { transform: translateX(0);    opacity: 1; }
+        }
+        @keyframes livePulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
         }
       `}</style>
 
@@ -317,6 +368,7 @@ export const ZonePanel = ({ zoneId, onClose }: ZonePanelProps) => {
                 status={reading.status}
                 history={reading.history}
                 accentColor={accentColor}
+                isLive={reading.source === 'live'}
               />
             );
           })}

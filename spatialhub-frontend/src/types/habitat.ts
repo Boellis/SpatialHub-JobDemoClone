@@ -34,6 +34,8 @@ export interface ZoneConfig {
   position: { x: number; y: number; z: number };
 }
 
+export type SensorSource = 'biosim' | 'sim' | 'live';
+
 export interface SensorReading {
   sensorId: string;
   zoneId: string;
@@ -41,6 +43,7 @@ export interface SensorReading {
   status: SensorStatus;
   timestamp: number;    // Date.now()
   history: number[];    // last 30 values for sparklines (Phase 3)
+  source?: SensorSource; // where this reading originated
 }
 
 export interface ZoneState {

@@ -7,6 +7,7 @@ import { AlertBanner } from '../components/habitat/AlertBanner';
 import { AnomalyDrawer } from '../components/habitat/AnomalyDrawer';
 import { useHabitatStore } from '../store/habitatStore';
 import { useSimSource } from '../hooks/useSimSource';
+import { useLiveSensors } from '../hooks/useLiveSensors';
 
 // Full-screen R3F Canvas for the Mars habitat scene.
 // Camera is elevated and pulled back to give an overview of the habitat area
@@ -22,6 +23,7 @@ const HabitatView = () => {
   // probes BioSim, switches to Worker-owned WebSocket when available, falls back on disconnect.
   // Note: hooks must live in the React component (outside Canvas), not inside R3F nodes.
   useSimSource();
+  useLiveSensors(); // overlay real Pi sensor data with source: 'live'
 
   const selectedZoneId = useHabitatStore((s) => s.selectedZoneId);
   const setSelectedZoneId = useHabitatStore((s) => s.setSelectedZoneId);
