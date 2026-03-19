@@ -39,6 +39,7 @@ const NavLink = ({
 const AppContent = () => {
   const location = useLocation();
   const isHabitat = location.pathname === "/habitat";
+  const openMctUrl = import.meta.env.VITE_OPENMCT_URL ?? 'http://localhost:9091';
 
   return (
     <>
@@ -61,7 +62,7 @@ const AppContent = () => {
               Mars Habitat
             </NavLink>
             <a
-              href="http://localhost:9091"
+              href={openMctUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="nav-link nav-link--external"

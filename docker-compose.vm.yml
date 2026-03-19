@@ -1,0 +1,68 @@
+# docker-compose.vm.yml — GCE VM stack: BioSim + Open MCT + bridge only.
+# No db service (uses Cloud SQL via DB_HOST), no django service (Cloud Run).
+# Run with: docker compose -f docker-compose.vm.yml up --build -d
+# NOTE: First build takes 10-20 minutes (BioSim Maven + Open MCT npm install).
+
+services:
+
+  # ─────────────────────────────────────────────
+  # BioSim — life support simulation server (GPL v3)
+  # Multi-stage build: Maven compile then JRE-only runtime
+  # Auto-starts a simulation on boot via command override
+  # ─────────────────────────────────────────────
+  biosim:
+    build:
+      context: .
+      dockerfile: biosim.Dockerfile
+    ports:
+      - "8009:8009"
+    working_dir: /app
+    command: >
+      sh -c "
+        ./bin/start-biosim-server --writeTicks &
+        SERVER_PID=$$!;
+        echo 'Waiting for BioSim HTTP server to be ready...';
+        until curl -sf http://localhost:8009/api/simulation >/dev/null 2>&1; do sleep 2; done;
+        echo 'BioSim server ready, starting simulation...';
+        SIM_ID=$$(curl -s -X POST 'http://localhost:8009/api/simulation/start' --data-binary @configuration/default.biosim -H 'Content-Type: text/plain');
+        echo \"Simulation started with ID: $$SIM_ID\";
+        wait $$SERVER_PID
+      "
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8009/api/simulation || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 6
+      start_period: 90s
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  # Open MCT + BioSim plugin — telemetry dashboard UI
+  # ─────────────────────────────────────────────
+  openmct:
+    build:
+      context: "https://github.com/scottbell/openmct-biosim.git"
+    ports:
+      - "9091:80"
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  # BioSim Bridge — ingests WebSocket ticks into Cloud SQL
+  # Same Django image, different command.
+  # Connects to Cloud SQL via DB_HOST (not local postgres).
+  # ─────────────────────────────────────────────
+  bridge:
+    build: .
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      SECRET_KEY: ${SECRET_KEY}
+      BIOSIM_URL: http://biosim:8009
+      USE_SQLITE: "0"
+    command: ["python", "manage.py", "biosim_bridge"]
+    depends_on:
+      biosim:
+        condition: service_healthy
+    restart: unless-stopped
