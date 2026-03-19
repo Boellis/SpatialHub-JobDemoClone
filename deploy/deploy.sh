@@ -107,6 +107,30 @@ if ! gcloud sql instances describe "$INSTANCE_NAME" --project="$PROJECT" &>/dev/
     --project="$PROJECT" 2>/dev/null || echo "User already exists — skipping."
 else
   echo "Cloud SQL instance $INSTANCE_NAME already exists — skipping provisioning."
+
+  # Ensure instance is running (may have been stopped to save costs)
+  SQL_STATE=$(gcloud sql instances describe "$INSTANCE_NAME" \
+    --project="$PROJECT" --format='value(state)')
+  if [[ "$SQL_STATE" != "RUNNABLE" ]]; then
+    echo "Cloud SQL instance is $SQL_STATE — starting it ..."
+    gcloud sql instances patch "$INSTANCE_NAME" \
+      --activation-policy=ALWAYS \
+      --project="$PROJECT" || echo "Patch command timed out — waiting for startup via polling ..."
+    for i in $(seq 1 60); do
+      SQL_STATE=$(gcloud sql instances describe "$INSTANCE_NAME" \
+        --project="$PROJECT" --format='value(state)' 2>/dev/null || echo "UNKNOWN")
+      if [[ "$SQL_STATE" == "RUNNABLE" ]]; then
+        echo "Cloud SQL instance is RUNNABLE."
+        break
+      fi
+      echo "  Attempt $i/60: state=$SQL_STATE — waiting 10s ..."
+      sleep 10
+      if [[ "$i" -eq 60 ]]; then
+        echo "Error: Cloud SQL instance did not become RUNNABLE after 10 minutes."
+        exit 1
+      fi
+    done
+  fi
 fi
 
 # ---------------------------------------------------------------------------
