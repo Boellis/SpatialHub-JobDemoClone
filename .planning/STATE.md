@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Physical Sensor Integration
 status: Cloud services deployed to nasa-comp-demo — Django on Cloud Run, frontend on Firebase, Cloud SQL provisioned
-stopped_at: Phase 12 context gathered
-last_updated: "2026-03-19T06:02:29.865Z"
+stopped_at: Completed 12-01-PLAN.md — all artifacts created and committed
+last_updated: "2026-03-19T06:35:30.985Z"
 last_activity: 2026-03-19 — Phase 11 deployed to GCP project nasa-comp-demo
 progress:
   total_phases: 7
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 7
+  completed_plans: 6
   percent: 14
 ---
 
@@ -57,6 +57,8 @@ Key v3.0 architectural decisions:
 - [Phase 11-cloud-services-deployment]: DB_HOST and DB_PASS have no fallback — fail loudly if env vars absent in production
 - [Phase 11-cloud-services-deployment]: api.ts BASE_URL fallback is localhost:8000/api — VITE_API_URL required at build time for production
 - [Phase 11-cloud-services-deployment]: CSRF_TRUSTED_ORIGINS uses *.run.app wildcard to cover any Cloud Run service URL
+- [Phase 12-biosim-vm-deployment]: bridge VM compose uses explicit environment block (not env_file) with BIOSIM_URL=http://biosim:8009 and USE_SQLITE=0 hardcoded
+- [Phase 12-biosim-vm-deployment]: deploy.sh BioSim readiness poll is 40 x 3s = 120s max; Section 15 frontend rebuild runs only AFTER BioSim confirms live
 
 ### Pending Todos
 
@@ -78,7 +80,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-19T06:02:29.859Z
-Stopped at: Phase 12 context gathered
-Resume file: .planning/phases/12-biosim-vm-deployment/12-CONTEXT.md
+Last session: 2026-03-19T06:35:30.977Z
+Stopped at: Completed 12-01-PLAN.md — all artifacts created and committed
+Resume file: None
 Note: Phase 11 discuss-phase captured partial decisions (divergence logic, recovery, stale data, logging) before pivot — revisit during Phase 14 planning
