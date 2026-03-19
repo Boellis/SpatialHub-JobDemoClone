@@ -36,7 +36,7 @@
 - [x] **Phase 10: Django Ingest + Hubcode Rewrite** — Pi client code and Django ingest endpoint built (completed 2026-03-18)
 - [x] **Phase 11: Cloud Services Deployment** — Django on Cloud Run, frontend on Firebase Hosting, Cloud SQL database — the website works in the cloud (completed 2026-03-19)
 - [x] **Phase 12: BioSim VM Deployment** — BioSim + biosim_bridge + Open MCT on a GCE VM — 3D habitat shows live physics via cloud (completed 2026-03-19)
-- [ ] **Phase 13: Pi-to-Cloud Pipeline** — Hub client posts to Cloud Run endpoint — real sensor data flows from Pi to cloud database
+- [x] **Phase 13: Pi-to-Cloud Pipeline** — Hub client posts to Cloud Run endpoint — real sensor data flows from Pi to cloud database (completed 2026-03-19)
 - [ ] **Phase 14: Closed-Loop Control Service** — pH divergence triggers BioSim malfunctions automatically from GCE VM
 - [ ] **Phase 15: Frontend Real Sensor Visibility** — Real pH overlaid in 3D habitat with distinct HUD badge state
 - [ ] **Phase 16: Competition Package** — SD card prep guide, deployment verification, end-to-end demo script
@@ -93,7 +93,7 @@ Plans:
   2. Real Pi pH readings appear in Cloud SQL `enriched_sensor_data` with `hub_id='pi-habitat-01'`
   3. `GET {cloud-run-url}/api/enriched/?hub_id=pi-habitat-01` returns Pi data from the cloud
   4. Pi client's offline SQLite buffer works when Cloud Run is temporarily unreachable
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [ ] 13-01-PLAN.md — Fix PI_HUB_ID mismatch, update .env.example for cloud, redeploy Firebase, verify Pi hardware end-to-end
 
@@ -144,7 +144,7 @@ Plans:
 | 10. Django Ingest + Hubcode Rewrite | v3.0 | 3/3 | Complete | 2026-03-18 |
 | 11. Cloud Services Deployment | v3.0 | 2/2 | Complete | 2026-03-19 |
 | 12. BioSim VM Deployment | v3.0 | Complete    | 2026-03-19 | 2026-03-19 |
-| 13. Pi-to-Cloud Pipeline | v3.0 | 0/1 | Planned | - |
+| 13. Pi-to-Cloud Pipeline | 1/1 | Complete   | 2026-03-19 | - |
 | 14. Closed-Loop Control Service | v3.0 | 0/TBD | Not started | - |
 | 15. Frontend Real Sensor Visibility | v3.0 | 0/TBD | Not started | - |
 | 16. Competition Package | v3.0 | 0/TBD | Not started | - |

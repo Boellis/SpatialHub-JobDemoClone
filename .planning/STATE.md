@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Physical Sensor Integration
 status: BioSim VM deployed to GCE (34.68.135.16) — full stack live with Caddy HTTPS, bridge writing to Cloud SQL, Pi pH sensor posting real data
-stopped_at: Phase 13 context gathered
-last_updated: "2026-03-19T14:09:21.437Z"
+stopped_at: "Phase 13 Plan 01 Task 3 checkpoint: human hardware verify"
+last_updated: "2026-03-19T16:16:33.821Z"
 last_activity: 2026-03-19 — Phase 12 BioSim VM deployment verified end-to-end
 progress:
   total_phases: 7
-  completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
+  completed_phases: 4
+  total_plans: 8
+  completed_plans: 8
   percent: 28
 ---
 
@@ -62,6 +62,8 @@ Key v3.0 architectural decisions:
 - [Phase 12-biosim-vm-deployment]: Caddy with sslip.io resolves mixed-content HTTPS/WebSocket block for Firebase->GCE VM connection
 - [Phase 12-biosim-vm-deployment]: useLiveSensors is additive annotation layer on BioSim ticks — Pi data tags readings as source='pi' for LIVE badge rendering
 - [Phase 12-biosim-vm-deployment]: teardown.sh --stop (cost management) vs --delete (full cleanup) modes for VM lifecycle
+- [Phase 13-pi-to-cloud-pipeline]: PI_HUB_ID exported (not just const) so vitest can import and assert regression guard
+- [Phase 13-pi-to-cloud-pipeline]: hubcode/.env.example Cloud Run URL uncommented as default — competition deployment over local dev
 
 ### Pending Todos
 
@@ -83,7 +85,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-19T14:09:21.399Z
-Stopped at: Phase 13 context gathered
-Resume file: .planning/phases/13-pi-to-cloud-pipeline/13-CONTEXT.md
+Last session: 2026-03-19T16:16:27.999Z
+Stopped at: Phase 13 Plan 01 Task 3 checkpoint: human hardware verify
+Resume file: None
 Note: Phase 11 discuss-phase captured partial decisions (divergence logic, recovery, stale data, logging) before pivot — revisit during Phase 14 planning
