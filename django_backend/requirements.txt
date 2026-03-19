@@ -3,6 +3,7 @@ djangorestframework
 gunicorn
 psycopg2-binary
 django-cors-headers
+whitenoise>=6.0
 google-cloud-pubsub>=2.20.0
 requests>=2.31.0
 pytest>=7.0

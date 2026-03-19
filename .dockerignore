@@ -1,0 +1,9 @@
+django_backend/venv/
+django_backend/venv_local/
+django_backend/db.sqlite3
+django_backend/__pycache__/
+.git/
+.planning/
+spatialhub-frontend/node_modules/
+*.pyc
+__pycache__/
