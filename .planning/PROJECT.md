@@ -38,32 +38,33 @@ The 3D habitat visualization with live sensor data must feel real, responsive, a
 
 ### Active
 
-- [ ] Raspberry Pi with Atlas Scientific pH sensor feeds real data into BioSim simulation
-- [ ] Closed-loop control: real pH divergence triggers BioSim water recycling malfunctions
-- [ ] Hubcode rewrite: config-driven, no GCP dependency, direct REST to Docker stack
+- [ ] Full cloud deployment: Django on Cloud Run, frontend on Firebase Hosting, BioSim on GCE VM, Cloud SQL database
+- [ ] Raspberry Pi with Atlas Scientific pH sensor posts data to cloud-hosted Django endpoint
+- [ ] Closed-loop control: real pH divergence triggers BioSim water recycling malfunctions (control loop on GCE VM)
 - [ ] Real sensor data visible in 3D habitat alongside BioSim physics
-- [ ] Reproducible setup: anyone with a Pi + Atlas I2C sensor can follow a guide and run it
+- [ ] NASA competition package: judge receives SD card + website URL, Pi plugs in and data flows
 
 ## Current Milestone: v3.0 Physical Sensor Integration
 
-**Goal:** Connect a real Raspberry Pi with an Atlas Scientific pH sensor to the BioSim simulation — real pH readings drive BioSim's water recycling system via a closed-loop control service. Reproducible for anyone with a Pi and Atlas I2C hardware.
+**Goal:** Deploy the full SpatialHub stack to GCP and connect a real Raspberry Pi with an Atlas Scientific pH sensor — a NASA competition judge receives an SD card and a website URL, plugs in the Pi, and sees real pH readings driving BioSim's water recycling system in a 3D Mars habitat visualization. No local infrastructure required.
 
 **Target features:**
-- Hubcode rewrite: config-driven Python client, no GCP dependency, posts directly to Docker stack over WiFi
-- Django API endpoint to receive real sensor data from the Pi
-- Control service comparing real pH to BioSim simulated pH, triggering malfunctions on divergence
+- Cloud deployment: Django on Cloud Run, frontend on Firebase Hosting, BioSim on GCE VM, Cloud SQL PostgreSQL
+- Pi hub client posts pH readings to Cloud Run endpoint over WiFi
+- BioSim simulation + bridge + control loop running on GCE VM
+- Closed-loop control: real pH divergence triggers BioSim malfunctions observable in 3D habitat
 - Real sensor data overlaid in the 3D habitat's water recycling zone
-- Reproducible Pi setup guide with configuration, wiring, and first-run instructions
+- Competition package: SD card prep guide, deployment verification, demo walkthrough
 
 ### Out of Scope
 
-- Authentication / authorization — not needed for portfolio demo
+- Authentication / authorization — not needed for competition demo
 - Mobile-responsive 3D experience — desktop-first
 - Multiplayer / collaborative viewing — single user
-- GCP Pub/Sub pipeline — replaced by direct REST to Docker stack for v3.0
 - Multiple sensor types — pH only for this milestone (extensible for future)
 - Custom PCB or enclosure design — standard breadboard setup
 - VR/AR mode — 99% of reviewers use normal browsers
+- GCP Pub/Sub pipeline for Pi ingest — direct REST to Cloud Run is simpler and hub_client.py already has offline buffer
 
 ## Context
 
@@ -71,13 +72,14 @@ The 3D habitat visualization with live sensor data must feel real, responsive, a
 - **Codebase:** 3,587 LOC TypeScript/TSX (frontend), 3,798 lines added across 28 files
 - **Frontend stack:** React 19, Vite, TypeScript, R3F (fiber@9.5, drei@10.7, postprocessing@3.0, three@0.183), Zustand v5
 - **Backend stack:** Django 5.2, DRF, PostgreSQL on Cloud SQL
-- **Target audience:** Portfolio reviewers, potential employers evaluating full-stack + 3D capability
+- **Target audience:** NASA competition judges, portfolio reviewers evaluating full-stack + 3D + IoT capability
 - **Known tech debt:** `fetchHabitatZones()` dead code (Django endpoint unused by frontend), seed thresholds diverged from constants.ts, sparklines flat for first 60s, fragile z-index stacking in AnomalyDrawer
 
 ## Constraints
 
 - **Tech stack:** Django + React + TypeScript + Three.js (R3F)
-- **No new cloud infra:** Local Docker stack + Pi over WiFi, no GCP dependency
+- **Cloud deployment:** GCE VM (BioSim), Cloud Run (Django), Firebase Hosting (frontend), Cloud SQL (PostgreSQL)
+- **GCP Project:** `interviewing-457222`
 - **Existing routes preserved:** `/raw`, `/enriched`, `/trends`, `/simulate`, `/unity` untouched
 - **Branch:** `feature/mars-habitat-demo`
 
@@ -101,7 +103,8 @@ The 3D habitat visualization with live sensor data must feel real, responsive, a
 | BioSim via Docker + REST/WebSocket (not embedded) | GPL v3 copyleft — network API boundary avoids code linking | ✓ Good — clean API boundary, 5-service compose |
 | Full docker-compose (Django + BioSim + Open MCT + PostgreSQL) | One command to start entire stack, best for scale and onboarding | ✓ Good — includes bridge service |
 | Both paths: direct WS for live + Django ingest for history | Real-time 3D + proper data pipeline, most impressive architecture | ✓ Good — frontend WS + Django bridge both working |
-| Pi bypasses GCP, posts directly to Docker stack | Reproducibility — no service accounts, no cloud dependency | — Pending |
+| Pi posts to Cloud Run Django endpoint (not local Docker) | NASA competition: judge has no Docker — everything in the cloud | — Pending |
+| BioSim + bridge + control loop on GCE VM | BioSim needs persistent VM (90s JVM boot, WebSocket connections) | — Pending |
 | Closed-loop: real pH drives BioSim malfunctions | Most impressive demo — real hardware influencing simulation | — Pending |
 
 ---

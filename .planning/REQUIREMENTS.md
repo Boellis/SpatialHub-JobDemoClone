@@ -74,12 +74,20 @@ Requirements for physical sensor integration milestone. Each maps to roadmap pha
 - [x] **INGEST-01**: Django POST endpoint receives sensor readings from Pi and stores them in `EnrichedSensorData` with distinct `hub_id`
 - [x] **INGEST-02**: Real Pi sensor data distinguishable from BioSim data via `hub_id` field (`pi-habitat-01` vs `biosim-habitat-01`)
 
+### Cloud Deployment
+
+- [ ] **DEPLOY-01**: Django API deployed to Cloud Run, publicly accessible, connected to Cloud SQL PostgreSQL
+- [ ] **DEPLOY-02**: Frontend deployed to Firebase Hosting with production API base URL and BioSim WebSocket URL configured
+- [ ] **DEPLOY-03**: BioSim simulation + biosim_bridge + Open MCT running on GCE VM with ports 8009 and 9091 accessible
+- [ ] **DEPLOY-04**: Cloud SQL PostgreSQL instance provisioned with all Django tables migrated and `habitat_zones` seeded
+- [ ] **DEPLOY-05**: Pi SD card `.env` pre-configured with Cloud Run endpoint URL — Pi connects to WiFi and starts sending data
+
 ### Closed-Loop Control
 
 - [ ] **CTRL-01**: Control service compares real Pi pH to BioSim's simulated water recycling pH at regular intervals
 - [ ] **CTRL-02**: pH divergence beyond configurable threshold triggers `Grey_Water_Store` malfunction via BioSim REST API
 - [ ] **CTRL-03**: Control service auto-recovers — DELETEs malfunction when real pH normalizes back to expected range
-- [ ] **CTRL-04**: Control service runs as a Docker Compose service (same image, different command)
+- [ ] **CTRL-04**: Control service runs as a managed process on the BioSim GCE VM (`manage.py control_loop`)
 
 ### Frontend
 
@@ -88,8 +96,8 @@ Requirements for physical sensor integration milestone. Each maps to roadmap pha
 
 ### Setup & Docs
 
-- [ ] **SETUP-01**: Step-by-step Pi setup guide covering wiring, EZO I2C mode jumper, venv creation, `.env` configuration, and first run
-- [ ] **SETUP-02**: Guide is reproducible — anyone with a Pi and Atlas Scientific I2C sensor can follow it end-to-end
+- [ ] **SETUP-01**: Competition setup guide covering: SD card preparation (OS, WiFi, hub_client), Pi wiring, EZO I2C mode switch, `.env` with cloud URLs, and first-run verification
+- [ ] **SETUP-02**: Guide is reproducible — a NASA judge with a Pi and Atlas Scientific I2C sensor can follow it and see data in the web dashboard
 
 ## v4+ Requirements
 
@@ -160,21 +168,26 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HUB-05 | Phase 10 | Complete |
 | INGEST-01 | Phase 10 | Complete |
 | INGEST-02 | Phase 10 | Complete |
-| CTRL-01 | Phase 11 | Pending |
-| CTRL-02 | Phase 11 | Pending |
-| CTRL-03 | Phase 11 | Pending |
-| CTRL-04 | Phase 11 | Pending |
-| UI-01 | Phase 12 | Pending |
-| UI-02 | Phase 12 | Pending |
-| SETUP-01 | Phase 13 | Pending |
-| SETUP-02 | Phase 13 | Pending |
+| DEPLOY-01 | Phase 11 | Pending |
+| DEPLOY-02 | Phase 11 | Pending |
+| DEPLOY-03 | Phase 12 | Pending |
+| DEPLOY-04 | Phase 11 | Pending |
+| DEPLOY-05 | Phase 13 | Pending |
+| CTRL-01 | Phase 14 | Pending |
+| CTRL-02 | Phase 14 | Pending |
+| CTRL-03 | Phase 14 | Pending |
+| CTRL-04 | Phase 14 | Pending |
+| UI-01 | Phase 15 | Pending |
+| UI-02 | Phase 15 | Pending |
+| SETUP-01 | Phase 16 | Pending |
+| SETUP-02 | Phase 16 | Pending |
 
 **Coverage:**
 - v2.0 requirements: 29 total (all complete)
-- v3.0 requirements: 15 total
-- Mapped to phases: 15 (Phases 10-13)
+- v3.0 requirements: 20 total (HUB ×5, INGEST ×2, DEPLOY ×5, CTRL ×4, UI ×2, SETUP ×2)
+- Mapped to phases: 20 (Phases 10-16)
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-14*
-*Last updated: 2026-03-18 — v3.0 requirements mapped to Phases 10-13*
+*Last updated: 2026-03-18 — v3.0 pivoted to cloud deployment model for NASA competition, phases 11-16 replanned*
