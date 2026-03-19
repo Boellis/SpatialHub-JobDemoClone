@@ -90,12 +90,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CSRF_TRUSTED_ORIGINS = [
     "https://*.run.app",
-    "https://interviewing-457222.web.app",
+    "https://nasa-comp-demo.web.app",
 ]
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
-    "https://interviewing-457222.web.app",
+    "https://nasa-comp-demo.web.app",
 ]
 
 CORS_ALLOW_HEADERS = list(default_headers)

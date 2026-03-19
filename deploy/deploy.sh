@@ -17,7 +17,7 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-PROJECT="interviewing-457222"
+PROJECT="nasa-comp-demo"
 REGION="us-central1"
 INSTANCE_NAME="spatialhub-db"
 SERVICE_NAME="spatialhub-backend"
@@ -208,7 +208,7 @@ else
 fi
 
 # Check Firebase Hosting
-FB_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://interviewing-457222.web.app")
+FB_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://nasa-comp-demo.web.app")
 if [[ "$FB_CODE" == "200" ]]; then
   echo "PASS: Firebase Hosting responds 200"
 else
@@ -219,7 +219,7 @@ fi
 INGEST_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
   -X POST "${CLOUD_RUN_URL}/api/sensor-ingest/" \
   -H "Content-Type: application/json" \
-  -d '{"hub_id":"smoke-test","sensor_name":"ph","sensor_val":7.0,"device_addr":"99","datetime":"2026-01-01T00:00:00Z","sensor_id":"smoke-99","collection_type":"sensor_data"}')
+  -d '{"hub_id":"smoke-test","sensor_name":"ph","sensor_val":7.0,"device_addr":"99","datetime":"2026-01-01T00:00:00Z","sensor_id":"smoke-99","collection_type":"sensor_data","location":"Mars Habitat","owner":"Demo","workers":"Crew A"}')
 if [[ "$INGEST_CODE" == "201" ]]; then
   echo "PASS: POST /api/sensor-ingest/ returns 201"
 else
@@ -232,7 +232,7 @@ fi
 echo ""
 echo "=== Deployment Complete ==="
 echo "Cloud Run:  ${CLOUD_RUN_URL}"
-echo "Frontend:   https://interviewing-457222.web.app"
+echo "Frontend:   https://nasa-comp-demo.web.app"
 echo "Cloud SQL:  ${DB_HOST}"
 echo ""
 echo "IMPORTANT: Store these values for future redeploys:"
