@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Physical Sensor Integration
 status: v3.0 roadmap replanned for NASA competition cloud deployment model (was local Docker, now GCP)
-stopped_at: Phase 11 context gathered
-last_updated: "2026-03-19T03:33:54.728Z"
+stopped_at: Completed 11-cloud-services-deployment-01-PLAN.md
+last_updated: "2026-03-19T04:05:02.752Z"
 last_activity: "2026-03-18 — Roadmap pivot: phases 11-16 replanned for cloud deployment"
 progress:
   total_phases: 7
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 5
+  completed_plans: 4
   percent: 14
 ---
 
@@ -54,6 +54,9 @@ Key v3.0 architectural decisions:
 - [Phase 10-01]: Validate entire batch before touching DB — all-or-nothing; any invalid item rejects the whole POST
 - [Phase 10-01]: pubsub_v1 import made optional (try/except) so views.py loads in local test env without GCP SDK
 - [Phase 10-django-ingest-hubcode-rewrite]: Integration verification (plan 03): Wave 1 plans 01+02 connect correctly — 72 tests green, curl confirms all contract truths, user approved Phase 10 as complete
+- [Phase 11-cloud-services-deployment]: DB_HOST and DB_PASS have no fallback — fail loudly if env vars absent in production
+- [Phase 11-cloud-services-deployment]: api.ts BASE_URL fallback is localhost:8000/api — VITE_API_URL required at build time for production
+- [Phase 11-cloud-services-deployment]: CSRF_TRUSTED_ORIGINS uses *.run.app wildcard to cover any Cloud Run service URL
 
 ### Pending Todos
 
@@ -71,7 +74,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-19T03:33:54.709Z
-Stopped at: Phase 11 context gathered
-Resume file: .planning/phases/11-cloud-services-deployment/11-CONTEXT.md
+Last session: 2026-03-19T04:05:02.742Z
+Stopped at: Completed 11-cloud-services-deployment-01-PLAN.md
+Resume file: None
 Note: Phase 11 discuss-phase captured partial decisions (divergence logic, recovery, stale data, logging) before pivot — revisit during Phase 14 planning

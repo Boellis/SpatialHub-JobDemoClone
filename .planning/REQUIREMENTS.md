@@ -76,8 +76,8 @@ Requirements for physical sensor integration milestone. Each maps to roadmap pha
 
 ### Cloud Deployment
 
-- [ ] **DEPLOY-01**: Django API deployed to Cloud Run, publicly accessible, connected to Cloud SQL PostgreSQL
-- [ ] **DEPLOY-02**: Frontend deployed to Firebase Hosting with production API base URL and BioSim WebSocket URL configured
+- [x] **DEPLOY-01**: Django API deployed to Cloud Run, publicly accessible, connected to Cloud SQL PostgreSQL
+- [x] **DEPLOY-02**: Frontend deployed to Firebase Hosting with production API base URL and BioSim WebSocket URL configured
 - [ ] **DEPLOY-03**: BioSim simulation + biosim_bridge + Open MCT running on GCE VM with ports 8009 and 9091 accessible
 - [ ] **DEPLOY-04**: Cloud SQL PostgreSQL instance provisioned with all Django tables migrated and `habitat_zones` seeded
 - [ ] **DEPLOY-05**: Pi SD card `.env` pre-configured with Cloud Run endpoint URL — Pi connects to WiFi and starts sending data
@@ -168,8 +168,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HUB-05 | Phase 10 | Complete |
 | INGEST-01 | Phase 10 | Complete |
 | INGEST-02 | Phase 10 | Complete |
-| DEPLOY-01 | Phase 11 | Pending |
-| DEPLOY-02 | Phase 11 | Pending |
+| DEPLOY-01 | Phase 11 | Complete |
+| DEPLOY-02 | Phase 11 | Complete |
 | DEPLOY-03 | Phase 12 | Pending |
 | DEPLOY-04 | Phase 11 | Pending |
 | DEPLOY-05 | Phase 13 | Pending |
