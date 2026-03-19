@@ -137,7 +137,7 @@ Plans:
 | 8. AnomalyDrawer Rewire | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 9. Django Bridge + Historical Pipeline | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 10. Django Ingest + Hubcode Rewrite | v3.0 | 3/3 | Complete | 2026-03-18 |
-| 11. Cloud Services Deployment | 2/2 | Complete   | 2026-03-19 | - |
+| 11. Cloud Services Deployment | 2/2 | Complete    | 2026-03-19 | - |
 | 12. BioSim VM Deployment | v3.0 | 0/TBD | Not started | - |
 | 13. Pi-to-Cloud Pipeline | v3.0 | 0/TBD | Not started | - |
 | 14. Closed-Loop Control Service | v3.0 | 0/TBD | Not started | - |
