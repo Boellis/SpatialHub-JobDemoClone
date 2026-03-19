@@ -34,7 +34,7 @@
 **Milestone Goal:** Deploy the full SpatialHub stack to GCP and connect a real Raspberry Pi with an Atlas Scientific pH sensor — a NASA competition judge receives an SD card and a website URL, plugs in the Pi, and sees real pH readings driving BioSim's water recycling system in a 3D Mars habitat visualization. No local infrastructure required.
 
 - [x] **Phase 10: Django Ingest + Hubcode Rewrite** — Pi client code and Django ingest endpoint built (completed 2026-03-18)
-- [ ] **Phase 11: Cloud Services Deployment** — Django on Cloud Run, frontend on Firebase Hosting, Cloud SQL database — the website works in the cloud
+- [x] **Phase 11: Cloud Services Deployment** — Django on Cloud Run, frontend on Firebase Hosting, Cloud SQL database — the website works in the cloud (completed 2026-03-19)
 - [ ] **Phase 12: BioSim VM Deployment** — BioSim + biosim_bridge + Open MCT on a GCE VM — 3D habitat shows live physics via cloud
 - [ ] **Phase 13: Pi-to-Cloud Pipeline** — Hub client posts to Cloud Run endpoint — real sensor data flows from Pi to cloud database
 - [ ] **Phase 14: Closed-Loop Control Service** — pH divergence triggers BioSim malfunctions automatically from GCE VM
@@ -64,7 +64,7 @@
   2. Frontend loads at Firebase Hosting URL, connects to Cloud Run API, displays existing data pages (`/raw`, `/enriched`, `/trends`, `/habitat`)
   3. Cloud SQL instance has all Django tables migrated and `habitat_zones` seeded
   4. `POST {cloud-run-url}/api/sensor-ingest/` with a valid payload stores a row in Cloud SQL `enriched_sensor_data`
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 11-01-PLAN.md — Harden settings.py for production and fix hardcoded URLs in frontend
 - [ ] 11-02-PLAN.md — Create deploy script and execute full GCP deployment
@@ -137,7 +137,7 @@ Plans:
 | 8. AnomalyDrawer Rewire | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 9. Django Bridge + Historical Pipeline | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 10. Django Ingest + Hubcode Rewrite | v3.0 | 3/3 | Complete | 2026-03-18 |
-| 11. Cloud Services Deployment | 1/2 | In Progress|  | - |
+| 11. Cloud Services Deployment | 2/2 | Complete   | 2026-03-19 | - |
 | 12. BioSim VM Deployment | v3.0 | 0/TBD | Not started | - |
 | 13. Pi-to-Cloud Pipeline | v3.0 | 0/TBD | Not started | - |
 | 14. Closed-Loop Control Service | v3.0 | 0/TBD | Not started | - |

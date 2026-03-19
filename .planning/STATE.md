@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Physical Sensor Integration
 status: v3.0 roadmap replanned for NASA competition cloud deployment model (was local Docker, now GCP)
-stopped_at: Completed 11-cloud-services-deployment-01-PLAN.md
+stopped_at: Completed 11-cloud-services-deployment (all plans)
 last_updated: "2026-03-19T04:05:02.752Z"
 last_activity: "2026-03-18 — Roadmap pivot: phases 11-16 replanned for cloud deployment"
 progress:
@@ -26,10 +26,10 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 ## Current Position
 
 Milestone: v3.0 Physical Sensor Integration
-Phase: 10 of 16 COMPLETE — next: Phase 11 (Cloud Services Deployment)
-Plan: Phase 10 all 3 plans complete
-Status: v3.0 roadmap replanned for NASA competition cloud deployment model (was local Docker, now GCP)
-Last activity: 2026-03-18 — Roadmap pivot: phases 11-16 replanned for cloud deployment
+Phase: 11 of 16 COMPLETE — next: Phase 12 (BioSim VM Deployment)
+Plan: Phase 11 all 2 plans complete
+Status: Cloud services deployed to nasa-comp-demo — Django on Cloud Run, frontend on Firebase, Cloud SQL provisioned
+Last activity: 2026-03-19 — Phase 11 deployed to GCP project nasa-comp-demo
 
 Progress: [█░░░░░░░░░] 14% (Phase 10 complete, 6 phases remaining)
 
@@ -71,10 +71,14 @@ None.
 - BioSim GCE VM needs firewall rules for ports 8009 (BioSim REST/WS) and 9091 (Open MCT)
 - Frontend BIOSIM_BASE_URL must point to GCE VM public IP (not localhost) for Firebase deployment
 - Cloud SQL connection from GCE VM: biosim_bridge and control_loop need Cloud SQL Proxy or public IP with SSL
+- [Phase 11] GCP project changed to nasa-comp-demo (nick@demarily.dev) — interviewing-457222 had IAM issues
+- [Phase 11] Cloud Run URL: https://spatialhub-backend-4vovlomqfa-uc.a.run.app
+- [Phase 11] Cloud SQL IP: 34.30.238.232 (authorized-networks=0.0.0.0/0)
+- [Phase 11] Firebase Hosting: https://nasa-comp-demo.web.app
 
 ## Session Continuity
 
 Last session: 2026-03-19T04:05:02.742Z
-Stopped at: Completed 11-cloud-services-deployment-01-PLAN.md
+Stopped at: Completed 11-cloud-services-deployment (all plans)
 Resume file: None
 Note: Phase 11 discuss-phase captured partial decisions (divergence logic, recovery, stale data, logging) before pivot — revisit during Phase 14 planning
