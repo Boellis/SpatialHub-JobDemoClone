@@ -93,7 +93,9 @@ Plans:
   2. Real Pi pH readings appear in Cloud SQL `enriched_sensor_data` with `hub_id='pi-habitat-01'`
   3. `GET {cloud-run-url}/api/enriched/?hub_id=pi-habitat-01` returns Pi data from the cloud
   4. Pi client's offline SQLite buffer works when Cloud Run is temporarily unreachable
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 13-01-PLAN.md — Fix PI_HUB_ID mismatch, update .env.example for cloud, redeploy Firebase, verify Pi hardware end-to-end
 
 ### Phase 14: Closed-Loop Control Service
 **Goal**: A Django management command (`control_loop`) running on the GCE VM reads the latest real Pi pH and BioSim simulated pH from Cloud SQL every 10 seconds, posts a `Grey_Water_Store` malfunction to BioSim when divergence exceeds the threshold, and deletes it when pH normalizes — the causal chain (real pH drifts → zone turns red → water recycling degrades) is observable end-to-end in the 3D habitat on Firebase
@@ -142,7 +144,7 @@ Plans:
 | 10. Django Ingest + Hubcode Rewrite | v3.0 | 3/3 | Complete | 2026-03-18 |
 | 11. Cloud Services Deployment | v3.0 | 2/2 | Complete | 2026-03-19 |
 | 12. BioSim VM Deployment | v3.0 | Complete    | 2026-03-19 | 2026-03-19 |
-| 13. Pi-to-Cloud Pipeline | v3.0 | 0/TBD | Not started | - |
+| 13. Pi-to-Cloud Pipeline | v3.0 | 0/1 | Planned | - |
 | 14. Closed-Loop Control Service | v3.0 | 0/TBD | Not started | - |
 | 15. Frontend Real Sensor Visibility | v3.0 | 0/TBD | Not started | - |
 | 16. Competition Package | v3.0 | 0/TBD | Not started | - |
