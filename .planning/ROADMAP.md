@@ -64,7 +64,10 @@
   2. Frontend loads at Firebase Hosting URL, connects to Cloud Run API, displays existing data pages (`/raw`, `/enriched`, `/trends`, `/habitat`)
   3. Cloud SQL instance has all Django tables migrated and `habitat_zones` seeded
   4. `POST {cloud-run-url}/api/sensor-ingest/` with a valid payload stores a row in Cloud SQL `enriched_sensor_data`
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 11-01-PLAN.md — Harden settings.py for production and fix hardcoded URLs in frontend
+- [ ] 11-02-PLAN.md — Create deploy script and execute full GCP deployment
 
 ### Phase 12: BioSim VM Deployment
 **Goal**: BioSim simulation server, biosim_bridge, and Open MCT running on a GCE VM — the 3D habitat on Firebase shows live BioSim physics data via WebSocket to the VM, biosim_bridge writes tick history to Cloud SQL, and the AnomalyDrawer can trigger real malfunctions remotely
@@ -134,7 +137,7 @@
 | 8. AnomalyDrawer Rewire | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 9. Django Bridge + Historical Pipeline | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 10. Django Ingest + Hubcode Rewrite | v3.0 | 3/3 | Complete | 2026-03-18 |
-| 11. Cloud Services Deployment | v3.0 | 0/TBD | Not started | - |
+| 11. Cloud Services Deployment | v3.0 | 0/2 | Planned | - |
 | 12. BioSim VM Deployment | v3.0 | 0/TBD | Not started | - |
 | 13. Pi-to-Cloud Pipeline | v3.0 | 0/TBD | Not started | - |
 | 14. Closed-Loop Control Service | v3.0 | 0/TBD | Not started | - |
