@@ -147,6 +147,6 @@ Plans:
 | 11. Cloud Services Deployment | v3.0 | 2/2 | Complete | 2026-03-19 |
 | 12. BioSim VM Deployment | v3.0 | Complete    | 2026-03-19 | 2026-03-19 |
 | 13. Pi-to-Cloud Pipeline | 1/1 | Complete   | 2026-03-19 | - |
-| 14. Closed-Loop Control Service | 1/1 | Complete   | 2026-03-20 | - |
+| 14. Closed-Loop Control Service | 1/1 | Complete    | 2026-03-20 | - |
 | 15. Frontend Real Sensor Visibility | v3.0 | 0/TBD | Not started | - |
 | 16. Competition Package | v3.0 | 0/TBD | Not started | - |
