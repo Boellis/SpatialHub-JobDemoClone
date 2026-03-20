@@ -117,7 +117,9 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. The Water Recycling zone panel displays both the BioSim simulated pH (from the existing sensor orb) and the real Pi pH as a labeled "Real pH" annotation simultaneously
   2. The HUD badge shows a distinct "Real Sensor" state (different color from BioSim Connected and Fallback Mode) when Pi data has been polled successfully
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 15-01-PLAN.md — Add 5th badge state (biosim-real) with Pi freshness tracking and teal BADGE_CONFIG entry
 
 ### Phase 16: Competition Package
 **Goal**: A complete competition submission package — SD card preparation instructions, cloud deployment verification checklist, and a demo walkthrough so a NASA judge can go from "unboxing the Pi" to "seeing live pH data in the 3D Mars habitat" in under 15 minutes
@@ -148,5 +150,5 @@ Plans:
 | 12. BioSim VM Deployment | v3.0 | Complete    | 2026-03-19 | 2026-03-19 |
 | 13. Pi-to-Cloud Pipeline | 1/1 | Complete   | 2026-03-19 | - |
 | 14. Closed-Loop Control Service | 1/1 | Complete    | 2026-03-20 | - |
-| 15. Frontend Real Sensor Visibility | v3.0 | 0/TBD | Not started | - |
+| 15. Frontend Real Sensor Visibility | v3.0 | 0/1 | Planned | - |
 | 16. Competition Package | v3.0 | 0/TBD | Not started | - |
