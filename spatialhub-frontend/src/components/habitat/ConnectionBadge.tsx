@@ -3,6 +3,7 @@
 //
 // States:
 //   biosim       → green  — "BioSim Live"
+//   biosim-real  → teal   — "BioSim + Real Sensor"
 //   connecting   → grey   — "Connecting..."
 //   disconnected → red    — "Disconnected"
 //   fallback     → amber  — "Fallback Mode"
@@ -44,10 +45,11 @@ function ensureBadgeAnimationsInjected() {
 // ---------------------------------------------------------------------------
 
 const BADGE_CONFIG: Record<SimSource, { dot: string; label: string; textColor: string }> = {
-  connecting:   { dot: '#9ca3af', label: 'Connecting...',  textColor: '#9ca3af' },
-  biosim:       { dot: '#00ff88', label: 'BioSim Live',    textColor: '#00ff88' },
-  disconnected: { dot: '#ff2200', label: 'Disconnected',   textColor: '#ff2200' },
-  fallback:     { dot: '#f59e0b', label: 'Fallback Mode',  textColor: '#f59e0b' },
+  connecting:    { dot: '#9ca3af', label: 'Connecting...',        textColor: '#9ca3af' },
+  biosim:        { dot: '#00ff88', label: 'BioSim Live',          textColor: '#00ff88' },
+  'biosim-real': { dot: '#00ffcc', label: 'BioSim + Real Sensor', textColor: '#00ffcc' },
+  disconnected:  { dot: '#ff2200', label: 'Disconnected',         textColor: '#ff2200' },
+  fallback:      { dot: '#f59e0b', label: 'Fallback Mode',        textColor: '#f59e0b' },
 };
 
 // ---------------------------------------------------------------------------

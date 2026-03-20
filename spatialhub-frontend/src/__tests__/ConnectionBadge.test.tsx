@@ -3,7 +3,7 @@
  * ConnectionBadge component tests.
  *
  * Tests verify:
- *  - Correct label text for all 4 simSource states (biosim/connecting/disconnected/fallback)
+ *  - Correct label text for all 5 simSource states (biosim/biosim-real/connecting/disconnected/fallback)
  *  - Correct dot color matching for each state
  *  - Component renders a dot element and a label in all states
  *
@@ -79,5 +79,20 @@ describe('ConnectionBadge', () => {
     expect(dot).toBeTruthy();
     // #f59e0b amber
     expect((dot as HTMLElement).style.background).toBe('rgb(245, 158, 11)');
+  });
+
+  it('renders "BioSim + Real Sensor" when simSource is "biosim-real"', () => {
+    useHabitatStore.setState({ simSource: 'biosim-real' });
+    render(<ConnectionBadge />);
+    expect(screen.getByText('BioSim + Real Sensor')).toBeInTheDocument();
+  });
+
+  it('renders a dot element with the correct teal color when biosim-real', () => {
+    useHabitatStore.setState({ simSource: 'biosim-real' });
+    const { container } = render(<ConnectionBadge />);
+    const dot = container.querySelector('[data-testid="connection-badge-dot"]');
+    expect(dot).toBeTruthy();
+    // #00ffcc teal
+    expect((dot as HTMLElement).style.background).toBe('rgb(0, 255, 204)');
   });
 });
