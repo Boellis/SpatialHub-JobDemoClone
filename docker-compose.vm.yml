@@ -88,6 +88,29 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # -----------------------------------------
+  # Control Loop -- closed-loop pH control
+  # Reads Pi + BioSim pH from Cloud SQL, triggers
+  # Grey_Water_Store malfunctions on divergence.
+  # -----------------------------------------
+  control_loop:
+    build: .
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      SECRET_KEY: ${SECRET_KEY}
+      BIOSIM_URL: http://biosim:8009
+      USE_SQLITE: "0"
+      PH_THRESHOLD: "${PH_THRESHOLD:-0.5}"
+      STALE_SECONDS: "${STALE_SECONDS:-60}"
+    command: ["python", "manage.py", "control_loop"]
+    depends_on:
+      biosim:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   caddy_data:
   caddy_config:
