@@ -61,12 +61,14 @@ export const useHabitatStore = create<HabitatState>()((set, get) => ({
   anomalies: {} as Record<string, AnomalyScenarioState>,
   scenarioAnnouncements: [] as ScenarioAnnouncement[],
   simSource: 'connecting' as SimSource,
+  piDataFresh: false,
   biosimSimId: null as string | null,
   biosimMalfunctionIds: {} as Record<string, number>,
   setBiosimSimId: (id: string | null) => set({ biosimSimId: id }),
+  setPiDataFresh: (fresh: boolean) => set({ piDataFresh: fresh }),
   setSimSource: (source: SimSource) => {
     const update: Partial<HabitatState> = { simSource: source };
-    if (source !== 'biosim') {
+    if (source !== 'biosim' && source !== 'biosim-real') {
       update.biosimMalfunctionIds = {};
     }
     set(update as HabitatState);
@@ -152,7 +154,7 @@ export const useHabitatStore = create<HabitatState>()((set, get) => ({
   triggerAnomaly: (scenarioId: string) => {
     const { simSource, biosimSimId, biosimMalfunctionIds, anomalies } = get();
 
-    if (simSource === 'biosim' && biosimSimId !== null) {
+    if ((simSource === 'biosim' || simSource === 'biosim-real') && biosimSimId !== null) {
       // BioSim path
 
       // Toggle: if already active (sentinel -1 or real ID), cancel it instead
@@ -249,7 +251,7 @@ export const useHabitatStore = create<HabitatState>()((set, get) => ({
   cancelAnomaly: (scenarioId: string) => {
     const { simSource, biosimSimId, biosimMalfunctionIds, anomalies } = get();
 
-    if (simSource === 'biosim' && biosimSimId !== null) {
+    if ((simSource === 'biosim' || simSource === 'biosim-real') && biosimSimId !== null) {
       // BioSim path
       const malfunctionId = biosimMalfunctionIds[scenarioId];
       if (malfunctionId === undefined) return;
@@ -380,6 +382,8 @@ export const selectAllZoneStatuses = () => (state: HabitatState): Record<string,
 export const selectSelectedZoneId = (state: HabitatState) => state.selectedZoneId;
 
 export const selectSimSource = (state: HabitatState) => state.simSource;
+
+export const selectPiDataFresh = (state: HabitatState) => state.piDataFresh;
 
 // Expose to window in dev mode for DevTools verification
 if (import.meta.env.DEV) {

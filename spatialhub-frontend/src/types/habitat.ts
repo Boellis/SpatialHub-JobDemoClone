@@ -68,7 +68,7 @@ export interface ScenarioAnnouncement {
   timestamp: number;
 }
 
-export type SimSource = 'connecting' | 'biosim' | 'fallback' | 'disconnected';
+export type SimSource = 'connecting' | 'biosim' | 'biosim-real' | 'fallback' | 'disconnected';
 
 export interface HabitatState {
   zones: Record<string, ZoneState>;
@@ -79,6 +79,7 @@ export interface HabitatState {
   anomalies: Record<string, AnomalyScenarioState>;
   scenarioAnnouncements: ScenarioAnnouncement[];
   simSource: SimSource;
+  piDataFresh: boolean;
   biosimSimId: string | null;
   biosimMalfunctionIds: Record<string, number>;  // scenarioId -> malfunctionID
   startSimulation: () => void;
@@ -87,6 +88,7 @@ export interface HabitatState {
   getZoneStatus: (zoneId: string) => ZoneStatus;
   setSelectedZoneId: (zoneId: string | null) => void;
   setSimSource: (source: SimSource) => void;
+  setPiDataFresh: (fresh: boolean) => void;
   setBiosimSimId: (id: string | null) => void;
   triggerAnomaly: (scenarioId: string) => void;
   cancelAnomaly: (scenarioId: string) => void;

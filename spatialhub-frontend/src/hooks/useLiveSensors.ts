@@ -3,6 +3,10 @@
 //
 // Maps Pi hub readings to habitat zone sensors:
 //   hub sensor_name "ph" → zone "water-recycling", sensor "wr-ph"
+//
+// Also tracks Pi data freshness and upgrades/downgrades the HUD badge:
+//   biosim + fresh Pi data  → 'biosim-real' (teal)
+//   biosim + stale Pi data  → 'biosim' (green)
 
 import { useEffect, useRef } from 'react';
 import { useHabitatStore } from '../store/habitatStore';
@@ -11,6 +15,7 @@ import { ZONE_CONFIGS } from '../simulation/constants';
 import type { SensorReading, SensorStatus, ThresholdConfig } from '../types/habitat';
 
 const POLL_INTERVAL_MS = 10_000; // poll every 10s
+export const STALE_THRESHOLD_MS = 30_000; // 30s = 3 missed polls
 export const PI_HUB_ID = 'pi-habitat-01';
 
 // Map Pi sensor names to habitat zone/sensor IDs
@@ -40,11 +45,27 @@ interface ApiReading {
 
 export function useLiveSensors(): void {
   const mountedRef = useRef(true);
+  const lastSuccessfulPollRef = useRef<number>(0);
 
   useEffect(() => {
     mountedRef.current = true;
 
     async function poll() {
+      // Staleness check at the start of every poll cycle
+      // Catches cases where polls succeed but return empty data
+      if (
+        lastSuccessfulPollRef.current > 0 &&
+        Date.now() - lastSuccessfulPollRef.current > STALE_THRESHOLD_MS
+      ) {
+        const store = useHabitatStore.getState();
+        if (store.piDataFresh) {
+          store.setPiDataFresh(false);
+          if (store.simSource === 'biosim-real') {
+            store.setSimSource('biosim');
+          }
+        }
+      }
+
       try {
         const response = await fetch(
           `${BASE_URL}/enriched/?hub_id=${PI_HUB_ID}&page_size=5&ordering=-datetime`,
@@ -53,7 +74,22 @@ export function useLiveSensors(): void {
         if (!response.ok || !mountedRef.current) return;
 
         const data: ApiReading[] = await response.json();
-        if (!mountedRef.current || !Array.isArray(data) || data.length === 0) return;
+        if (!mountedRef.current || !Array.isArray(data) || data.length === 0) {
+          // Successful HTTP response but no data — check staleness
+          if (
+            lastSuccessfulPollRef.current > 0 &&
+            Date.now() - lastSuccessfulPollRef.current > STALE_THRESHOLD_MS
+          ) {
+            const store = useHabitatStore.getState();
+            if (store.piDataFresh) {
+              store.setPiDataFresh(false);
+              if (store.simSource === 'biosim-real') {
+                store.setSimSource('biosim');
+              }
+            }
+          }
+          return;
+        }
 
         // Group by sensor_name, take most recent
         const latest = new Map<string, ApiReading>();
@@ -93,9 +129,29 @@ export function useLiveSensors(): void {
 
         if (Object.keys(readings).length > 0) {
           useHabitatStore.getState().tick(readings);
+
+          // Mark Pi data as fresh and upgrade badge if BioSim is active
+          lastSuccessfulPollRef.current = Date.now();
+          const store = useHabitatStore.getState();
+          store.setPiDataFresh(true);
+          if (store.simSource === 'biosim') {
+            store.setSimSource('biosim-real');
+          }
         }
       } catch {
-        // Network error — skip this poll cycle
+        // Network error — check staleness and downgrade badge if needed
+        if (
+          lastSuccessfulPollRef.current > 0 &&
+          Date.now() - lastSuccessfulPollRef.current > STALE_THRESHOLD_MS
+        ) {
+          const store = useHabitatStore.getState();
+          if (store.piDataFresh) {
+            store.setPiDataFresh(false);
+            if (store.simSource === 'biosim-real') {
+              store.setSimSource('biosim');
+            }
+          }
+        }
       }
     }
 
