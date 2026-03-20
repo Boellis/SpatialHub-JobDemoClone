@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A visually stunning 3D Mars habitat monitoring system built on top of an existing IoT telemetry platform. Users open `/habitat` and see a procedural 3D Mars greenhouse with four interactive zones (Grow Bays, Atmosphere Control, Water Recycling, Power/Thermal), each streaming simulated real-time sensor telemetry via a client-side simulation engine. A glassmorphism HUD shows system status, zone panels display live readings with sparkline charts, and an anomaly simulator lets users trigger crises and watch the habitat respond with visual drama.
+A 3D Mars habitat monitoring system powered by NASA's BioSim life support simulator and real Raspberry Pi sensor hardware. A judge plugs in a Pi with an Atlas Scientific pH sensor, opens a website, and sees real pH data driving BioSim's water recycling physics in a procedural 3D Mars greenhouse. Dip the sensor in vinegar — the habitat zone turns red. Rinse it — it recovers. Four interactive zones, live sensor telemetry, glassmorphism HUD, sparkline charts, anomaly simulation, and a closed-loop control service connecting real hardware to simulated physics. Fully cloud-deployed: Django on Cloud Run, frontend on Firebase, BioSim on GCE VM, Cloud SQL PostgreSQL.
 
 ## Core Value
 
@@ -36,17 +36,21 @@ The 3D habitat visualization with live sensor data must feel real, responsive, a
 - ✓ Open MCT route/link alongside 3D habitat — v2.0
 - ✓ Existing /api/enriched/ and /trends serve real BioSim historical data — v2.0
 
+- ✓ Full cloud deployment: Django on Cloud Run, frontend on Firebase Hosting, BioSim on GCE VM, Cloud SQL database — v3.0
+- ✓ Raspberry Pi with Atlas Scientific pH sensor posts data to cloud-hosted Django endpoint — v3.0
+- ✓ Closed-loop control: real pH divergence triggers BioSim water recycling malfunctions (control loop on GCE VM) — v3.0
+- ✓ Real sensor data visible in 3D habitat alongside BioSim physics — v3.0
+- ✓ NASA competition package: judge receives SD card + website URL, Pi plugs in and data flows — v3.0
+
 ### Active
 
-- [x] Full cloud deployment: Django on Cloud Run, frontend on Firebase Hosting, BioSim on GCE VM, Cloud SQL database — Validated in Phases 11-12
-- [x] Raspberry Pi with Atlas Scientific pH sensor posts data to cloud-hosted Django endpoint — Validated in Phase 13
-- [x] Closed-loop control: real pH divergence triggers BioSim water recycling malfunctions (control loop on GCE VM) — Validated in Phase 14
-- [x] Real sensor data visible in 3D habitat alongside BioSim physics — Validated in Phase 15
-- [x] NASA competition package: judge receives SD card + website URL, Pi plugs in and data flows — Validated in Phase 16
+(No active milestone — v3.0 shipped)
 
-## Current Milestone: v3.0 Physical Sensor Integration
+## Shipped Milestones
 
-**Goal:** Deploy the full SpatialHub stack to GCP and connect a real Raspberry Pi with an Atlas Scientific pH sensor — a NASA competition judge receives an SD card and a website URL, plugs in the Pi, and sees real pH readings driving BioSim's water recycling system in a 3D Mars habitat visualization. No local infrastructure required.
+- **v1.0 Mars Habitat Demo** — 3D procedural habitat with 4 zones, 12 sensors, anomaly system (shipped 2026-03-14)
+- **v2.0 BioSim Integration** — NASA BioSim as physics engine, Docker stack, WebSocket live data (shipped 2026-03-16)
+- **v3.0 Physical Sensor Integration** — Cloud deployment, real Pi pH sensor, closed-loop control, competition package (shipped 2026-03-20)
 
 **Target features:**
 - Cloud deployment: Django on Cloud Run, frontend on Firebase Hosting, BioSim on GCE VM, Cloud SQL PostgreSQL
@@ -108,4 +112,4 @@ The 3D habitat visualization with live sensor data must feel real, responsive, a
 | Closed-loop: real pH drives BioSim malfunctions | Most impressive demo — real hardware influencing simulation | ✓ Good — control_loop management command with hysteresis |
 
 ---
-*Last updated: 2026-03-20 — v3.0 milestone complete*
+*Last updated: 2026-03-20 — v3.0 Physical Sensor Integration shipped*
