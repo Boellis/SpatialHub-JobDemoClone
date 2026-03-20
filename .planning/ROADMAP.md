@@ -37,7 +37,7 @@
 - [x] **Phase 11: Cloud Services Deployment** — Django on Cloud Run, frontend on Firebase Hosting, Cloud SQL database — the website works in the cloud (completed 2026-03-19)
 - [x] **Phase 12: BioSim VM Deployment** — BioSim + biosim_bridge + Open MCT on a GCE VM — 3D habitat shows live physics via cloud (completed 2026-03-19)
 - [x] **Phase 13: Pi-to-Cloud Pipeline** — Hub client posts to Cloud Run endpoint — real sensor data flows from Pi to cloud database (completed 2026-03-19)
-- [ ] **Phase 14: Closed-Loop Control Service** — pH divergence triggers BioSim malfunctions automatically from GCE VM
+- [x] **Phase 14: Closed-Loop Control Service** — pH divergence triggers BioSim malfunctions automatically from GCE VM (completed 2026-03-20)
 - [ ] **Phase 15: Frontend Real Sensor Visibility** — Real pH overlaid in 3D habitat with distinct HUD badge state
 - [ ] **Phase 16: Competition Package** — SD card prep guide, deployment verification, end-to-end demo script
 
@@ -106,7 +106,7 @@ Plans:
   2. When Pi pH returns to within the threshold, the Water Recycling zone recovers automatically without manual intervention
   3. The control service runs as a managed process on the GCE VM alongside BioSim
   4. The control loop reads both pH sources from Cloud SQL and posts malfunctions to the local BioSim instance on the same VM
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [ ] 14-01-PLAN.md — Create control_loop management command with tests, add Docker service to VM compose
 
@@ -147,6 +147,6 @@ Plans:
 | 11. Cloud Services Deployment | v3.0 | 2/2 | Complete | 2026-03-19 |
 | 12. BioSim VM Deployment | v3.0 | Complete    | 2026-03-19 | 2026-03-19 |
 | 13. Pi-to-Cloud Pipeline | 1/1 | Complete   | 2026-03-19 | - |
-| 14. Closed-Loop Control Service | v3.0 | 0/1 | Planned | - |
+| 14. Closed-Loop Control Service | 1/1 | Complete   | 2026-03-20 | - |
 | 15. Frontend Real Sensor Visibility | v3.0 | 0/TBD | Not started | - |
 | 16. Competition Package | v3.0 | 0/TBD | Not started | - |

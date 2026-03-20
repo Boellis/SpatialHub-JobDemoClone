@@ -2,16 +2,14 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Physical Sensor Integration
-status: BioSim VM deployed to GCE (34.68.135.16) — full stack live with Caddy HTTPS, bridge writing to Cloud SQL, Pi pH sensor posting real data
-stopped_at: Phase 14 context gathered
-last_updated: "2026-03-20T15:40:55.736Z"
-last_activity: 2026-03-19 — Phase 12 BioSim VM deployment verified end-to-end
+status: unknown
+stopped_at: Completed 14-01-PLAN.md
+last_updated: "2026-03-20T16:17:46.110Z"
 progress:
   total_phases: 7
-  completed_phases: 4
-  total_plans: 8
-  completed_plans: 8
-  percent: 28
+  completed_phases: 5
+  total_plans: 9
+  completed_plans: 9
 ---
 
 # Project State
@@ -21,17 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** 3D habitat visualization with live sensor data that feels real, responsive, and impressive enough to make someone say "this could actually run a Mars greenhouse."
-**Current focus:** v3.0 Physical Sensor Integration — Phase 11: Cloud Services Deployment (next)
+**Current focus:** Phase 14 — Closed-Loop Control Service
 
 ## Current Position
 
-Milestone: v3.0 Physical Sensor Integration
-Phase: 12 of 16 COMPLETE — next: Phase 13 (Pi-to-Cloud Pipeline)
-Plan: Phase 12 all 2 plans complete
-Status: BioSim VM deployed to GCE (34.68.135.16) — full stack live with Caddy HTTPS, bridge writing to Cloud SQL, Pi pH sensor posting real data
-Last activity: 2026-03-19 — Phase 12 BioSim VM deployment verified end-to-end
-
-Progress: [██░░░░░░░░] 28% (Phase 12 complete, 4 phases remaining)
+Phase: 14 (Closed-Loop Control Service) — EXECUTING
+Plan: 1 of 1
 
 ## Accumulated Context
 
@@ -65,6 +58,8 @@ Key v3.0 architectural decisions:
 - [Phase 12-biosim-vm-deployment]: teardown.sh --stop (cost management) vs --delete (full cleanup) modes for VM lifecycle
 - [Phase 13-pi-to-cloud-pipeline]: PI_HUB_ID exported (not just const) so vitest can import and assert regression guard
 - [Phase 13-pi-to-cloud-pipeline]: hubcode/.env.example Cloud Run URL uncommented as default — competition deployment over local dev
+- [Phase 14-closed-loop-control-service]: Hysteresis recovery threshold is PH_THRESHOLD - 0.1 (0.4 when default 0.5) confirmed
+- [Phase 14-closed-loop-control-service]: probe_sim_id returns None instead of raising -- control_loop retries with exponential backoff
 
 ### Pending Todos
 
@@ -86,7 +81,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-20T15:40:55.724Z
-Stopped at: Phase 14 context gathered
-Resume file: .planning/phases/14-closed-loop-control-service/14-CONTEXT.md
+Last session: 2026-03-20T16:17:46.105Z
+Stopped at: Completed 14-01-PLAN.md
+Resume file: None
 Note: Phase 11 discuss-phase captured partial decisions (divergence logic, recovery, stale data, logging) before pivot — revisit during Phase 14 planning

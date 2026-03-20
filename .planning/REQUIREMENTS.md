@@ -84,10 +84,10 @@ Requirements for physical sensor integration milestone. Each maps to roadmap pha
 
 ### Closed-Loop Control
 
-- [ ] **CTRL-01**: Control service compares real Pi pH to BioSim's simulated water recycling pH at regular intervals
-- [ ] **CTRL-02**: pH divergence beyond configurable threshold triggers `Grey_Water_Store` malfunction via BioSim REST API
-- [ ] **CTRL-03**: Control service auto-recovers — DELETEs malfunction when real pH normalizes back to expected range
-- [ ] **CTRL-04**: Control service runs as a managed process on the BioSim GCE VM (`manage.py control_loop`)
+- [x] **CTRL-01**: Control service compares real Pi pH to BioSim's simulated water recycling pH at regular intervals
+- [x] **CTRL-02**: pH divergence beyond configurable threshold triggers `Grey_Water_Store` malfunction via BioSim REST API
+- [x] **CTRL-03**: Control service auto-recovers — DELETEs malfunction when real pH normalizes back to expected range
+- [x] **CTRL-04**: Control service runs as a managed process on the BioSim GCE VM (`manage.py control_loop`)
 
 ### Frontend
 
@@ -173,10 +173,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEPLOY-03 | Phase 12 | Complete |
 | DEPLOY-04 | Phase 11 | Pending |
 | DEPLOY-05 | Phase 13 | Complete |
-| CTRL-01 | Phase 14 | Pending |
-| CTRL-02 | Phase 14 | Pending |
-| CTRL-03 | Phase 14 | Pending |
-| CTRL-04 | Phase 14 | Pending |
+| CTRL-01 | Phase 14 | Complete |
+| CTRL-02 | Phase 14 | Complete |
+| CTRL-03 | Phase 14 | Complete |
+| CTRL-04 | Phase 14 | Complete |
 | UI-01 | Phase 15 | Pending |
 | UI-02 | Phase 15 | Pending |
 | SETUP-01 | Phase 16 | Pending |
