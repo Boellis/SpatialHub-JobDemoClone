@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Physical Sensor Integration
 status: unknown
-stopped_at: Phase 15 context gathered
-last_updated: "2026-03-20T17:02:15.399Z"
+stopped_at: Completed 15-frontend-real-sensor-visibility-15-01-PLAN.md
+last_updated: "2026-03-20T18:21:14.268Z"
 progress:
   total_phases: 7
-  completed_phases: 5
-  total_plans: 9
-  completed_plans: 9
+  completed_phases: 6
+  total_plans: 10
+  completed_plans: 10
 ---
 
 # Project State
@@ -19,11 +19,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** 3D habitat visualization with live sensor data that feels real, responsive, and impressive enough to make someone say "this could actually run a Mars greenhouse."
-**Current focus:** Phase 14 — Closed-Loop Control Service
+**Current focus:** Phase 15 — Frontend Real Sensor Visibility
 
 ## Current Position
 
-Phase: 14 (Closed-Loop Control Service) — EXECUTING
+Phase: 15 (Frontend Real Sensor Visibility) — EXECUTING
 Plan: 1 of 1
 
 ## Accumulated Context
@@ -60,6 +60,9 @@ Key v3.0 architectural decisions:
 - [Phase 13-pi-to-cloud-pipeline]: hubcode/.env.example Cloud Run URL uncommented as default — competition deployment over local dev
 - [Phase 14-closed-loop-control-service]: Hysteresis recovery threshold is PH_THRESHOLD - 0.1 (0.4 when default 0.5) confirmed
 - [Phase 14-closed-loop-control-service]: probe_sim_id returns None instead of raising -- control_loop retries with exponential backoff
+- [Phase 15-frontend-real-sensor-visibility]: biosim-real preserves biosimMalfunctionIds — triggerAnomaly/cancelAnomaly work in upgraded badge state
+- [Phase 15-frontend-real-sensor-visibility]: Staleness check runs at poll START to catch empty-response stale case (not just on failure)
+- [Phase 15-frontend-real-sensor-visibility]: Teal color #00ffcc for biosim-real badge matches LIVE badge in ZonePanel (design consistency)
 
 ### Pending Todos
 
@@ -81,7 +84,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-20T17:02:15.394Z
-Stopped at: Phase 15 context gathered
-Resume file: .planning/phases/15-frontend-real-sensor-visibility/15-CONTEXT.md
+Last session: 2026-03-20T18:21:14.263Z
+Stopped at: Completed 15-frontend-real-sensor-visibility-15-01-PLAN.md
+Resume file: None
 Note: Phase 11 discuss-phase captured partial decisions (divergence logic, recovery, stale data, logging) before pivot — revisit during Phase 14 planning

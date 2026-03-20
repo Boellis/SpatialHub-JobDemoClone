@@ -38,7 +38,7 @@
 - [x] **Phase 12: BioSim VM Deployment** — BioSim + biosim_bridge + Open MCT on a GCE VM — 3D habitat shows live physics via cloud (completed 2026-03-19)
 - [x] **Phase 13: Pi-to-Cloud Pipeline** — Hub client posts to Cloud Run endpoint — real sensor data flows from Pi to cloud database (completed 2026-03-19)
 - [x] **Phase 14: Closed-Loop Control Service** — pH divergence triggers BioSim malfunctions automatically from GCE VM (completed 2026-03-20)
-- [ ] **Phase 15: Frontend Real Sensor Visibility** — Real pH overlaid in 3D habitat with distinct HUD badge state
+- [x] **Phase 15: Frontend Real Sensor Visibility** — Real pH overlaid in 3D habitat with distinct HUD badge state (completed 2026-03-20)
 - [ ] **Phase 16: Competition Package** — SD card prep guide, deployment verification, end-to-end demo script
 
 ## Phase Details
@@ -117,7 +117,7 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. The Water Recycling zone panel displays both the BioSim simulated pH (from the existing sensor orb) and the real Pi pH as a labeled "Real pH" annotation simultaneously
   2. The HUD badge shows a distinct "Real Sensor" state (different color from BioSim Connected and Fallback Mode) when Pi data has been polled successfully
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [ ] 15-01-PLAN.md — Add 5th badge state (biosim-real) with Pi freshness tracking and teal BADGE_CONFIG entry
 
@@ -150,5 +150,5 @@ Plans:
 | 12. BioSim VM Deployment | v3.0 | Complete    | 2026-03-19 | 2026-03-19 |
 | 13. Pi-to-Cloud Pipeline | 1/1 | Complete   | 2026-03-19 | - |
 | 14. Closed-Loop Control Service | 1/1 | Complete    | 2026-03-20 | - |
-| 15. Frontend Real Sensor Visibility | v3.0 | 0/1 | Planned | - |
+| 15. Frontend Real Sensor Visibility | 1/1 | Complete   | 2026-03-20 | - |
 | 16. Competition Package | v3.0 | 0/TBD | Not started | - |

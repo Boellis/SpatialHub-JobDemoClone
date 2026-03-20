@@ -91,8 +91,8 @@ Requirements for physical sensor integration milestone. Each maps to roadmap pha
 
 ### Frontend
 
-- [ ] **UI-01**: Real Pi pH value visible in the Water Recycling zone panel alongside BioSim simulated data
-- [ ] **UI-02**: HUD connection badge shows 5th state ("Real Sensor" with distinct color) when Pi data is flowing
+- [x] **UI-01**: Real Pi pH value visible in the Water Recycling zone panel alongside BioSim simulated data
+- [x] **UI-02**: HUD connection badge shows 5th state ("Real Sensor" with distinct color) when Pi data is flowing
 
 ### Setup & Docs
 
@@ -177,8 +177,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CTRL-02 | Phase 14 | Complete |
 | CTRL-03 | Phase 14 | Complete |
 | CTRL-04 | Phase 14 | Complete |
-| UI-01 | Phase 15 | Pending |
-| UI-02 | Phase 15 | Pending |
+| UI-01 | Phase 15 | Complete |
+| UI-02 | Phase 15 | Complete |
 | SETUP-01 | Phase 16 | Pending |
 | SETUP-02 | Phase 16 | Pending |
 
