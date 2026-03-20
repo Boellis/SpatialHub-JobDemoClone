@@ -128,7 +128,9 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. Guide covers: SD card prep (Raspberry Pi OS, WiFi pre-config, hub_client install, `.env` with cloud URLs), Atlas sensor wiring, EZO I2C mode switch, and first-run verification
   2. A NASA judge with a Pi and Atlas Scientific pH sensor can follow the guide end-to-end and see their pH data in the live 3D habitat dashboard
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 16-01-PLAN.md — Create judge-facing competition guide and deployer-facing cloud verification checklist
 
 ## Progress
 
@@ -151,4 +153,4 @@ Plans:
 | 13. Pi-to-Cloud Pipeline | 1/1 | Complete   | 2026-03-19 | - |
 | 14. Closed-Loop Control Service | 1/1 | Complete    | 2026-03-20 | - |
 | 15. Frontend Real Sensor Visibility | 1/1 | Complete    | 2026-03-20 | - |
-| 16. Competition Package | v3.0 | 0/TBD | Not started | - |
+| 16. Competition Package | v3.0 | 0/1 | Planning | - |
