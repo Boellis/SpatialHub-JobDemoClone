@@ -153,4 +153,4 @@ Plans:
 | 13. Pi-to-Cloud Pipeline | 1/1 | Complete   | 2026-03-19 | - |
 | 14. Closed-Loop Control Service | 1/1 | Complete    | 2026-03-20 | - |
 | 15. Frontend Real Sensor Visibility | 1/1 | Complete    | 2026-03-20 | - |
-| 16. Competition Package | 1/1 | Complete   | 2026-03-20 | - |
+| 16. Competition Package | 1/1 | Complete    | 2026-03-20 | - |
