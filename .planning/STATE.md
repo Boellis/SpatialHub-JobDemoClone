@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Physical Sensor Integration
 status: unknown
-stopped_at: Phase 16 context gathered
-last_updated: "2026-03-20T18:39:34.586Z"
+stopped_at: Completed 16-competition-package/16-01-PLAN.md
+last_updated: "2026-03-20T18:58:32.921Z"
 progress:
   total_phases: 7
-  completed_phases: 6
-  total_plans: 10
-  completed_plans: 10
+  completed_phases: 7
+  total_plans: 11
+  completed_plans: 11
 ---
 
 # Project State
@@ -19,11 +19,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** 3D habitat visualization with live sensor data that feels real, responsive, and impressive enough to make someone say "this could actually run a Mars greenhouse."
-**Current focus:** Phase 15 — Frontend Real Sensor Visibility
+**Current focus:** Phase 16 — Competition Package
 
 ## Current Position
 
-Phase: 15 (Frontend Real Sensor Visibility) — EXECUTING
+Phase: 16 (Competition Package) — EXECUTING
 Plan: 1 of 1
 
 ## Accumulated Context
@@ -63,6 +63,8 @@ Key v3.0 architectural decisions:
 - [Phase 15-frontend-real-sensor-visibility]: biosim-real preserves biosimMalfunctionIds — triggerAnomaly/cancelAnomaly work in upgraded badge state
 - [Phase 15-frontend-real-sensor-visibility]: Staleness check runs at poll START to catch empty-response stale case (not just on failure)
 - [Phase 15-frontend-real-sensor-visibility]: Teal color #00ffcc for biosim-real badge matches LIVE badge in ZonePanel (design consistency)
+- [Phase 16-competition-package]: systemd hubclient.service over cron @reboot for auto-start -- restart policy and status visibility
+- [Phase 16-competition-package]: PGND-TX I2C mode switch as first hardware step -- most common failure mode, must precede all other hardware
 
 ### Pending Todos
 
@@ -84,7 +86,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-20T18:39:34.579Z
-Stopped at: Phase 16 context gathered
-Resume file: .planning/phases/16-competition-package/16-CONTEXT.md
+Last session: 2026-03-20T18:58:32.914Z
+Stopped at: Completed 16-competition-package/16-01-PLAN.md
+Resume file: None
 Note: Phase 11 discuss-phase captured partial decisions (divergence logic, recovery, stale data, logging) before pivot — revisit during Phase 14 planning

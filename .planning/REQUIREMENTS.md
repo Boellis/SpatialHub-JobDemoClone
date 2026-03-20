@@ -96,8 +96,8 @@ Requirements for physical sensor integration milestone. Each maps to roadmap pha
 
 ### Setup & Docs
 
-- [ ] **SETUP-01**: Competition setup guide covering: SD card preparation (OS, WiFi, hub_client), Pi wiring, EZO I2C mode switch, `.env` with cloud URLs, and first-run verification
-- [ ] **SETUP-02**: Guide is reproducible — a NASA judge with a Pi and Atlas Scientific I2C sensor can follow it and see data in the web dashboard
+- [x] **SETUP-01**: Competition setup guide covering: SD card preparation (OS, WiFi, hub_client), Pi wiring, EZO I2C mode switch, `.env` with cloud URLs, and first-run verification
+- [x] **SETUP-02**: Guide is reproducible — a NASA judge with a Pi and Atlas Scientific I2C sensor can follow it and see data in the web dashboard
 
 ## v4+ Requirements
 
@@ -179,8 +179,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CTRL-04 | Phase 14 | Complete |
 | UI-01 | Phase 15 | Complete |
 | UI-02 | Phase 15 | Complete |
-| SETUP-01 | Phase 16 | Pending |
-| SETUP-02 | Phase 16 | Pending |
+| SETUP-01 | Phase 16 | Complete |
+| SETUP-02 | Phase 16 | Complete |
 
 **Coverage:**
 - v2.0 requirements: 29 total (all complete)

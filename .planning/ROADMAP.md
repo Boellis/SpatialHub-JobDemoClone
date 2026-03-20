@@ -39,7 +39,7 @@
 - [x] **Phase 13: Pi-to-Cloud Pipeline** — Hub client posts to Cloud Run endpoint — real sensor data flows from Pi to cloud database (completed 2026-03-19)
 - [x] **Phase 14: Closed-Loop Control Service** — pH divergence triggers BioSim malfunctions automatically from GCE VM (completed 2026-03-20)
 - [x] **Phase 15: Frontend Real Sensor Visibility** — Real pH overlaid in 3D habitat with distinct HUD badge state (completed 2026-03-20)
-- [ ] **Phase 16: Competition Package** — SD card prep guide, deployment verification, end-to-end demo script
+- [x] **Phase 16: Competition Package** — SD card prep guide, deployment verification, end-to-end demo script (completed 2026-03-20)
 
 ## Phase Details
 
@@ -128,7 +128,7 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. Guide covers: SD card prep (Raspberry Pi OS, WiFi pre-config, hub_client install, `.env` with cloud URLs), Atlas sensor wiring, EZO I2C mode switch, and first-run verification
   2. A NASA judge with a Pi and Atlas Scientific pH sensor can follow the guide end-to-end and see their pH data in the live 3D habitat dashboard
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [ ] 16-01-PLAN.md — Create judge-facing competition guide and deployer-facing cloud verification checklist
 
@@ -153,4 +153,4 @@ Plans:
 | 13. Pi-to-Cloud Pipeline | 1/1 | Complete   | 2026-03-19 | - |
 | 14. Closed-Loop Control Service | 1/1 | Complete    | 2026-03-20 | - |
 | 15. Frontend Real Sensor Visibility | 1/1 | Complete    | 2026-03-20 | - |
-| 16. Competition Package | v3.0 | 0/1 | Planning | - |
+| 16. Competition Package | 1/1 | Complete   | 2026-03-20 | - |
