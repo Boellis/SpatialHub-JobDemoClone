@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Physical Sensor Integration
 status: BioSim VM deployed to GCE (34.68.135.16) — full stack live with Caddy HTTPS, bridge writing to Cloud SQL, Pi pH sensor posting real data
-stopped_at: "Phase 13 Plan 01 Task 3 checkpoint: human hardware verify"
-last_updated: "2026-03-19T16:16:33.821Z"
+stopped_at: Phase 14 context gathered
+last_updated: "2026-03-20T15:40:55.736Z"
 last_activity: 2026-03-19 — Phase 12 BioSim VM deployment verified end-to-end
 progress:
   total_phases: 7
@@ -40,6 +40,7 @@ Progress: [██░░░░░░░░] 28% (Phase 12 complete, 4 phases rema
 See PROJECT.md Key Decisions table for full v1.0/v2.0 log.
 
 Key v3.0 architectural decisions:
+
 - **[PIVOTED 2026-03-18]** Cloud deployment for NASA competition — judge gets SD card + website URL, no local Docker
 - Pi posts to Cloud Run Django endpoint (SensorIngestView) over WiFi — hub_client.py from Phase 10 reused, just different URL
 - BioSim + biosim_bridge + control_loop run on GCE VM in GCP project `interviewing-457222`
@@ -85,7 +86,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-19T16:16:27.999Z
-Stopped at: Phase 13 Plan 01 Task 3 checkpoint: human hardware verify
-Resume file: None
+Last session: 2026-03-20T15:40:55.724Z
+Stopped at: Phase 14 context gathered
+Resume file: .planning/phases/14-closed-loop-control-service/14-CONTEXT.md
 Note: Phase 11 discuss-phase captured partial decisions (divergence logic, recovery, stale data, logging) before pivot — revisit during Phase 14 planning
