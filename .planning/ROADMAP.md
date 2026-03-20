@@ -106,7 +106,9 @@ Plans:
   2. When Pi pH returns to within the threshold, the Water Recycling zone recovers automatically without manual intervention
   3. The control service runs as a managed process on the GCE VM alongside BioSim
   4. The control loop reads both pH sources from Cloud SQL and posts malfunctions to the local BioSim instance on the same VM
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 14-01-PLAN.md — Create control_loop management command with tests, add Docker service to VM compose
 
 ### Phase 15: Frontend Real Sensor Visibility
 **Goal**: The Water Recycling zone panel shows the real Pi pH value as a secondary annotation alongside the BioSim physics reading, and the HUD connection badge gains a fifth "Real Sensor" state that activates when Pi data is flowing — deployed to Firebase Hosting
@@ -145,6 +147,6 @@ Plans:
 | 11. Cloud Services Deployment | v3.0 | 2/2 | Complete | 2026-03-19 |
 | 12. BioSim VM Deployment | v3.0 | Complete    | 2026-03-19 | 2026-03-19 |
 | 13. Pi-to-Cloud Pipeline | 1/1 | Complete   | 2026-03-19 | - |
-| 14. Closed-Loop Control Service | v3.0 | 0/TBD | Not started | - |
+| 14. Closed-Loop Control Service | v3.0 | 0/1 | Planned | - |
 | 15. Frontend Real Sensor Visibility | v3.0 | 0/TBD | Not started | - |
 | 16. Competition Package | v3.0 | 0/TBD | Not started | - |
