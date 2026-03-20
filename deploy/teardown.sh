@@ -107,7 +107,7 @@ fi
 echo ""
 echo "--- Firewall Rules ---"
 if [[ "$MODE" == "delete" ]]; then
-  for RULE in "allow-biosim-8009" "allow-openmct-9091"; do
+  for RULE in "allow-biosim-8009" "allow-openmct-9091" "allow-https-443"; do
     if gcloud compute firewall-rules describe "$RULE" --project="$PROJECT" &>/dev/null; then
       echo "Deleting firewall rule $RULE ..."
       gcloud compute firewall-rules delete "$RULE" \

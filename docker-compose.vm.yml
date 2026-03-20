@@ -19,8 +19,8 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     environment:
-      DOMAIN: ${DOMAIN:-34-68-135-16.sslip.io}
-    command: caddy reverse-proxy --from ${DOMAIN:-34-68-135-16.sslip.io} --to biosim:8009
+      DOMAIN: ${DOMAIN:?DOMAIN env var must be set in .env}
+    command: caddy reverse-proxy --from ${DOMAIN:?DOMAIN env var must be set in .env} --to biosim:8009
     depends_on:
       biosim:
         condition: service_healthy

@@ -25,6 +25,8 @@ class HabitatZoneListView(ListAPIView):
     serializer_class = HabitatZoneSerializer
 
 class EnrichedSensorListView(APIView):
+    MAX_ROWS = 500
+
     def get(self, request):
         try:
             queryset = EnrichedSensorData.objects.all().order_by("-datetime")
@@ -35,6 +37,9 @@ class EnrichedSensorListView(APIView):
                 queryset = queryset.filter(sensor_name=sensor_name)
             if hub_id:
                 queryset = queryset.filter(hub_id=hub_id)
+
+            # Cap results to avoid OOM on Cloud Run (512 MiB limit)
+            queryset = queryset[:self.MAX_ROWS]
 
             serializer = EnrichedSensorSerializer(queryset, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)

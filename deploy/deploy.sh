@@ -312,6 +312,21 @@ else
   echo "Firewall rule allow-openmct-9091 already exists — skipping."
 fi
 
+if ! gcloud compute firewall-rules describe "allow-https-443" --project="$PROJECT" &>/dev/null; then
+  echo "Creating firewall rule allow-https-443 (Caddy HTTPS + ACME HTTP-01) ..."
+  gcloud compute firewall-rules create "allow-https-443" \
+    --project="$PROJECT" \
+    --direction=INGRESS \
+    --priority=1000 \
+    --network=default \
+    --action=ALLOW \
+    --rules=tcp:80,tcp:443 \
+    --source-ranges=0.0.0.0/0 \
+    --target-tags="$BIOSIM_TAG"
+else
+  echo "Firewall rule allow-https-443 already exists — skipping."
+fi
+
 # ---------------------------------------------------------------------------
 # Section 11: Create GCE VM (idempotent)
 # ---------------------------------------------------------------------------
@@ -387,32 +402,48 @@ gcloud compute ssh "$VM_NAME" \
   --quiet \
   --command="sudo mkdir -p /opt/spatialhub && sudo chown \$USER:\$USER /opt/spatialhub"
 
-echo "Syncing code to VM (excludes node_modules, venv, .git) ..."
-gcloud compute scp --recurse \
+echo "Syncing code to VM (excludes venv, __pycache__, .git) ..."
+BUNDLE="/tmp/spatialhub-deploy.tar.gz"
+tar czf "$BUNDLE" \
+  --exclude='venv' \
+  --exclude='venv_local' \
+  --exclude='__pycache__' \
+  --exclude='.git' \
+  --exclude='node_modules' \
+  -C "$REPO_ROOT" \
+  docker-compose.vm.yml biosim.Dockerfile Dockerfile django_backend
+
+gcloud compute scp "$BUNDLE" \
+  "$VM_NAME":/tmp/spatialhub-deploy.tar.gz \
   --zone="$ZONE" \
   --project="$PROJECT" \
   --quiet \
-  --compress \
-  "$REPO_ROOT/docker-compose.vm.yml" \
-  "$REPO_ROOT/biosim.Dockerfile" \
-  "$REPO_ROOT/Dockerfile" \
-  "$REPO_ROOT/django_backend" \
-  "$VM_NAME":/opt/spatialhub/
+  --compress
 
-echo "Code synced to VM."
-
-# Write .env file to VM
-echo "Writing .env to VM ..."
 gcloud compute ssh "$VM_NAME" \
   --zone="$ZONE" \
   --project="$PROJECT" \
   --quiet \
-  --command="cat > /opt/spatialhub/.env << 'ENVEOF'
+  --command="cd /opt/spatialhub && tar xzf /tmp/spatialhub-deploy.tar.gz && rm /tmp/spatialhub-deploy.tar.gz"
+
+rm -f "$BUNDLE"
+
+echo "Code synced to VM."
+
+# Write .env file to VM (includes DOMAIN for Caddy cert provisioning)
+BIOSIM_DOMAIN=$(echo "$VM_IP" | tr '.' '-').sslip.io
+echo "Writing .env to VM (DOMAIN=${BIOSIM_DOMAIN}) ..."
+gcloud compute ssh "$VM_NAME" \
+  --zone="$ZONE" \
+  --project="$PROJECT" \
+  --quiet \
+  --command="cat > /opt/spatialhub/.env << ENVEOF
 DB_HOST=${DB_HOST}
 DB_NAME=${DB_NAME}
 DB_USER=${DB_USER}
 DB_PASS=${DB_PASS}
 SECRET_KEY=${SECRET_KEY}
+DOMAIN=${BIOSIM_DOMAIN}
 ENVEOF"
 
 # Write systemd unit file
@@ -486,8 +517,7 @@ fi
 echo ""
 echo "=== Rebuilding Frontend with VM URLs ==="
 cd "$REPO_ROOT/spatialhub-frontend"
-# Use sslip.io HTTPS URL for BioSim to avoid mixed-content block (HTTPS frontend → HTTP API)
-BIOSIM_DOMAIN=$(echo "$VM_IP" | tr '.' '-').sslip.io
+# BIOSIM_DOMAIN already computed in Section 13 when writing .env
 echo "Building frontend with VITE_BIOSIM_URL=https://${BIOSIM_DOMAIN} VITE_OPENMCT_URL=http://${VM_IP}:9091"
 VITE_API_URL="${CLOUD_RUN_URL}/api" \
   VITE_BIOSIM_URL="https://${BIOSIM_DOMAIN}" \
