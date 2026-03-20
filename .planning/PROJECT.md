@@ -40,7 +40,7 @@ The 3D habitat visualization with live sensor data must feel real, responsive, a
 
 - [ ] Full cloud deployment: Django on Cloud Run, frontend on Firebase Hosting, BioSim on GCE VM, Cloud SQL database
 - [ ] Raspberry Pi with Atlas Scientific pH sensor posts data to cloud-hosted Django endpoint
-- [ ] Closed-loop control: real pH divergence triggers BioSim water recycling malfunctions (control loop on GCE VM)
+- [x] Closed-loop control: real pH divergence triggers BioSim water recycling malfunctions (control loop on GCE VM) — Validated in Phase 14
 - [ ] Real sensor data visible in 3D habitat alongside BioSim physics
 - [ ] NASA competition package: judge receives SD card + website URL, Pi plugs in and data flows
 
@@ -105,7 +105,7 @@ The 3D habitat visualization with live sensor data must feel real, responsive, a
 | Both paths: direct WS for live + Django ingest for history | Real-time 3D + proper data pipeline, most impressive architecture | ✓ Good — frontend WS + Django bridge both working |
 | Pi posts to Cloud Run Django endpoint (not local Docker) | NASA competition: judge has no Docker — everything in the cloud | — Pending |
 | BioSim + bridge + control loop on GCE VM | BioSim needs persistent VM (90s JVM boot, WebSocket connections) | — Pending |
-| Closed-loop: real pH drives BioSim malfunctions | Most impressive demo — real hardware influencing simulation | — Pending |
+| Closed-loop: real pH drives BioSim malfunctions | Most impressive demo — real hardware influencing simulation | ✓ Good — control_loop management command with hysteresis |
 
 ---
-*Last updated: 2026-03-18 after v3.0 milestone started*
+*Last updated: 2026-03-20 after Phase 14 complete*
