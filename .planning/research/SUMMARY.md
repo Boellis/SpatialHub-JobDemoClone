@@ -1,17 +1,17 @@
 # Project Research Summary
 
-**Project:** SpatialHub Mars Habitat Demo — Physical Sensor Integration (v3.0)
-**Domain:** IoT closed-loop control — real hardware driving a physics simulation
-**Researched:** 2026-03-18
+**Project:** SpatialHub v4.0 — Mars Habitat TV Dashboard
+**Domain:** Non-interactive 2.5D ambient TV dashboard layered onto existing React/R3F/Zustand IoT platform
+**Researched:** 2026-03-21
 **Confidence:** HIGH
 
 ## Executive Summary
 
-SpatialHub v3.0 is a closed-loop integration milestone: a Raspberry Pi running an Atlas Scientific EZO pH sensor must drive BioSim's physics simulation by triggering malfunctions when real sensor readings diverge from simulation proxies. This is not a data logging project — it is a digital twin that responds to physical reality. The architecture is a comparator loop, not a value injector: BioSim has no endpoint to receive external state; the only lever available is its malfunction API. The whole milestone narrative depends on the reviewer watching a causal chain — pH drifts, zone turns red, water recycling degrades — entirely driven by real hardware.
+This milestone adds a new `/tv` route to an already-shipped v3.0 application. The core data infrastructure (habitatStore, BioSim WebSocket pipeline, Pi sensor polling, Django Cloud Run backend) is complete and correct — v4.0 builds on it, never replaces it. The recommended approach is additive: one new page component, one new hook, five new TV-specific components, and a single npm install (`motion`). The existing R3F bundle, Zustand store, Recharts, and Sparkline components handle approximately 80% of what the TV dashboard needs.
 
-The recommended approach is deliberately minimal in new infrastructure. No new packages are needed on the Django side. The Pi client is a config-driven Python script using `requests` and `python-dotenv` that replaces the existing GCP-Pub/Sub-dependent `snyc_to_postgres.py`. The control service is a Django management command (identical pattern to the existing `biosim_bridge`) added as a new Docker Compose service. The frontend change is a secondary pH annotation in the Water Recycling zone panel, polled from the existing `/api/enriched/` endpoint. Every major component has a direct existing analog to follow.
+The architecture is a proven pattern already present in the codebase: a fixed Three.js `<Canvas>` as background (`z-index: 0`) with a DOM priority grid on top (`z-index: 1`), mirroring HabitatView's Canvas + HUD overlay structure. The critical algorithmic work is a `usePriorityRanking` hook that derives a criticality-sorted zone order with hysteresis debounce — without this, sensor noise near threshold boundaries causes continuous grid thrashing. The FLIP animation (`motion` package) is a P2 enhancement, not a P1 requirement; the grid must be solid before animation is bolted on.
 
-The key risks are all hardware setup concerns, not software design concerns. Two of them will silently corrupt every demo that has not addressed them: the Atlas EZO ships in UART mode (I2C shows nothing until manually switched), and the existing `AtlasI2C.py` truncates pH values above 9.999 due to a hard-coded 4-character slice. Both must be fixed before any code is written or tested. The third systemic risk is namespace collision between BioSim and Pi data in `enriched_sensor_data` — distinct `hub_id` values prevent this with zero migration.
+The top risks are all operational-mode hazards: R3F still running a raycaster on the TV canvas unless `events={null}` is set, Zustand cascading all-card re-renders unless per-zone selectors are used, GPU memory leaking over 8+ hour TV sessions unless Three.js objects are explicitly disposed, and BioSim reconnection failing in background-throttled browser contexts. Every one of these has a known, specific fix — they just must be applied proactively, not discovered after the fact.
 
 ---
 
@@ -19,149 +19,118 @@ The key risks are all hardware setup concerns, not software design concerns. Two
 
 ### Recommended Stack
 
-The stack for v3.0 adds exactly two new Pi-side packages and zero new Django packages. `requests==2.32.5` handles HTTP POST from the Pi; `python-dotenv==1.2.2` (or `1.0.1` for Pi OS Bullseye/Python 3.9) replaces hardcoded constants with a `.env` config file. On the Django side, the control loop reuses `aiohttp>=3.9` already in `requirements.txt`, following the exact `asyncio.run()` pattern established in `biosim_bridge.py`. No Celery, no MQTT, no Redis, no new Docker images.
+The v4.0 stack is the v3.0 stack plus one package. Everything else is already installed and validated in production. The only net-new dependency is `motion@^12.x` (Framer Motion rebranded, MIT license) for FLIP grid reorder animation. Import from `"motion/react"` — not `"framer-motion"`. React 19 officially supported in v12.
+
+Recharts (`^2.15.3`) handles per-zone live charts; disable `isAnimationActive` on `<Line>` after first mount to prevent animation-vs-data-tick collision (confirmed Recharts issue #5752). The parallax background reuses the existing R3F/Three.js bundle — second `<Canvas>` with no EffectComposer, no postprocessing.
 
 **Core technologies:**
-- `requests 2.32.5` (Pi): HTTP POST to Django — simpler and correct for a 5s polling loop on LAN; aiohttp adds complexity for zero gain
-- `python-dotenv 1.2.2` (Pi): replaces hardcoded GCP paths and hub IDs with a `.env` file that survives reboots and is version-controlled; use `1.0.1` on Pi OS Bullseye (Python 3.9)
-- `aiohttp >=3.9` (Django, already present): async HTTP client for BioSim malfunction POST/DELETE — same library, same pattern as the bridge
-- Django management command (built-in): runs the control loop in the existing Django image as a second Docker Compose service; no new Dockerfile, no broker, no task queue
-- `AtlasI2C.py` (existing, unchanged except for the 4-char strip bug fix): the I2C driver already works — do not wrap or replace it
-
-**What NOT to use:** `google-cloud-pubsub` on the Pi (the explicit v3.0 goal is eliminating this dependency), MQTT (adds a broker for a single producer/consumer at 5s intervals), WebSocket from Pi to Django (requires django-channels ASGI stack; HTTP POST at 5s intervals is trivially debuggable and already handled by DRF), or `AppConfig.ready()` threads for the control loop (fires in every Gunicorn worker — multiple control loops, duplicate malfunction POSTs).
+- `motion@^12.x` (NEW): FLIP animation for priority grid reordering — only library that handles CSS grid slot reassignment without manual transform math
+- `@react-three/fiber@9.5` (existing): Parallax background canvas — proven with `position: fixed` + `alpha: true` pattern already in this codebase
+- `zustand@5.0.11` (existing): Criticality sort selector via `selectZonesByPriority` — pure derivation, no store shape change
+- `recharts@^2.15.3` (existing): Per-zone live charts — disable `isAnimationActive` on live data updates
+- `three@0.183.2` (existing): Parallax geometry layers with `useFrame` sine-wave auto-drift
 
 ### Expected Features
 
-The milestone is well-scoped. Six features constitute the v3.0 launch set; four more are explicit v3.x polish; everything else is deferred indefinitely.
+**Must have (table stakes):**
+- Non-interactive root — `pointer-events: none` on the `/tv` route; zero click/hover/scroll handlers anywhere in the tree
+- Auto-sustaining data loop — `useSimSource` + `useLiveSensors` mounted on TV route; habitatStore ticks every 2s already
+- Glanceable typography — minimum 28px labels, 48px+ zone names; `clamp()` with `vw` units for TV viewport scaling
+- High-contrast status colors — solid borders/background washes, not subtle tints; green `#22c55e`, yellow `#eab308`, red `#ef4444`
+- Priority-driven grid — hero card (rank 1, 2-col span) + 3 secondary cards; algorithmic, not static
+- Live sensor readings per zone — big type, status-colored, top 2-3 sensors displayed
+- Habitat status summary bar — "ALL SYSTEMS NOMINAL" or worst-case alert, full-width, color-coded
+- Sol elapsed counter + connection source badge — mission narrative context, reuse existing store values
 
-**Must have (v3.0 table stakes):**
-- Hubcode rewrite — config-driven Pi client, no GCP dependency, direct `requests.post()` over WiFi
-- Django `SensorIngestView` at `POST /api/sensor-ingest/` — writes to existing `EnrichedSensorData` model, no migration
-- Control service (`ph_control_loop` management command) — reads latest real pH vs. BioSim proxy pH from DB every 10s, triggers `Grey_Water_Store` malfunction on divergence, auto-clears on recovery
-- Real pH visible in Water Recycling zone panel — secondary annotation, polled from `/api/enriched/?hub_id=pi-habitat-01` every 10s; no store or WebSocket changes
-- HUD badge `real-sensor` state — 5th `SimSource` state, one entry in `BADGE_CONFIG`, reuses existing `badgePulse` animation
-- Pi setup guide with `--test` validation flag — reproducibility is a portfolio credibility signal, not optional
+**Should have (differentiators):**
+- Criticality scoring algorithm — `(red_count * 10) + (yellow_count * 3)`, pure client-side function, no backend
+- Alert pulse animation on red cards — CSS `@keyframes` on card border; grabs attention without interaction
+- Per-zone sparklines — `Sparkline.tsx` exists; wire `SensorReading.history` array
+- FLIP reorder animation — zones slide into ranked positions on threshold crossing, debounced (P2, after grid validated)
+- Three.js parallax background — sine-wave auto-drift geometry layers, `clock.elapsedTime`, no mouse input (P2)
 
-**Should have (v3.x polish, add after P1 verified end-to-end):**
-- `LIVE HW` tag on the pH value in ZonePanel — visually distinguishes hardware from simulated readings
-- pH sparkline continuity — inject real readings into existing ring buffer via `appendRingBuffer` (already exported from `biosimMapper.ts`)
-- Control service decision logging — timestamped malfunction trigger/clear events to file
-- Auto-recovery DELETE malfunction — already designed into the control service; low effort once P1 is running
-
-**Defer indefinitely (v4+):**
-- Multiple sensor types (DO, EC, CO2) — weeks of work per sensor for marginal portfolio value; the architecture is extensible, state that explicitly
-- MQTT transport — production-realistic but adds a broker with no additional demo signal
-- Sensor calibration UI — Atlas calibration is a hardware CLI procedure; no web UI needed
+**Defer (v4.x+):**
+- Multiple TV layout presets (2-up, 4-up, single-zone focus)
+- Kiosk mode URL param (`?zone=water-recycling` locks single zone)
+- Second-screen split (TV overview + tablet drilldown — requires routing refactor)
 
 ### Architecture Approach
 
-The v3.0 architecture adds two new Docker Compose services (`control` and `SensorIngestView`) and one new component on the Pi, while leaving the entire existing v2.0 stack — BioSim WebSocket pipeline, `biosimMapper.ts`, `habitatStore.ts`, `useSimSource.ts`, `biosimWorker.ts`, the bridge service — completely untouched. The key architectural insight is using PostgreSQL as an integration bus: the Pi posts on its own 5s schedule, BioSim ticks at its own rate, and the control loop queries the stable `.latest()` snapshot from each source every 10s. This decoupling intentionally introduces ~10s latency, which prevents thrashing malfunctions on momentary sensor noise.
+v4.0 is a route swap with an isolated component tree. `App.tsx` changes one lazy-import line to point at `TvDashboardView` instead of `HabitatView`. All data infrastructure (habitatStore, useSimSource, useLiveSensors, BioSim/Pi pipelines) is unchanged. The new TV component tree lives entirely in `components/tv/` and `hooks/usePriorityRanking.ts` — no existing files are modified except the single-line `App.tsx` swap.
 
 **Major components:**
-1. `hub_client.py` (NEW, Pi) — config-driven YAML, reads Atlas I2C pH, POSTs to Django, SQLite buffer for offline resilience; replaces `basic_funcs.py` + `snyc_to_postgres.py` entirely
-2. `SensorIngestView` (NEW, Django) — 15-line DRF `APIView` POST that validates payload and writes one `EnrichedSensorData` row with `hub_id='pi-habitat-01'`; no serializer, no enrichment step needed because the Pi sends all metadata fields directly
-3. `ph_control_loop` management command (NEW, Django) — async management command, same `asyncio.run()` pattern as `biosim_bridge.py`; reads real pH vs. BioSim proxy pH from DB, POST/DELETE `Grey_Water_Store` malfunctions; runs as a separate `control` Docker service
-4. Water Recycling zone panel (MODIFIED, React) — adds a `useEffect`-based 10s polling fetch for `pi-habitat-01` readings; renders secondary "Real pH" annotation alongside existing BioSim sensor orb
-5. `docker-compose.yml` (MODIFIED) — adds `control` service; one-liner diff from the existing `bridge` service
-6. All other components (UNCHANGED) — BioSim WS pipeline, `biosimMapper.ts`, `habitatStore.ts`, `useSimSource.ts`, the bridge — zero changes required
-
-**Build order enforced by dependencies:** `SensorIngestView` first (testable with `curl` immediately, no hardware needed) → `hub_client.py` rewrite (develop against local Django) → `ph_control_loop` (smoke-test with manually inserted DB rows) → `control` Docker service (one-liner diff) → frontend real pH overlay → end-to-end test.
-
-**Critical architectural constraint:** BioSim has no state injection API. The closed loop must operate via the malfunction API (`POST/DELETE /api/simulation/{id}/modules/Grey_Water_Store/malfunctions`). Any design or plan mentioning "inject pH into BioSim" or "override BioSim water store" is architecturally wrong. The `wr-ph` sensor orb in the 3D scene must continue showing BioSim's physics output so that the visual response to the malfunction is observable.
+1. `TvDashboardView` (NEW page) — mounts data hooks, composes Canvas + grid; one-line `App.tsx` change activates it
+2. `ParallaxBackground` (NEW R3F) — 2 depth planes with `useFrame` sine drift; no EffectComposer, no OrbitControls, `events={null}` on Canvas
+3. `PriorityGrid` (NEW DOM) — CSS Grid driven by `usePriorityRanking` sorted array; maps index 0 to `HeroZoneCard`
+4. `HeroZoneCard` / `ZoneCard` (NEW) — TV-specific cards; each subscribes only to its own zone via `selectZone(zoneId)`
+5. `usePriorityRanking` (NEW hook) — derives criticality rank from store zones, applies 3-tick stability debounce before committing order change; lives in `hooks/` not in the store
 
 ### Critical Pitfalls
 
-1. **4-character pH strip bug in `AtlasI2C.py`** — `read_device_data()` slices `[0:4]`, silently truncating pH >= 10.0 (e.g., `10.14` becomes `10.1`). Replace with `stripped_response.strip('\x00').strip()` before casting to float. Fix before writing any hubcode. Unit test: parse `"7.312"`, `"10.14"`, `"14.00"` — all must return correct floats.
-
-2. **Atlas EZO ships in UART mode** — `i2cdetect -y 1` shows nothing at address 0x63 until PGND-TX jumper is installed and board is power-cycled. Setup guide Step 1: confirm solid blue LED; verify with `sudo i2cdetect -y 1`. Without this, the entire milestone fails and no software debugging will help.
-
-3. **I2C bus speed default 400 kHz causes intermittent sensor drop-off** — Atlas EZO is rated 10–100 kHz; at 400 kHz it drops off after 30–60 minutes with `IOError: [Errno 121] Remote I/O error` requiring physical power-cycle. Fix: `dtparam=i2c_arm_baudrate=10000` in `/boot/firmware/config.txt`. Low effort, high consequence if missing.
-
-4. **hub_id namespace collision between Pi and BioSim data** — if the Pi writes rows with `hub_id='biosim-habitat-01'`, data sources become indistinguishable, `/trends` returns a meaningless blend, and retroactive correction is painful. Fix: Pi uses `hub_id='pi-habitat-01'` and `sensor_id='wr-ph-real'` — set in config before any data is written.
-
-5. **Pi OS Bookworm blocks system-wide pip** — `pip install requests` fails with `externally-managed-environment` on Bookworm (current Pi OS default). Setup guide must document `python3 -m venv --system-site-packages ~/spatialhub-venv` as Step 1 of software installation.
+1. **R3F Canvas registers pointer events unconditionally** — pass `events={null}` to `<Canvas>`; remove `CameraController.tsx` entirely (not `enabled={false}` — that still registers listeners). No exceptions.
+2. **Zustand `tick()` cascades all-card re-renders** — each `ZoneCard` must subscribe via `selectZone(zoneId)`, not the full `zones` object; `PriorityGrid` subscribes only to ranked IDs with `shallow` comparator.
+3. **GPU memory leak over long sessions** — all Three.js objects in `useRef`; explicit `.dispose()` in `useEffect` cleanup; verify `renderer.info.memory.geometries` stays flat over 10 minutes in production build.
+4. **Priority ranking thrashes near threshold boundaries** — require 3 consecutive ticks of stability (`REORDER_STABILITY_TICKS = 3`) before committing new rank order; must be in initial design, not a later fix.
+5. **FLIP animation distorts card children during hero slot size change** — add `layout` prop to ALL direct children of animated `motion.div` containers (text, chart wrapper, status badge); use `layoutId` keyed to `zoneId`, never array index.
 
 ---
 
 ## Implications for Roadmap
 
-Based on the dependency graph in FEATURES.md and the build order in ARCHITECTURE.md, three phases are the natural structure for this milestone.
+The build order is dictated by hard dependencies: the ranking hook unlocks everything grid-related; the Canvas scaffold must address the raycaster pitfall before any rendering work begins; card components depend on both; FLIP animation is deliberately last; parallax is polish-only and ships last.
 
-### Phase 1: Hubcode Rewrite + Django Ingest Endpoint
+### Phase 1: Canvas Scaffold + Non-Interactive Foundation
 
-**Rationale:** This is the unlock for everything. Without a Pi successfully POSTing to Django, there is no real data, no control service comparison, no closed loop. The Django endpoint is standalone — testable with `curl` before any Pi hardware is involved — and its existence allows all subsequent phases to develop against real DB rows.
+**Rationale:** R3F event system misconfiguration is the highest-risk architectural mistake — it is invisible, costs performance, and becomes harder to fix once the full component tree is built. Establishing the correct Canvas setup (`events={null}`, no OrbitControls, no EffectComposer) as the first act removes this risk permanently. App.tsx route swap is a one-line change that can land here.
+**Delivers:** `TvDashboardView` shell, `ParallaxBackground` with sine-wave drift, confirmed non-interactive Canvas, App.tsx route swap, GPU memory baseline verified flat
+**Addresses:** Non-interactive requirement, auto-sustaining display loop
+**Avoids:** R3F pointer event raycasting (Pitfall 1), EffectComposer overhead (Pitfall 3), OrbitControls event listener leaks
 
-**Delivers:** Pi client (`hub_client.py`) that posts real Atlas I2C pH readings to Django over WiFi with no GCP dependency; Django `SensorIngestView` endpoint that writes readings to `enriched_sensor_data` with a distinct `hub_id`; Pi setup guide with hardware wiring, I2C config, venv setup, and `--test` validation command.
+### Phase 2: Priority Ranking Hook + Store Adaptation
 
-**Addresses features:** Hubcode rewrite, Django real sensor ingest endpoint, Pi setup guide, `--test` validation flag.
+**Rationale:** `usePriorityRanking` with debounce is the unlock for all grid layout work. The `scenarioAnnouncements` cap and TTL must be addressed before TV mode ships — the store was designed for interactive sessions (minutes, one human); TV mode runs 8+ hours unattended. Both are pure logic changes with no UI risk.
+**Delivers:** `usePriorityRanking` hook with 3-tick stability debounce, `scenarioAnnouncements` array length cap + TTL auto-dismiss, per-zone Zustand selector audit confirmed
+**Addresses:** Criticality scoring algorithm, grid data foundation
+**Avoids:** Priority thrashing (Pitfall 7), announcements array overflow (Pitfall 4), Zustand cascade re-renders (Pitfall 2)
 
-**Avoids pitfalls:**
-- Fix `AtlasI2C.py` 4-char strip bug before writing a single line of hubcode (Pitfall 1)
-- Document EZO UART→I2C mode switch as setup guide Step 1 (Pitfall 2)
-- Document `dtparam=i2c_arm_baudrate=10000` as required Pi config (Pitfall 3)
-- Delete `snyc_to_postgres.py` entirely; no GCP imports in new `requirements.txt` (Pitfall 5 from PITFALLS.md)
-- Document venv creation as setup guide Step 1 of software installation (Pitfall 6 from PITFALLS.md)
-- Use static IP for dev machine in Pi config and document before demo (Pitfall 7 from PITFALLS.md)
-- Set `hub_id='pi-habitat-01'` and `sensor_id='wr-ph-real'` from day one (Pitfall 4 above / Pitfall 8 from PITFALLS.md)
+### Phase 3: Zone Cards + Priority Grid (Static Layout)
 
-**Research flag:** Standard patterns — DRF APIView POST, requests HTTP client, python-dotenv config. Skip `/gsd:research-phase`.
+**Rationale:** Build the grid without FLIP animation first. Lock in typography, status colors, sparklines, sensor display, and hero vs secondary card sizing. This is the core TV dashboard deliverable — judges can evaluate it at this phase without any animation work.
+**Delivers:** `HeroZoneCard`, `ZoneCard`, `PriorityGrid` (CSS Grid, no animation yet), `ZoneSensorChart` (SVG, extends Sparkline), habitat status summary bar, Sol counter, connection badge, alert pulse CSS animation on red cards
+**Uses:** Recharts with disabled-animation pattern, `Sparkline.tsx` pattern, TV typography scale, high-contrast status colors, per-zone Zustand selectors from Phase 2
+**Implements:** Full static TV dashboard — all P1 features from FEATURES.md
 
----
+### Phase 4: FLIP Animation + Long-Session Resilience
 
-### Phase 2: Closed-Loop Control Service
+**Rationale:** Add Framer Motion FLIP only after the grid structure is validated. The child-distortion pitfall is a trap that is easy to miss until you witness it — it requires confirming `layout` on every card child element. Background throttling is a TV-specific concern that must be addressed before handing off for extended demo use.
+**Delivers:** `motion.div layout` on `PriorityGrid` items, `layoutId="zone-{id}"` shared-element transition for hero promotion, BioSim probe moved to Worker or `visibilitychange` handler added, GPU memory 10-minute stability verification in production build
+**Addresses:** FLIP reorder animation (P2 feature), long-session resilience
+**Avoids:** FLIP child distortion (Pitfall 5), background tab throttling (Pitfall 6), GPU leak over 8+ hours (Pitfall 3 — re-verify after all R3F work complete)
 
-**Rationale:** Depends on Phase 1 being live so there are real rows in `enriched_sensor_data` to query. The control loop can be smoke-tested by inserting fake `pi-habitat-01` rows manually — physical Pi hardware not required. The `control` Docker Compose service is a one-liner diff from the existing `bridge` service, which is the proven pattern.
+### Phase 5: Three.js Parallax Polish
 
-**Delivers:** Django management command (`ph_control_loop`) that reads latest real pH vs. BioSim proxy pH from DB every 10s, POSTs scaled malfunctions to `Grey_Water_Store` when divergence exceeds threshold, and DELETEs malfunction on recovery; `control` Docker service added to `docker-compose.yml`; intensity scaling (LOW/MEDIUM/SEVERE) based on divergence magnitude.
-
-**Addresses features:** Control service (pH divergence → BioSim malfunction), auto-recovery DELETE malfunction.
-
-**Uses:** `aiohttp` (already in `requirements.txt`), `asyncio.run()` pattern from `biosim_bridge.py`, BioSim malfunction API at `POST/DELETE http://biosim:8009/api/simulation/{id}/modules/Grey_Water_Store/malfunctions`.
-
-**Avoids pitfalls:**
-- Phase plan must state "malfunction trigger, not value injector" explicitly (PITFALLS.md Pitfall 4)
-- Query DB rows with recency guard (within last 2 ticks) to avoid comparing against stale BioSim bridge lag data
-- Run as separate Docker service, NOT as `AppConfig.ready()` thread, to avoid duplicate loops in multiple Gunicorn workers
-
-**Research flag:** BioSim malfunction API patterns are verified (HIGH confidence). `biosim_bridge.py` is the exact template. Skip `/gsd:research-phase`.
-
----
-
-### Phase 3: Frontend Real Sensor Visibility + HUD Badge
-
-**Rationale:** Can proceed in parallel with Phase 2 after Phase 1 is live, since it only requires `GET /api/enriched/?hub_id=pi-habitat-01` to return data. Grouped last because the full demo story — "pH drifts, zone turns red, LIVE HW badge is green" — only reads coherently once the control loop is wired. The frontend changes are intentionally minimal and localized.
-
-**Delivers:** Secondary "Real pH" annotation in Water Recycling zone panel polled every 10s from existing endpoint; new `real-sensor` SimSource state in `ConnectionBadge` that activates on first successful Pi reading poll; `LIVE HW` tag on the pH value in ZonePanel (P2 polish, add after P1 verified).
-
-**Addresses features:** Real pH visible in Water Recycling zone, HUD badge `real-sensor` state, `LIVE HW` tag on pH reading.
-
-**Implements:** Water Recycling zone panel modification (the one MODIFIED React component), `SimSource` type extension (one new string literal), `BADGE_CONFIG` map addition (one new entry) — all minimal, localized changes. Reuses existing `badgePulse` keyframe animation already in `ConnectionBadge.tsx`.
-
-**Avoids pitfalls:**
-- Do NOT replace `wr-ph` in `biosimMapper.ts` with the real reading — the BioSim physics proxy must remain as the primary sensor orb so the malfunction response is visible (Anti-Pattern 2 from ARCHITECTURE.md)
-- Real pH is a secondary annotation, not a replacement; both values displayed simultaneously
-- Use Option B (frontend polls `/api/enriched/` directly) — not Option A (bridge injection) — to keep real sensor display independent of BioSim availability
-
-**Research flag:** Standard React polling pattern (useEffect + fetch). Skip `/gsd:research-phase`.
-
----
+**Rationale:** Parallax is explicitly P2 — cosmetic enhancement only. Ships last, after all functionality is verified solid. Feature-flag with `?parallax=1` URL param to keep it out of the default TV view until reviewed and signed off.
+**Delivers:** `ParallaxBackground` with final tuned layers (opacity, drift amplitude, Mars color palette `#c0501a`), feature flag, visual QA at 1920x1080 full-screen
+**Addresses:** Three.js parallax background (P2 differentiator)
 
 ### Phase Ordering Rationale
 
-- **Phases 1 and 2 are sequentially dependent**: the control service reads from `enriched_sensor_data`; rows must exist before the loop has anything to compare. Phase 1 delivers the data; Phase 2 consumes it.
-- **Phase 3 can proceed in parallel with Phase 2**: both depend on Phase 1 producing data; neither depends on the other. In practice, Phase 2 is more complex and should be the primary focus after Phase 1.
-- **Hardware setup can proceed in parallel with all phases**: Pi hardware testing (`i2cdetect`, UART→I2C switch, baud rate config) is independent of the Django stack work and can run on a physical Pi concurrently.
-- **The build order within phases is dictated by testability**: write the Django endpoint first (testable with `curl`), then the Pi client (testable against the running endpoint), then the control loop (testable with manually inserted DB rows).
+- Canvas must come first because `events={null}` + no-OrbitControls is a foundation constraint, not an addendum
+- Priority hook before grid because the grid's re-render strategy (per-zone selectors vs. full zones) is determined by how it consumes ranking output
+- Static grid before animated grid because animation bugs are easier to isolate when layout is already correct
+- FLIP before parallax because FLIP changes card sizing logic that parallax layers behind
+- GPU disposal audit spans phases 1 and 4 — verify at scaffold, re-verify after all R3F work is complete
 
 ### Research Flags
 
 Phases needing deeper research during planning:
-- **None.** All three phases use well-documented, established patterns. The BioSim malfunction API is verified from source. The DRF POST pattern is standard. The React polling pattern has no unknowns.
+- **Phase 4 (FLIP + Long-Session):** BioSim Worker probe refactor is a non-trivial change to `useSimSource.ts` — requires understanding the current Worker message protocol before estimating scope. Inspect `biosimWorker.ts` message format before speccing this work.
 
 Phases with standard patterns (skip `/gsd:research-phase`):
-- **Phase 1:** requests HTTP client + python-dotenv config — canonical IoT REST client pattern
-- **Phase 2:** asyncio management command + BioSim malfunction API — existing bridge is the exact template
-- **Phase 3:** React useEffect polling + Zustand SimSource extension — the `BADGE_CONFIG` pattern is already in the codebase
+- **Phase 1:** Canvas layering pattern is already proven in HabitatView; `events={null}` is documented R3F API; no unknowns
+- **Phase 2:** Pure JS logic (array cap, debounce tick counter); no external API surface; no dependencies
+- **Phase 3:** CSS Grid + Zustand selectors + SVG charts — all established patterns with direct codebase precedents
+- **Phase 5:** Parallax config is tuning, not architecture; spec loosely and iterate visually
 
 ---
 
@@ -169,42 +138,45 @@ Phases with standard patterns (skip `/gsd:research-phase`):
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All versions verified via PyPI; aiohttp/DRF patterns confirmed against repo source; BioSim malfunction API confirmed against `configuration/default.biosim` and README; no `WaterRS` in default config confirmed (use `Grey_Water_Store`) |
-| Features | HIGH | Integration surface derived from direct codebase analysis; anti-features well-reasoned; MEDIUM confidence only on closed-loop UX conventions (no canonical portfolio standard exists — reasoned from hiring feedback patterns) |
-| Architecture | HIGH | All findings derived from direct source code reads with file paths and line numbers; zero guesswork; build order validated against component dependencies; all existing file paths confirmed |
-| Pitfalls | HIGH | Pitfalls 1, 5, and 8 confirmed via direct code analysis with line numbers; hardware pitfalls 2, 3, 6 confirmed via Atlas Scientific datasheets and Raspberry Pi Forums; Pitfall 4 confirmed via BioSim GitHub (no state injection endpoint exists) |
+| Stack | HIGH | All decisions verified against official docs and existing production codebase; `motion@12.x` React 19 support confirmed via official upgrade guide; no speculative choices |
+| Features | HIGH | TV dashboard UX is a mature domain (Geckoboard, NOC display conventions); all integration points confirmed by direct codebase inspection; anti-features well-reasoned against real constraints |
+| Architecture | HIGH | All findings from direct codebase inspection with explicit file paths; Canvas+overlay pattern already proven in HabitatView.tsx; build order derived from explicit dependency graph |
+| Pitfalls | HIGH | All 7 critical pitfalls grounded in specific codebase evidence and upstream bug tracker references (Three.js #19917, #28355, Recharts #5752); no theoretical risks included |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **pH divergence threshold tuning**: the control service uses `DIVERGENCE_THRESHOLD = 0.5` pH units as a starting value. This must be validated against the actual sensor noise floor on the physical Pi before the demo. A probe in still water typically drifts ±0.02–0.05 pH units; 0.5 gives 10x headroom. If the BioSim proxy `wr-ph` range is narrow (6.0–7.5 per the `biosim_ingest.py` formula), thresholds below 0.5 may thrash malfunctions. Validate during Phase 2 integration testing.
-- **simID stability on BioSim restart**: the architecture doc recommends probing BioSim `GET /api/simulation` fresh each control loop cycle to handle restarts. Confirm this is the actual behavior of the BioSim API (does it return the same simID after restart or a new one?). Low risk for a demo; document the restart sequence in the setup guide.
-- **Offline buffer scope decision**: ARCHITECTURE.md recommends SQLite buffering for Pi offline resilience, but FEATURES.md notes that direct LAN POST failure is immediately detectable and the buffer adds complexity. Phase 1 planning must make a final call: either include basic SQLite buffering (the existing pattern already demonstrates this) or log failures to a flat file only.
+- **`motion` version pinning:** Pin to `motion@12.38.x` rather than `^12.x` for production build stability — React 19 concurrent feature behavior under `^` range is not stress-tested.
+- **BioSim Worker probe refactor scope:** Moving the probe fetch into `biosimWorker.ts` requires understanding the current Worker message protocol. Inspect `biosimWorker.ts` during Phase 4 planning before estimating scope.
+- **TV viewport resolution:** Research assumes 1920×1080. If wall-mounted display runs 4K, `clamp()` vw-based sizing may produce oversized typography. Verify actual TV resolution before final CSS values are locked in Phase 3.
 
 ---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- Direct codebase analysis: `hubcode/AtlasI2C.py` (4-char strip bug, lines 150–151), `hubcode/snyc_to_postgres.py` (GCP hard-coding, lines 7–9), `django_backend/sensor_data/views.py`, `django_backend/sensor_data/models.py`, `django_backend/sensor_data/biosim_ingest.py` (hub_id namespace, `wr-ph` proxy formula, line 134), `django_backend/sensor_data/management/commands/biosim_bridge.py`, `spatialhub-frontend/src/simulation/biosimMapper.ts`, `spatialhub-frontend/src/workers/biosimWorker.ts`, `spatialhub-frontend/src/hooks/useSimSource.ts`, `spatialhub-frontend/src/components/habitat/ConnectionBadge.tsx`, `spatialhub-frontend/src/store/habitatStore.ts`, `docker-compose.yml`
-- [BioSim default.biosim config](https://raw.githubusercontent.com/scottbell/biosim/main/configuration/default.biosim) — confirmed `Grey_Water_Store` module name; no `WaterRS` in default config
-- [BioSim GitHub README](https://github.com/scottbell/biosim) — malfunction API endpoint pattern, intensity/duration values confirmed
-- [PyPI requests 2.32.5](https://pypi.org/project/requests/) — current stable, Python >=3.9
-- [PyPI python-dotenv 1.2.2](https://pypi.org/project/python-dotenv/) — current stable, Python >=3.10; use 1.0.1 for Python 3.9
-- [PyPI aiohttp 3.13.3](https://pypi.org/project/aiohttp/) — current stable as of January 2026
-- [Atlas Scientific pH EZO Datasheet](https://files.atlas-scientific.com/pH_EZO_Datasheet.pdf) — I2C timing specs, 10–100 kHz operating range
-- [Django REST Framework CSRF docs](https://www.django-rest-framework.org/api-guide/authentication/#sessionauthentication) — APIView CSRF exemption confirmed for non-session auth
+- Direct codebase inspection: `HabitatView.tsx`, `habitatStore.ts`, `useSimSource.ts`, `Sparkline.tsx`, `App.tsx`, `constants.ts`, `biosimMapper.ts`, `engine.ts`, `habitatStore.ts`, `useLiveSensors.ts`
+- [Motion layout animations docs](https://motion.dev/docs/react-layout-animations) — `layout` prop FLIP, `layoutId` shared-element, React 19 support
+- [Motion upgrade guide](https://motion.dev/docs/react-upgrade-guide) — `"motion/react"` import path, framer-motion compatibility
+- [R3F Canvas docs](https://r3f.docs.pmnd.rs/api/canvas) — `events` prop, `style` prop positioning
+- [Recharts issue #5752](https://github.com/recharts/recharts/issues/5752) — `isAnimationActive={false}` workaround for live data confirmed
+- [Three.js issue #19917](https://github.com/mrdoob/three.js/issues/19917) — OrbitControls `enabled=false` does not remove event listeners
+- [Three.js issue #28355](https://github.com/mrdoob/three.js/issues/28355) — WebGLProgram leak on scene recreation
 
 ### Secondary (MEDIUM confidence)
-- [Raspberry Pi Forums: Atlas Scientific I2C issues](https://forums.raspberrypi.com/viewtopic.php?t=304760) — UART vs I2C mode confusion, community-confirmed
-- [Raspberry Pi Forums: Bookworm Python pip blocked](https://forums.raspberrypi.com/viewtopic.php?t=358063) — PEP 668 enforcement, venv workaround
-- [Pimoroni: Python venv on Bookworm](https://pimoroni.github.io/venv-python/) — `--system-site-packages` pattern
-- WebSearch (IoT portfolio norms): causal chain visibility, "minimal done well > broad done poorly," reproducibility as credibility signal
+- [Geckoboard TV dashboard guide](https://www.geckoboard.com/best-practice/tv-dashboards/) — non-interactive requirements, ambient display conventions
+- [AlertOps NOC dashboard examples](https://alertops.com/noc-dashboard-examples/) — priority and incident surfacing patterns
+- [Smashing Magazine — Designing For TV (2025)](https://www.smashingmagazine.com/2025/09/designing-tv-principles-patterns-practical-guidance/) — 10-foot UI minimum font sizes
+- [MDN Page Visibility API](https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API) — timer throttling in backgrounded tabs
+- [Three.js discourse — WebGL memory management](https://discourse.threejs.org/t/webgl-memory-management-puzzlers/24583)
+- [Maxime Heckel — Framer Motion layout animations](https://blog.maximeheckel.com/posts/framer-motion-layout-animations/) — child scale distortion documented
 
-### Tertiary (LOW confidence)
-- Hiring feedback patterns (inferred): closed-loop architecture distinguishes "IoT homework" from "digital twin"; `--test` flag signals production-readiness thinking — reasonable inference, not citable
+### Tertiary (MEDIUM confidence)
+- [R3F discussions #2923](https://github.com/pmndrs/react-three-fiber/discussions/2923) — canvas parallax approach confirmed viable
+- [Codrops — Animating Grid with GSAP FLIP (Jan 2026)](https://tympanus.net/codrops/2026/01/20/animating-responsive-grid-layout-transitions-with-gsap-flip/) — FLIP grid reorder in production
+- [InfluxData — Recharts + IoT Sensor Time Series](https://www.influxdata.com/blog/recharts-influxdb-tutorial-visualize-iot-sensor-data-reactjs/) — IoT charting update interval patterns
 
 ---
-*Research completed: 2026-03-18*
+*Research completed: 2026-03-21*
 *Ready for roadmap: yes*
