@@ -44,7 +44,19 @@ The 3D habitat visualization with live sensor data must feel real, responsive, a
 
 ### Active
 
-(No active milestone — v3.0 shipped)
+## Current Milestone: v4.0 Mars Habitat Revamp
+
+**Goal:** Replace the interactive 3D habitat with a non-interactive 2.5D ambient dashboard designed for wall-mounted TV displays — priority-driven grid layout with live charts, Three.js parallax depth, and algorithmic zone reordering based on criticality.
+
+**Target features:**
+- Flat grid dashboard replacing the current `/habitat` 3D scene
+- Hero slot for most critical zone (large), remaining zones ranked smaller
+- Live sensor charts per zone with real-time data
+- Algorithmic priority ranking — zones auto-reorder based on criticality thresholds
+- Smooth transitions when zone priority shifts
+- Three.js parallax depth effects (ambient auto-drift, not mouse-driven)
+- Non-interactive: no click, hover, or touch — TV display only
+- Glanceable from across the room (large typography, high contrast)
 
 ## Shipped Milestones
 
@@ -112,4 +124,4 @@ The 3D habitat visualization with live sensor data must feel real, responsive, a
 | Closed-loop: real pH drives BioSim malfunctions | Most impressive demo — real hardware influencing simulation | ✓ Good — control_loop management command with hysteresis |
 
 ---
-*Last updated: 2026-03-20 — v3.0 Physical Sensor Integration shipped*
+*Last updated: 2026-03-21 after v4.0 Mars Habitat Revamp milestone started*

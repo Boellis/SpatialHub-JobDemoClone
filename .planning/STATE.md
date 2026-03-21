@@ -1,29 +1,32 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.0
-milestone_name: Physical Sensor Integration
-status: shipped
-stopped_at: "Milestone v3.0 archived"
-last_updated: "2026-03-21T20:55:00.000Z"
+milestone: v4.0
+milestone_name: Mars Habitat Revamp
+status: defining_requirements
+stopped_at: null
+last_updated: "2026-03-21T21:00:00.000Z"
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 11
-  completed_plans: 11
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-20)
+See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** 3D habitat visualization with live sensor data that feels real, responsive, and impressive enough to make someone say "this could actually run a Mars greenhouse."
-**Current focus:** Planning next milestone
+**Current focus:** Defining requirements for v4.0
 
 ## Current Position
 
-Milestone v3.0 shipped 2026-03-20. No active milestone.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-21 — Milestone v4.0 started
 
 ## Accumulated Context
 
@@ -37,10 +40,10 @@ None.
 
 ### Blockers/Concerns
 
-None active. All v3.0 blockers resolved or documented in COMPETITION_GUIDE.md.
+None active.
 
 ## Session Continuity
 
 Last session: 2026-03-21
-Stopped at: Milestone v3.0 archived
+Stopped at: Milestone v4.0 started — defining requirements
 Resume file: None
