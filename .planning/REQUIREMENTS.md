@@ -62,23 +62,23 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LAYOUT-01 | — | Pending |
-| LAYOUT-02 | — | Pending |
-| LAYOUT-03 | — | Pending |
-| LAYOUT-04 | — | Pending |
-| DATA-01 | — | Pending |
-| DATA-02 | — | Pending |
-| DATA-03 | — | Pending |
-| DATA-04 | — | Pending |
-| STAT-01 | — | Pending |
-| STAT-02 | — | Pending |
-| VIS-01 | — | Pending |
+| LAYOUT-01 | Phase 17 | Pending |
+| LAYOUT-03 | Phase 17 | Pending |
+| LAYOUT-02 | Phase 18 | Pending |
+| DATA-01 | Phase 18 | Pending |
+| DATA-02 | Phase 18 | Pending |
+| DATA-03 | Phase 18 | Pending |
+| DATA-04 | Phase 18 | Pending |
+| STAT-01 | Phase 18 | Pending |
+| STAT-02 | Phase 18 | Pending |
+| LAYOUT-04 | Phase 19 | Pending |
+| VIS-01 | Phase 20 | Pending |
 
 **Coverage:**
 - v4.0 requirements: 11 total
-- Mapped to phases: 0
-- Unmapped: 11
+- Mapped to phases: 11
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-21*
-*Last updated: 2026-03-21 after initial definition*
+*Last updated: 2026-03-21 — traceability updated after roadmap creation*
