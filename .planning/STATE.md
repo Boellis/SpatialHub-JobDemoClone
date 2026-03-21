@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Physical Sensor Integration
-status: unknown
-stopped_at: Completed 16-competition-package/16-01-PLAN.md
-last_updated: "2026-03-20T19:04:30.974Z"
+status: shipped
+stopped_at: "Milestone v3.0 archived"
+last_updated: "2026-03-21T20:55:00.000Z"
 progress:
   total_phases: 7
   completed_phases: 7
@@ -16,55 +16,20 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-18)
+See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** 3D habitat visualization with live sensor data that feels real, responsive, and impressive enough to make someone say "this could actually run a Mars greenhouse."
-**Current focus:** Phase 16 — Competition Package
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 16 (Competition Package) — EXECUTING
-Plan: 1 of 1
+Milestone v3.0 shipped 2026-03-20. No active milestone.
 
 ## Accumulated Context
 
 ### Decisions
 
-See PROJECT.md Key Decisions table for full v1.0/v2.0 log.
-
-Key v3.0 architectural decisions:
-
-- **[PIVOTED 2026-03-18]** Cloud deployment for NASA competition — judge gets SD card + website URL, no local Docker
-- Pi posts to Cloud Run Django endpoint (SensorIngestView) over WiFi — hub_client.py from Phase 10 reused, just different URL
-- BioSim + biosim_bridge + control_loop run on GCE VM in GCP project `interviewing-457222`
-- Django API on Cloud Run, frontend on Firebase Hosting, database on Cloud SQL
-- Closed loop operates via BioSim malfunction API (POST/DELETE `Grey_Water_Store`) — BioSim has no state injection endpoint
-- Control service is a Django management command running on the GCE VM alongside BioSim (reads Cloud SQL, posts malfunctions locally)
-- Pi uses `hub_id='pi-habitat-01'` and `sensor_id='wr-ph-real'` — set in config before any data is written to avoid namespace collision
-- Real pH is a secondary annotation in ZonePanel (not a replacement for BioSim `wr-ph` sensor orb)
-- Frontend polls `/api/enriched/?hub_id=pi-habitat-01` via Cloud Run API for real sensor display
-- [Phase 10-django-ingest-hubcode-rewrite]: atlas_i2c.py: MSB glitch handling inlined into read_value(), detect_devices() is static, no Python 2 compat
-- [Phase 10-django-ingest-hubcode-rewrite]: hub_client.py: sync_readings sends batch list, prunes only on 201, timezone-aware UTC datetime
-- [Phase 10-01]: Validate entire batch before touching DB — all-or-nothing; any invalid item rejects the whole POST
-- [Phase 10-01]: pubsub_v1 import made optional (try/except) so views.py loads in local test env without GCP SDK
-- [Phase 10-django-ingest-hubcode-rewrite]: Integration verification (plan 03): Wave 1 plans 01+02 connect correctly — 72 tests green, curl confirms all contract truths, user approved Phase 10 as complete
-- [Phase 11-cloud-services-deployment]: DB_HOST and DB_PASS have no fallback — fail loudly if env vars absent in production
-- [Phase 11-cloud-services-deployment]: api.ts BASE_URL fallback is localhost:8000/api — VITE_API_URL required at build time for production
-- [Phase 11-cloud-services-deployment]: CSRF_TRUSTED_ORIGINS uses *.run.app wildcard to cover any Cloud Run service URL
-- [Phase 12-biosim-vm-deployment]: bridge VM compose uses explicit environment block (not env_file) with BIOSIM_URL=http://biosim:8009 and USE_SQLITE=0 hardcoded
-- [Phase 12-biosim-vm-deployment]: deploy.sh BioSim readiness poll is 40 x 3s = 120s max; Section 15 frontend rebuild runs only AFTER BioSim confirms live
-- [Phase 12-biosim-vm-deployment]: Caddy with sslip.io resolves mixed-content HTTPS/WebSocket block for Firebase->GCE VM connection
-- [Phase 12-biosim-vm-deployment]: useLiveSensors is additive annotation layer on BioSim ticks — Pi data tags readings as source='pi' for LIVE badge rendering
-- [Phase 12-biosim-vm-deployment]: teardown.sh --stop (cost management) vs --delete (full cleanup) modes for VM lifecycle
-- [Phase 13-pi-to-cloud-pipeline]: PI_HUB_ID exported (not just const) so vitest can import and assert regression guard
-- [Phase 13-pi-to-cloud-pipeline]: hubcode/.env.example Cloud Run URL uncommented as default — competition deployment over local dev
-- [Phase 14-closed-loop-control-service]: Hysteresis recovery threshold is PH_THRESHOLD - 0.1 (0.4 when default 0.5) confirmed
-- [Phase 14-closed-loop-control-service]: probe_sim_id returns None instead of raising -- control_loop retries with exponential backoff
-- [Phase 15-frontend-real-sensor-visibility]: biosim-real preserves biosimMalfunctionIds — triggerAnomaly/cancelAnomaly work in upgraded badge state
-- [Phase 15-frontend-real-sensor-visibility]: Staleness check runs at poll START to catch empty-response stale case (not just on failure)
-- [Phase 15-frontend-real-sensor-visibility]: Teal color #00ffcc for biosim-real badge matches LIVE badge in ZonePanel (design consistency)
-- [Phase 16-competition-package]: systemd hubclient.service over cron @reboot for auto-start -- restart policy and status visibility
-- [Phase 16-competition-package]: PGND-TX I2C mode switch as first hardware step -- most common failure mode, must precede all other hardware
+See PROJECT.md Key Decisions table for full log across all milestones.
 
 ### Pending Todos
 
@@ -72,21 +37,10 @@ None.
 
 ### Blockers/Concerns
 
-- Atlas EZO ships in UART mode — I2C shows nothing until PGND-TX jumper is installed and power-cycled; document as Setup Guide Step 1
-- [RESOLVED Phase 10-02] AtlasI2C.py 4-char truncation bug fixed in atlas_i2c.py — no [0:4] slice, full float precision
-- I2C baud rate must be set to 10000 Hz in `/boot/firmware/config.txt` — default 400 kHz causes drop-off after 30-60 min
-- pH divergence threshold (default 0.5 units) must be validated against actual sensor noise floor on physical Pi during Phase 14
-- BioSim GCE VM needs firewall rules for ports 8009 (BioSim REST/WS) and 9091 (Open MCT)
-- Frontend BIOSIM_BASE_URL must point to GCE VM public IP (not localhost) for Firebase deployment
-- Cloud SQL connection from GCE VM: biosim_bridge and control_loop need Cloud SQL Proxy or public IP with SSL
-- [Phase 11] GCP project changed to nasa-comp-demo (nick@demarily.dev) — interviewing-457222 had IAM issues
-- [Phase 11] Cloud Run URL: https://spatialhub-backend-4vovlomqfa-uc.a.run.app
-- [Phase 11] Cloud SQL IP: 34.30.238.232 (authorized-networks=0.0.0.0/0)
-- [Phase 11] Firebase Hosting: https://nasa-comp-demo.web.app
+None active. All v3.0 blockers resolved or documented in COMPETITION_GUIDE.md.
 
 ## Session Continuity
 
-Last session: 2026-03-20T18:58:32.914Z
-Stopped at: Completed 16-competition-package/16-01-PLAN.md
+Last session: 2026-03-21
+Stopped at: Milestone v3.0 archived
 Resume file: None
-Note: Phase 11 discuss-phase captured partial decisions (divergence logic, recovery, stale data, logging) before pivot — revisit during Phase 14 planning
