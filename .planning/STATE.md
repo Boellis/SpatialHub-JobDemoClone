@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Mars Habitat Revamp
 status: unknown
-stopped_at: Phase 19 context gathered
-last_updated: "2026-03-22T14:07:12.910Z"
+stopped_at: Completed 19-01-PLAN.md
+last_updated: "2026-03-22T14:32:43.787Z"
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 7
+  completed_plans: 6
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** TV ambient dashboard where zone criticality drives visual hierarchy — most critical zone dominates the screen, judges see real data without touching anything.
-**Current focus:** Phase 18 — zone-cards-static-grid
+**Current focus:** Phase 19 — flip-animation-long-session-resilience
 
 ## Current Position
 
-Phase: 18 (zone-cards-static-grid) — EXECUTING
-Plan: 2 of 3
+Phase: 19 (flip-animation-long-session-resilience) — EXECUTING
+Plan: 1 of 2
 
 ## Performance Metrics
 
@@ -46,6 +46,7 @@ Plan: 2 of 3
 | Phase 18 P01 | 12min | 2 tasks | 6 files |
 | Phase 18 P02 | 4min | 2 tasks | 6 files |
 | Phase 18 P03 | 5min | 1 tasks | 1 files |
+| Phase 19 P01 | 223s | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -69,6 +70,9 @@ Recent decisions affecting v4.0:
 - [Phase 18]: Sensor values display to 1 decimal (.toFixed(1)) — floating point precision beyond 1 decimal is noise on ambient TV display
 - [Phase 18]: Sensor row: label stacked above value (left), sparkline+dot (right) — reduces horizontal eye travel on wide screens; mirrors instrument panel conventions
 - [Phase 18]: Zone name minimum 16px bold #e2e5ed — 12px was unreadable at TV viewing distance; 16px is practical floor for 3m glanceable ambient displays
+- [Phase 19]: layout (full) not layout=position on motion.div wrappers — hero/secondary size change must animate, not snap
+- [Phase 19]: LayoutGroup scoped to PriorityGrid only — placing it in TvDashboardView would contaminate cross-tree motion elements
+- [Phase 19]: ZoneCard style prop removed — positioning on motion.div wrapper in PriorityGrid for correct FLIP behavior
 
 ### Pending Todos
 
@@ -80,6 +84,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T14:07:12.897Z
-Stopped at: Phase 19 context gathered
-Resume file: .planning/phases/19-flip-animation-long-session-resilience/19-CONTEXT.md
+Last session: 2026-03-22T14:32:43.773Z
+Stopped at: Completed 19-01-PLAN.md
+Resume file: None

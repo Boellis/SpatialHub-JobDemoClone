@@ -195,5 +195,5 @@ Plans:
 | 16. Competition Package | v3.0 | 1/1 | Complete | 2026-03-20 |
 | 17. TV Scaffold + Priority Foundation | v4.0 | 2/2 | Complete | 2026-03-22 |
 | 18. Zone Cards + Static Grid | 3/3 | Complete    | 2026-03-22 | - |
-| 19. FLIP Animation + Long-Session Resilience | v4.0 | 0/2 | Not started | - |
+| 19. FLIP Animation + Long-Session Resilience | 1/2 | In Progress|  | - |
 | 20. Parallax Polish | v4.0 | 0/? | Not started | - |

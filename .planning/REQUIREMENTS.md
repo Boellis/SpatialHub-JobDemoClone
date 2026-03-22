@@ -12,7 +12,7 @@ Requirements for the ambient TV dashboard milestone. Each maps to roadmap phases
 - [x] **LAYOUT-01**: Dashboard replaces `/habitat` as a non-interactive full-viewport TV display (zero click/hover/touch)
 - [x] **LAYOUT-02**: Priority grid with hero slot (large, 2-col span) for most critical zone + 3 smaller secondary cards
 - [x] **LAYOUT-03**: Criticality scoring algorithm ranks zones by `(red_count * 10) + (yellow_count * 3)` with stable tie-breaking
-- [ ] **LAYOUT-04**: Zones animate into ranked positions via FLIP when criticality threshold crossings occur (10s debounce)
+- [x] **LAYOUT-04**: Zones animate into ranked positions via FLIP when criticality threshold crossings occur (10s debounce)
 
 ### Data Display
 
@@ -71,7 +71,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DATA-04 | Phase 18 | Complete |
 | STAT-01 | Phase 18 | Complete |
 | STAT-02 | Phase 18 | Complete |
-| LAYOUT-04 | Phase 19 | Pending |
+| LAYOUT-04 | Phase 19 | Complete |
 | VIS-01 | Phase 20 | Pending |
 
 **Coverage:**
