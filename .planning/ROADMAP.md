@@ -190,6 +190,6 @@ Plans:
 | 15. Frontend Real Sensor Visibility | v3.0 | 1/1 | Complete | 2026-03-20 |
 | 16. Competition Package | v3.0 | 1/1 | Complete | 2026-03-20 |
 | 17. TV Scaffold + Priority Foundation | v4.0 | 2/2 | Complete | 2026-03-22 |
-| 18. Zone Cards + Static Grid | v4.0 | 0/3 | Not started | - |
+| 18. Zone Cards + Static Grid | 1/3 | In Progress|  | - |
 | 19. FLIP Animation + Long-Session Resilience | v4.0 | 0/? | Not started | - |
 | 20. Parallax Polish | v4.0 | 0/? | Not started | - |

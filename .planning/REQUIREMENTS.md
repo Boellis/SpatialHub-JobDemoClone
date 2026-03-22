@@ -17,13 +17,13 @@ Requirements for the ambient TV dashboard milestone. Each maps to roadmap phases
 ### Data Display
 
 - [ ] **DATA-01**: Each zone card shows live sensor values with TV-safe typography (48px+ primary, 24px+ labels)
-- [ ] **DATA-02**: Each zone card includes sparkline chart of primary sensor's 60-point history
-- [ ] **DATA-03**: Sol elapsed counter displayed prominently in HUD
-- [ ] **DATA-04**: Connection source badge shows active data source (BioSim / Pi Sensor / Client Sim)
+- [x] **DATA-02**: Each zone card includes sparkline chart of primary sensor's 60-point history
+- [x] **DATA-03**: Sol elapsed counter displayed prominently in HUD
+- [x] **DATA-04**: Connection source badge shows active data source (BioSim / Pi Sensor / Client Sim)
 
 ### Status
 
-- [ ] **STAT-01**: Full-width status summary bar derives worst-case zone status ("ALL NOMINAL" or specific alert message)
+- [x] **STAT-01**: Full-width status summary bar derives worst-case zone status ("ALL NOMINAL" or specific alert message)
 - [ ] **STAT-02**: Red-status zone cards pulse with animated border/glow to signal critical conditions
 
 ### Visual
@@ -66,10 +66,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LAYOUT-03 | Phase 17 | Complete |
 | LAYOUT-02 | Phase 18 | Pending |
 | DATA-01 | Phase 18 | Pending |
-| DATA-02 | Phase 18 | Pending |
-| DATA-03 | Phase 18 | Pending |
-| DATA-04 | Phase 18 | Pending |
-| STAT-01 | Phase 18 | Pending |
+| DATA-02 | Phase 18 | Complete |
+| DATA-03 | Phase 18 | Complete |
+| DATA-04 | Phase 18 | Complete |
+| STAT-01 | Phase 18 | Complete |
 | STAT-02 | Phase 18 | Pending |
 | LAYOUT-04 | Phase 19 | Pending |
 | VIS-01 | Phase 20 | Pending |

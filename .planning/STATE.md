@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Mars Habitat Revamp
 status: unknown
-stopped_at: Phase 18 UI-SPEC approved
-last_updated: "2026-03-22T12:06:09.818Z"
+stopped_at: Completed 18-01-PLAN.md
+last_updated: "2026-03-22T12:28:19.318Z"
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 5
+  completed_plans: 3
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** TV ambient dashboard where zone criticality drives visual hierarchy — most critical zone dominates the screen, judges see real data without touching anything.
-**Current focus:** Phase 17 — tv-scaffold-priority-foundation
+**Current focus:** Phase 18 — zone-cards-static-grid
 
 ## Current Position
 
-Phase: 17 (tv-scaffold-priority-foundation) — CHECKPOINT (human-verify pending)
-Plan: 2 of 2
+Phase: 18 (zone-cards-static-grid) — EXECUTING
+Plan: 1 of 3
 
 ## Performance Metrics
 
@@ -43,6 +43,7 @@ Plan: 2 of 2
 *Updated after each plan completion*
 | Phase 17 P01 | 156s | 1 tasks | 2 files |
 | Phase 17 P02 | 3min | 1 tasks | 4 files |
+| Phase 18 P01 | 12min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -57,6 +58,9 @@ Recent decisions affecting v4.0:
 - [Phase 17]: Test object identity: each simulated tick provides new zones reference so useEffect dep fires — matches real Zustand behavior
 - [Phase 17-02]: R3F events=null cast: `null as unknown as undefined` satisfies TypeScript while preserving null at runtime — raycaster disabled
 - [Phase 17-02]: scoreZone duplicated locally in TvDashboardView (not exported from usePriorityRanking) — dev debug duplication acceptable, removed Phase 18
+- [Phase 18-01]: biosimMapper ring buffer test loop fixed from 50 to 80 iterations to correctly exercise cap of 60
+- [Phase 18-01]: StatusBar uses three separate useHabitatStore granular selectors matching PERF-02 pattern from ConnectionBadge
+- [Phase 18-01]: TV constants extracted to src/components/tv/constants.ts; HabitatHUD and ConnectionBadge retain their own copies
 
 ### Pending Todos
 
@@ -68,6 +72,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T12:06:09.812Z
-Stopped at: Phase 18 UI-SPEC approved
-Resume file: .planning/phases/18-zone-cards-static-grid/18-UI-SPEC.md
+Last session: 2026-03-22T12:28:19.311Z
+Stopped at: Completed 18-01-PLAN.md
+Resume file: None
