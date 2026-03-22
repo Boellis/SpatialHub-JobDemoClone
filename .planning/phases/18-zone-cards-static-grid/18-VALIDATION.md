@@ -38,18 +38,11 @@ created: 2026-03-22
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 18-01-01 | 01 | 1 | LAYOUT-02 | unit | `npx vitest run src/__tests__/PriorityGrid.test.tsx` | ❌ W0 | ⬜ pending |
-| 18-01-02 | 01 | 1 | LAYOUT-02 | unit | `npx vitest run src/__tests__/PriorityGrid.test.tsx` | ❌ W0 | ⬜ pending |
-| 18-02-01 | 02 | 1 | DATA-01 | unit | `npx vitest run src/__tests__/ZoneCard.test.tsx` | ❌ W0 | ⬜ pending |
-| 18-02-02 | 02 | 1 | DATA-01 | unit | `npx vitest run src/__tests__/ZoneCard.test.tsx` | ❌ W0 | ⬜ pending |
-| 18-02-03 | 02 | 1 | DATA-02 | unit | `npx vitest run src/__tests__/ZoneCard.test.tsx` | ❌ W0 | ⬜ pending |
-| 18-03-01 | 03 | 1 | DATA-03 | unit | `npx vitest run src/__tests__/StatusBar.test.tsx` | ❌ W0 | ⬜ pending |
-| 18-03-02 | 03 | 1 | DATA-04 | unit | `npx vitest run src/__tests__/StatusBar.test.tsx` | ❌ W0 | ⬜ pending |
-| 18-03-03 | 03 | 1 | STAT-01 | unit | `npx vitest run src/__tests__/StatusBar.test.tsx` | ❌ W0 | ⬜ pending |
-| 18-03-04 | 03 | 1 | STAT-01 | unit | `npx vitest run src/__tests__/StatusBar.test.tsx` | ❌ W0 | ⬜ pending |
-| 18-04-01 | 04 | 2 | STAT-02 | unit | `npx vitest run src/__tests__/ZoneCard.test.tsx` | ❌ W0 | ⬜ pending |
-| 18-04-02 | 04 | 2 | STAT-02 | unit | `npx vitest run src/__tests__/ZoneCard.test.tsx` | ❌ W0 | ⬜ pending |
-| 18-05-01 | 05 | 2 | LAYOUT-02 | smoke | `npx vitest run src/__tests__/TvDashboardView.test.tsx` | ✅ exists | ⬜ pending |
+| 18-01-01 | 01 | 1 | DATA-02 | unit | `npx vitest run src/__tests__/biosimMapper.test.ts && npx tsc --noEmit` | ✅ exists | ⬜ pending |
+| 18-01-02 | 01 | 1 | DATA-03, DATA-04, STAT-01 | unit | `npx vitest run src/__tests__/StatusBar.test.tsx` | ❌ W0 | ⬜ pending |
+| 18-02-01 | 02 | 2 | DATA-01, DATA-02, STAT-02 | unit | `npx vitest run src/__tests__/ZoneCard.test.tsx` | ❌ W0 | ⬜ pending |
+| 18-02-02 | 02 | 2 | LAYOUT-02 | unit | `npx vitest run src/__tests__/PriorityGrid.test.tsx` | ❌ W0 | ⬜ pending |
+| 18-03-01 | 03 | 3 | ALL | visual | human checkpoint | N/A | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -72,7 +65,7 @@ created: 2026-03-22
 |----------|-------------|------------|-------------------|
 | TV-safe typography readable from 3m | DATA-01 | Visual distance test | Open `/habitat` on 1080p TV or monitor, verify 48px+ values visible from 3m |
 | Sparkline chart updates visually | DATA-02 | Visual rendering | Watch sparkline for 30s, verify polyline updates with new data points |
-| Red zone pulse animation | STAT-02 | CSS animation | Trigger red status, verify border glow breathes at ~2s cycle |
+| Red zone pulse animation | STAT-02 | CSS animation | Trigger red status via DevTools store mutation, verify border glow breathes at ~2s cycle |
 
 ---
 
