@@ -3,19 +3,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
-vi.mock('../components/tv/ParallaxBackground', () => ({
-  ParallaxBackground: () => <div data-testid="parallax-background" />,
-}));
-
-// Mock @react-three/fiber Canvas — render a div forwarding events prop as data-events attribute
-vi.mock('@react-three/fiber', () => ({
-  Canvas: ({ children, events, ...props }: React.PropsWithChildren<{ events?: unknown; [key: string]: unknown }>) => (
-    <div data-testid="r3f-canvas" data-events={String(events)} {...(props as Record<string, unknown>)}>
-      {children}
-    </div>
-  ),
-}));
-
 const mockUseSimSource = vi.fn();
 vi.mock('../hooks/useSimSource', () => ({
   useSimSource: () => mockUseSimSource(),
@@ -26,8 +13,6 @@ vi.mock('../hooks/useLiveSensors', () => ({
   useLiveSensors: () => mockUseLiveSensors(),
 }));
 
-// TvDashboardView no longer calls usePriorityRanking directly — PriorityGrid does internally.
-// Mock StatusBar and PriorityGrid as simple divs.
 vi.mock('../components/tv/StatusBar', () => ({
   StatusBar: () => <div data-testid="status-bar" />,
 }));
@@ -36,7 +21,6 @@ vi.mock('../components/tv/PriorityGrid', () => ({
   PriorityGrid: () => <div data-testid="priority-grid" />,
 }));
 
-// Keep a minimal habitatStore mock in case other hooks touch it indirectly
 vi.mock('../store/habitatStore', () => ({
   useHabitatStore: () => undefined,
   selectSimSource: (s: unknown) => s,
@@ -53,12 +37,6 @@ describe('TvDashboardView', () => {
   it('renders without crashing', () => {
     const { container } = render(<TvDashboardView />);
     expect(container.firstChild).toBeTruthy();
-  });
-
-  it('Canvas receives events={null}', () => {
-    render(<TvDashboardView />);
-    const canvas = screen.getByTestId('r3f-canvas');
-    expect(canvas).toHaveAttribute('data-events', 'null');
   });
 
   it('renders StatusBar', () => {
@@ -85,12 +63,5 @@ describe('TvDashboardView', () => {
     render(<TvDashboardView />);
     expect(mockUseSimSource).toHaveBeenCalledOnce();
     expect(mockUseLiveSensors).toHaveBeenCalledOnce();
-  });
-
-  it('renders ParallaxBackground inside Canvas', () => {
-    render(<TvDashboardView />);
-    const canvas = screen.getByTestId('r3f-canvas');
-    const parallax = screen.getByTestId('parallax-background');
-    expect(canvas).toContainElement(parallax);
   });
 });
