@@ -169,7 +169,10 @@ Plans:
   1. The `/tv` route shows auto-drifting geometry behind the zone grid — movement is continuous, sine-wave driven, requires no mouse or touch input
   2. The parallax canvas does not register pointer events or interfere with any DOM element above it
   3. The parallax layer renders with Mars color palette geometry that does not obscure zone card readability at 1920x1080
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 20-01-PLAN.md — ParallaxBackground InstancedMesh particles + TvDashboardView wiring + visual verify
 
 ## Progress
 
@@ -196,4 +199,4 @@ Plans:
 | 17. TV Scaffold + Priority Foundation | v4.0 | 2/2 | Complete | 2026-03-22 |
 | 18. Zone Cards + Static Grid | 3/3 | Complete    | 2026-03-22 | - |
 | 19. FLIP Animation + Long-Session Resilience | 2/2 | Complete    | 2026-03-22 | - |
-| 20. Parallax Polish | v4.0 | 0/? | Not started | - |
+| 20. Parallax Polish | v4.0 | 0/1 | Not started | - |
