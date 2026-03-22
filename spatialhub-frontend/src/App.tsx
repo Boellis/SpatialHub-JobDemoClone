@@ -13,7 +13,7 @@ import { SensorTrends } from "./pages/SensorTrends";
 import SimulateDevices from "./pages/SimulateDevices";
 import UnityEmbed from "./pages/UnityEmbed";
 
-const HabitatView = React.lazy(() => import("./pages/HabitatView"));
+const HabitatView = React.lazy(() => import("./pages/TvDashboardView"));
 
 const NavLink = ({
   to,
@@ -105,7 +105,7 @@ const AppContent = () => {
                   style={{
                     width: "100vw",
                     height: "100vh",
-                    background: "#0a0a0a",
+                    background: "#06070b",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -113,7 +113,7 @@ const AppContent = () => {
                 >
                   <div className="loading-state">
                     <div className="loading-spinner" />
-                    <div className="loading-text">Initializing Habitat</div>
+                    <div className="loading-text">LOADING HABITAT</div>
                   </div>
                 </div>
               }
