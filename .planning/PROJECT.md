@@ -42,6 +42,8 @@ The 3D habitat visualization with live sensor data must feel real, responsive, a
 - ✓ Real sensor data visible in 3D habitat alongside BioSim physics — v3.0
 - ✓ NASA competition package: judge receives SD card + website URL, Pi plugs in and data flows — v3.0
 
+- ✓ Priority-ordered zone grid with hero slot, live sensor readings, sparkline charts, status bar, and critical pulse animation — v4.0 Phase 18
+
 ### Active
 
 ## Current Milestone: v4.0 Mars Habitat Revamp
@@ -124,4 +126,4 @@ The 3D habitat visualization with live sensor data must feel real, responsive, a
 | Closed-loop: real pH drives BioSim malfunctions | Most impressive demo — real hardware influencing simulation | ✓ Good — control_loop management command with hysteresis |
 
 ---
-*Last updated: 2026-03-21 after v4.0 Mars Habitat Revamp milestone started*
+*Last updated: 2026-03-22 after Phase 18 (Zone Cards + Static Grid) complete*
