@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Mars Habitat Revamp
 status: unknown
-stopped_at: Completed 18-02-PLAN.md
-last_updated: "2026-03-22T07:33:10Z"
+stopped_at: Completed 18-03-PLAN.md
+last_updated: "2026-03-22T12:51:35.473Z"
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -45,6 +45,7 @@ Plan: 2 of 3
 | Phase 17 P02 | 3min | 1 tasks | 4 files |
 | Phase 18 P01 | 12min | 2 tasks | 6 files |
 | Phase 18 P02 | 4min | 2 tasks | 6 files |
+| Phase 18 P03 | 5min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -65,6 +66,9 @@ Recent decisions affecting v4.0:
 - [Phase 18-02]: ZoneCard border tests use getAttribute('style') + regex — jsdom normalizes rgba() with spaces, making toHaveStyle() unreliable for border color assertions
 - [Phase 18-02]: TvDashboardView fully delegates zone ranking to PriorityGrid and zone status to StatusBar — no direct store reads in the page component
 - [Phase 18-02]: PriorityGrid has no zones subscription — only consumes rankedIds to avoid unnecessary re-renders on every sensor tick
+- [Phase 18]: Sensor values display to 1 decimal (.toFixed(1)) — floating point precision beyond 1 decimal is noise on ambient TV display
+- [Phase 18]: Sensor row: label stacked above value (left), sparkline+dot (right) — reduces horizontal eye travel on wide screens; mirrors instrument panel conventions
+- [Phase 18]: Zone name minimum 16px bold #e2e5ed — 12px was unreadable at TV viewing distance; 16px is practical floor for 3m glanceable ambient displays
 
 ### Pending Todos
 
@@ -76,6 +80,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T07:33:10Z
-Stopped at: Completed 18-02-PLAN.md
+Last session: 2026-03-22T12:51:35.452Z
+Stopped at: Completed 18-03-PLAN.md
 Resume file: None
