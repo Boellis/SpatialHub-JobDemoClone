@@ -5,7 +5,7 @@
 - ✅ **v1.0 Mars Habitat Demo** - Phases 1-4 (shipped 2026-03-14)
 - ✅ **v2.0 BioSim Integration** - Phases 5-9 (shipped 2026-03-16)
 - ✅ **v3.0 Physical Sensor Integration** - Phases 10-16 (shipped 2026-03-20)
-- 🚧 **v4.0 Mars Habitat Revamp** - Phases 17-20 (in progress)
+- 🚧 **v4.0 Mars Habitat Revamp** - Phases 17-21 (in progress)
 
 ## Phases
 
@@ -108,13 +108,13 @@ Plans:
 
 ### Phase 21: Hero Card Chart + Digital Counter
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Hero zone card gets a mission-control-style animated area chart and mechanical digit-roll counter for sensor values
+**Requirements**: Ad-hoc (extends DATA-01, DATA-02 with hero-specific visualizations)
 **Depends on:** Phase 20
-**Plans:** 0 plans
+**Plans:** 1 plan
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 21 to break down)
+- [ ] 21-01-PLAN.md — AreaChart + DigitRoll components + ZoneCard hero integration + visual verify
 
 ---
 
@@ -186,7 +186,7 @@ Plans:
 
 ## Progress
 
-**Execution Order:** 17 → 18 → 19 → 20
+**Execution Order:** 17 → 18 → 19 → 20 → 21
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -210,3 +210,4 @@ Plans:
 | 18. Zone Cards + Static Grid | 3/3 | Complete    | 2026-03-22 | - |
 | 19. FLIP Animation + Long-Session Resilience | 2/2 | Complete    | 2026-03-22 | - |
 | 20. Parallax Polish | 1/1 | Complete    | 2026-03-22 | - |
+| 21. Hero Card Chart + Digital Counter | v4.0 | 0/1 | Planning | - |
