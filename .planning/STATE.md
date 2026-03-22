@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Mars Habitat Revamp
 status: unknown
-stopped_at: Phase 18 context gathered
-last_updated: "2026-03-22T11:48:04.829Z"
+stopped_at: Phase 18 UI-SPEC approved
+last_updated: "2026-03-22T12:06:09.818Z"
 progress:
   total_phases: 4
   completed_phases: 1
@@ -68,6 +68,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T11:48:04.824Z
-Stopped at: Phase 18 context gathered
-Resume file: .planning/phases/18-zone-cards-static-grid/18-CONTEXT.md
+Last session: 2026-03-22T12:06:09.812Z
+Stopped at: Phase 18 UI-SPEC approved
+Resume file: .planning/phases/18-zone-cards-static-grid/18-UI-SPEC.md
