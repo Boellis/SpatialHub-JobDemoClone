@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Mars Habitat Revamp
 status: unknown
-stopped_at: Completed 18-01-PLAN.md
-last_updated: "2026-03-22T12:28:19.318Z"
+stopped_at: Completed 18-02-PLAN.md
+last_updated: "2026-03-22T07:33:10Z"
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 ## Current Position
 
 Phase: 18 (zone-cards-static-grid) — EXECUTING
-Plan: 1 of 3
+Plan: 2 of 3
 
 ## Performance Metrics
 
@@ -44,6 +44,7 @@ Plan: 1 of 3
 | Phase 17 P01 | 156s | 1 tasks | 2 files |
 | Phase 17 P02 | 3min | 1 tasks | 4 files |
 | Phase 18 P01 | 12min | 2 tasks | 6 files |
+| Phase 18 P02 | 4min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -61,6 +62,9 @@ Recent decisions affecting v4.0:
 - [Phase 18-01]: biosimMapper ring buffer test loop fixed from 50 to 80 iterations to correctly exercise cap of 60
 - [Phase 18-01]: StatusBar uses three separate useHabitatStore granular selectors matching PERF-02 pattern from ConnectionBadge
 - [Phase 18-01]: TV constants extracted to src/components/tv/constants.ts; HabitatHUD and ConnectionBadge retain their own copies
+- [Phase 18-02]: ZoneCard border tests use getAttribute('style') + regex — jsdom normalizes rgba() with spaces, making toHaveStyle() unreliable for border color assertions
+- [Phase 18-02]: TvDashboardView fully delegates zone ranking to PriorityGrid and zone status to StatusBar — no direct store reads in the page component
+- [Phase 18-02]: PriorityGrid has no zones subscription — only consumes rankedIds to avoid unnecessary re-renders on every sensor tick
 
 ### Pending Todos
 
@@ -72,6 +76,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T12:28:19.311Z
-Stopped at: Completed 18-01-PLAN.md
+Last session: 2026-03-22T07:33:10Z
+Stopped at: Completed 18-02-PLAN.md
 Resume file: None
