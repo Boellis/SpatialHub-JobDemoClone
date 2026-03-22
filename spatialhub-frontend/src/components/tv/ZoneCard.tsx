@@ -98,9 +98,9 @@ export const ZoneCard = ({ zoneId, isHero, style }: ZoneCardProps) => {
           data-testid="zone-name"
           style={{
             fontFamily: 'Space Mono, monospace',
-            fontSize: 12,
-            fontWeight: 400,
-            color: '#9ca3af',
+            fontSize: isHero ? 16 : 16,
+            fontWeight: 700,
+            color: '#e2e5ed',
             letterSpacing: '0.08em',
           }}
         >
@@ -146,58 +146,59 @@ export const ZoneCard = ({ zoneId, isHero, style }: ZoneCardProps) => {
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 8,
+              gap: 16,
             }}
           >
-            {/* Sensor name */}
-            <span
-              style={{
-                fontFamily: 'Space Mono, monospace',
-                fontSize: 12,
-                color: '#9ca3af',
-                flex: 1,
-                minWidth: 0,
-              }}
-            >
-              {cfg.name}
-            </span>
-
-            {/* Sensor value + unit */}
-            <span
-              data-testid={`sensor-value-${cfg.sensorId}`}
-              style={{
-                fontFamily: 'Space Mono, monospace',
-                fontSize: valueFontSize,
-                fontWeight: 700,
-                color: sensorColor,
-                lineHeight: 1.1,
-              }}
-            >
-              {reading.value}
-              <span style={{ fontSize: valueFontSize, fontWeight: 400 }}>
-                {' '}{cfg.unit}
+            {/* Left group: label stacked above value — read as one unit */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <span
+                style={{
+                  fontFamily: 'Space Mono, monospace',
+                  fontSize: 12,
+                  color: '#9ca3af',
+                  letterSpacing: '0.04em',
+                  display: 'block',
+                  marginBottom: 2,
+                }}
+              >
+                {cfg.name}
               </span>
-            </span>
+              <span
+                data-testid={`sensor-value-${cfg.sensorId}`}
+                style={{
+                  fontFamily: 'Space Mono, monospace',
+                  fontSize: valueFontSize,
+                  fontWeight: 700,
+                  color: sensorColor,
+                  lineHeight: 1.1,
+                }}
+              >
+                {Number(reading.value.toFixed(1))}
+                <span style={{ fontSize: Math.round(valueFontSize * 0.5), fontWeight: 400, color: '#9ca3af' }}>
+                  {' '}{cfg.unit}
+                </span>
+              </span>
+            </div>
 
-            {/* Sparkline */}
-            <Sparkline
-              data={reading.history}
-              color={sensorColor}
-              width={isHero ? 200 : 120}
-              height={isHero ? 40 : 30}
-            />
-
-            {/* Status dot */}
-            <div
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                background: sensorColor,
-                boxShadow: `0 0 4px ${sensorColor}`,
-                flexShrink: 0,
-              }}
-            />
+            {/* Right group: sparkline + status dot */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <Sparkline
+                data={reading.history}
+                color={sensorColor}
+                width={isHero ? 200 : 120}
+                height={isHero ? 40 : 30}
+              />
+              <div
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: sensorColor,
+                  boxShadow: `0 0 4px ${sensorColor}`,
+                  flexShrink: 0,
+                }}
+              />
+            </div>
           </div>
         );
       })}
