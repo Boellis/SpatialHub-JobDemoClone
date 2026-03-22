@@ -44,6 +44,7 @@ The 3D habitat visualization with live sensor data must feel real, responsive, a
 
 - ✓ Priority-ordered zone grid with hero slot, live sensor readings, sparkline charts, status bar, and critical pulse animation — v4.0 Phase 18
 - ✓ FLIP layout animation (500ms ease-out) for zone reordering, tab visibility recovery, long-session resilience — v4.0 Phase 19
+- ✓ Parallax polish evaluated and rejected — clean dark void background preferred — v4.0 Phase 20
 
 ### Active
 
@@ -127,4 +128,4 @@ The 3D habitat visualization with live sensor data must feel real, responsive, a
 | Closed-loop: real pH drives BioSim malfunctions | Most impressive demo — real hardware influencing simulation | ✓ Good — control_loop management command with hysteresis |
 
 ---
-*Last updated: 2026-03-22 after Phase 19 (FLIP Animation + Long-Session Resilience) complete*
+*Last updated: 2026-03-22 after v4.0 Mars Habitat Revamp milestone complete (Phases 17-20)*
