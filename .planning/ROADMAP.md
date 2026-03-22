@@ -106,6 +106,16 @@ Plans:
 
 </details>
 
+### Phase 21: Hero Card Chart + Digital Counter
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 20
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 21 to break down)
+
 ---
 
 ### 🚧 v4.0 Mars Habitat Revamp (In Progress)

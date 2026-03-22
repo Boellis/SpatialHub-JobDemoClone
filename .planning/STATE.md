@@ -52,6 +52,10 @@ Plan: 1 of 1
 
 ## Accumulated Context
 
+### Roadmap Evolution
+
+- Phase 21 added: Hero Card Chart + Digital Counter
+
 ### Decisions
 
 See PROJECT.md Key Decisions table for full log.
