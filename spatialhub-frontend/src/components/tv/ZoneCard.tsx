@@ -4,8 +4,12 @@
 //
 // PERF: Uses selectZone(zoneId) per-zone selector — NOT s.zones — to prevent
 // cascade re-renders when an unrelated zone updates.
+//
+// Phase 19: Direct children use motion.div/motion.span with layout prop to
+// prevent scale distortion during parent FLIP size transitions (hero<->secondary).
 
 import { useEffect } from 'react';
+import { motion } from 'motion/react';
 import { useHabitatStore, selectZone } from '../../store/habitatStore';
 import { Sparkline } from '../habitat/Sparkline';
 import { ZONE_MAP } from '../../simulation/constants';
@@ -62,10 +66,9 @@ function cardBorderStyle(status: ZoneStatus): React.CSSProperties {
 interface ZoneCardProps {
   zoneId: string;
   isHero: boolean;
-  style?: React.CSSProperties;
 }
 
-export const ZoneCard = ({ zoneId, isHero, style }: ZoneCardProps) => {
+export const ZoneCard = ({ zoneId, isHero }: ZoneCardProps) => {
   useEffect(() => {
     ensureTvAnimationsInjected();
   }, []);
@@ -85,7 +88,6 @@ export const ZoneCard = ({ zoneId, isHero, style }: ZoneCardProps) => {
     gap: 8,
     overflow: 'hidden',
     ...cardBorderStyle(zone.status),
-    ...style,
   };
 
   const valueFontSize = isHero ? 48 : 28;
@@ -93,8 +95,9 @@ export const ZoneCard = ({ zoneId, isHero, style }: ZoneCardProps) => {
   return (
     <div style={containerStyle} data-testid={`zone-card-${zoneId}`}>
       {/* Header row: zone name (left) + status badge (right) */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span
+      <motion.div layout style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <motion.span
+          layout
           data-testid="zone-name"
           style={{
             fontFamily: 'Space Mono, monospace',
@@ -105,8 +108,8 @@ export const ZoneCard = ({ zoneId, isHero, style }: ZoneCardProps) => {
           }}
         >
           {zoneName}
-        </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        </motion.span>
+        <motion.div layout style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {/* Status dot */}
           <div
             style={{
@@ -131,8 +134,8 @@ export const ZoneCard = ({ zoneId, isHero, style }: ZoneCardProps) => {
           >
             {STATUS_LABELS[zone.status]}
           </span>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
       {/* Sensor rows */}
       {sensorConfigs.map((cfg) => {
@@ -141,7 +144,8 @@ export const ZoneCard = ({ zoneId, isHero, style }: ZoneCardProps) => {
         const sensorColor = STATUS_COLORS[reading.status];
 
         return (
-          <div
+          <motion.div
+            layout
             key={cfg.sensorId}
             style={{
               display: 'flex',
@@ -150,7 +154,7 @@ export const ZoneCard = ({ zoneId, isHero, style }: ZoneCardProps) => {
             }}
           >
             {/* Left group: label stacked above value — read as one unit */}
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <motion.div layout style={{ flex: 1, minWidth: 0 }}>
               <span
                 style={{
                   fontFamily: 'Space Mono, monospace',
@@ -178,10 +182,10 @@ export const ZoneCard = ({ zoneId, isHero, style }: ZoneCardProps) => {
                   {' '}{cfg.unit}
                 </span>
               </span>
-            </div>
+            </motion.div>
 
             {/* Right group: sparkline + status dot */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <motion.div layout style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
               <Sparkline
                 data={reading.history}
                 color={sensorColor}
@@ -198,8 +202,8 @@ export const ZoneCard = ({ zoneId, isHero, style }: ZoneCardProps) => {
                   flexShrink: 0,
                 }}
               />
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         );
       })}
     </div>

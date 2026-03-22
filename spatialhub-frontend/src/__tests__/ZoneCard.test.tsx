@@ -4,6 +4,17 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import type { ZoneState, SensorReading, ZoneStatus } from '../types/habitat';
 
+vi.mock('motion/react', () => ({
+  motion: {
+    div: ({ children, layout, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
+      <div data-layout={layout != null ? String(layout) : undefined} {...props}>{children}</div>
+    ),
+    span: ({ children, layout, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
+      <span data-layout={layout != null ? String(layout) : undefined} {...props}>{children}</span>
+    ),
+  },
+}));
+
 // Mock Sparkline as a simple div
 vi.mock('../components/habitat/Sparkline', () => ({
   Sparkline: (props: { data: number[]; color: string }) => (
@@ -133,5 +144,25 @@ describe('ZoneCard', () => {
     mockZone = makeZone('red');
     render(<ZoneCard zoneId="grow-bays" isHero={false} />);
     expect(screen.getByTestId('zone-status-badge')).toHaveTextContent('CRITICAL');
+  });
+
+  // Test 12: zone card header row has layout prop for distortion correction
+  it('zone card header row has layout prop for distortion correction', () => {
+    mockZone = makeZone('green');
+    render(<ZoneCard zoneId="grow-bays" isHero={false} />);
+    const zoneName = screen.getByTestId('zone-name');
+    const headerRow = zoneName.parentElement as HTMLElement;
+    expect(headerRow).toHaveAttribute('data-layout', 'true');
+  });
+
+  // Test 13: zone card renders without crash with motion children (hero and secondary)
+  it('zone card renders without crash with motion children (isHero=true)', () => {
+    mockZone = makeZone('green');
+    expect(() => render(<ZoneCard zoneId="grow-bays" isHero={true} />)).not.toThrow();
+  });
+
+  it('zone card renders without crash with motion children (isHero=false)', () => {
+    mockZone = makeZone('green');
+    expect(() => render(<ZoneCard zoneId="grow-bays" isHero={false} />)).not.toThrow();
   });
 });
