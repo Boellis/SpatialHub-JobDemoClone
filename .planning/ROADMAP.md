@@ -199,4 +199,4 @@ Plans:
 | 17. TV Scaffold + Priority Foundation | v4.0 | 2/2 | Complete | 2026-03-22 |
 | 18. Zone Cards + Static Grid | 3/3 | Complete    | 2026-03-22 | - |
 | 19. FLIP Animation + Long-Session Resilience | 2/2 | Complete    | 2026-03-22 | - |
-| 20. Parallax Polish | v4.0 | 0/1 | Not started | - |
+| 20. Parallax Polish | 1/1 | Complete   | 2026-03-22 | - |

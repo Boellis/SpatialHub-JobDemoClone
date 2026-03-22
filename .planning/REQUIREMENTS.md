@@ -28,7 +28,7 @@ Requirements for the ambient TV dashboard milestone. Each maps to roadmap phases
 
 ### Visual
 
-- [ ] **VIS-01**: Three.js parallax background layer with auto-drifting geometry behind the grid (separate Canvas, no interaction)
+- [x] **VIS-01**: Three.js parallax background layer with auto-drifting geometry behind the grid (separate Canvas, no interaction)
 
 ## Future Requirements
 
@@ -72,7 +72,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STAT-01 | Phase 18 | Complete |
 | STAT-02 | Phase 18 | Complete |
 | LAYOUT-04 | Phase 19 | Complete |
-| VIS-01 | Phase 20 | Pending |
+| VIS-01 | Phase 20 | Complete |
 
 **Coverage:**
 - v4.0 requirements: 11 total

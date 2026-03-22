@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Mars Habitat Revamp
 status: unknown
-stopped_at: Phase 20 context gathered
-last_updated: "2026-03-22T15:01:26.989Z"
+stopped_at: "Phase 20-01 checkpoint:human-verify (Task 3 — awaiting visual sign-off)"
+last_updated: "2026-03-22T15:30:14.449Z"
 progress:
   total_phases: 4
-  completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
+  completed_phases: 4
+  total_plans: 8
+  completed_plans: 8
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** TV ambient dashboard where zone criticality drives visual hierarchy — most critical zone dominates the screen, judges see real data without touching anything.
-**Current focus:** Phase 19 — flip-animation-long-session-resilience
+**Current focus:** Phase 20 — parallax-polish
 
 ## Current Position
 
-Phase: 19 (flip-animation-long-session-resilience) — EXECUTING
-Plan: 1 of 2
+Phase: 20 (parallax-polish) — EXECUTING
+Plan: 1 of 1
 
 ## Performance Metrics
 
@@ -48,6 +48,7 @@ Plan: 1 of 2
 | Phase 18 P03 | 5min | 1 tasks | 1 files |
 | Phase 19 P01 | 223s | 2 tasks | 5 files |
 | Phase 19 P02 | 2min | 2 tasks | 2 files |
+| Phase 20-parallax-polish P01 | 2min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -76,6 +77,8 @@ Recent decisions affecting v4.0:
 - [Phase 19]: ZoneCard style prop removed — positioning on motion.div wrapper in PriorityGrid for correct FLIP behavior
 - [Phase 19]: visibilitychange handler only fires when simSource === 'fallback' — prevents duplicate CONNECT when already on BioSim
 - [Phase 19]: Deferred: hero card animated chart in empty center space — not in scope for Phase 19
+- [Phase 20-parallax-polish]: InstancedMesh with single shared SphereGeometry (6 segments) and MeshBasicMaterial for 80-particle parallax system — GPU-efficient, auto-disposed by R3F declarative JSX
+- [Phase 20-parallax-polish]: [Phase 20]: instanceColor seeded in first useFrame frame to avoid R3F mount timing issues; dummy Object3D pattern for zero-allocation matrix updates
 
 ### Pending Todos
 
@@ -87,6 +90,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T15:01:26.978Z
-Stopped at: Phase 20 context gathered
-Resume file: .planning/phases/20-parallax-polish/20-CONTEXT.md
+Last session: 2026-03-22T15:30:14.443Z
+Stopped at: Phase 20-01 checkpoint:human-verify (Task 3 — awaiting visual sign-off)
+Resume file: None
