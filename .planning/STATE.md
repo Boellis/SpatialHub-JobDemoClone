@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Mars Habitat Revamp
 status: unknown
-stopped_at: Completed 19-01-PLAN.md
-last_updated: "2026-03-22T14:32:43.787Z"
+stopped_at: Completed 19-02-PLAN.md
+last_updated: "2026-03-22T14:52:07.345Z"
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
 ---
 
 # Project State
@@ -47,6 +47,7 @@ Plan: 1 of 2
 | Phase 18 P02 | 4min | 2 tasks | 6 files |
 | Phase 18 P03 | 5min | 1 tasks | 1 files |
 | Phase 19 P01 | 223s | 2 tasks | 5 files |
+| Phase 19 P02 | 2min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -73,6 +74,8 @@ Recent decisions affecting v4.0:
 - [Phase 19]: layout (full) not layout=position on motion.div wrappers — hero/secondary size change must animate, not snap
 - [Phase 19]: LayoutGroup scoped to PriorityGrid only — placing it in TvDashboardView would contaminate cross-tree motion elements
 - [Phase 19]: ZoneCard style prop removed — positioning on motion.div wrapper in PriorityGrid for correct FLIP behavior
+- [Phase 19]: visibilitychange handler only fires when simSource === 'fallback' — prevents duplicate CONNECT when already on BioSim
+- [Phase 19]: Deferred: hero card animated chart in empty center space — not in scope for Phase 19
 
 ### Pending Todos
 
@@ -84,6 +87,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T14:32:43.773Z
-Stopped at: Completed 19-01-PLAN.md
+Last session: 2026-03-22T14:52:07.341Z
+Stopped at: Completed 19-02-PLAN.md
 Resume file: None
