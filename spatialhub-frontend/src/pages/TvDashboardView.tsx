@@ -3,6 +3,7 @@ import { useSimSource } from '../hooks/useSimSource';
 import { useLiveSensors } from '../hooks/useLiveSensors';
 import { StatusBar } from '../components/tv/StatusBar';
 import { PriorityGrid } from '../components/tv/PriorityGrid';
+import { ParallaxBackground } from '../components/tv/ParallaxBackground';
 
 const TvDashboardView = () => {
   useSimSource();
@@ -16,7 +17,7 @@ const TvDashboardView = () => {
         gl={{ antialias: false, alpha: true }}
         events={null as unknown as undefined}
       >
-        {/* Empty in Phase 17-18 — ParallaxBackground lands in Phase 20 */}
+        <ParallaxBackground />
       </Canvas>
       <div style={{
         position: 'relative',

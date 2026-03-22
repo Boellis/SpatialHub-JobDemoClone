@@ -3,6 +3,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
+vi.mock('../components/tv/ParallaxBackground', () => ({
+  ParallaxBackground: () => <div data-testid="parallax-background" />,
+}));
+
 // Mock @react-three/fiber Canvas — render a div forwarding events prop as data-events attribute
 vi.mock('@react-three/fiber', () => ({
   Canvas: ({ children, events, ...props }: React.PropsWithChildren<{ events?: unknown; [key: string]: unknown }>) => (
@@ -81,5 +85,12 @@ describe('TvDashboardView', () => {
     render(<TvDashboardView />);
     expect(mockUseSimSource).toHaveBeenCalledOnce();
     expect(mockUseLiveSensors).toHaveBeenCalledOnce();
+  });
+
+  it('renders ParallaxBackground inside Canvas', () => {
+    render(<TvDashboardView />);
+    const canvas = screen.getByTestId('r3f-canvas');
+    const parallax = screen.getByTestId('parallax-background');
+    expect(canvas).toContainElement(parallax);
   });
 });
