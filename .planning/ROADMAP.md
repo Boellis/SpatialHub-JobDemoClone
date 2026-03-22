@@ -111,7 +111,7 @@ Plans:
 **Goal:** Hero zone card gets a mission-control-style animated area chart and mechanical digit-roll counter for sensor values
 **Requirements**: Ad-hoc (extends DATA-01, DATA-02 with hero-specific visualizations)
 **Depends on:** Phase 20
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 21-01-PLAN.md — AreaChart + DigitRoll components + ZoneCard hero integration + visual verify
@@ -210,4 +210,4 @@ Plans:
 | 18. Zone Cards + Static Grid | 3/3 | Complete    | 2026-03-22 | - |
 | 19. FLIP Animation + Long-Session Resilience | 2/2 | Complete    | 2026-03-22 | - |
 | 20. Parallax Polish | 1/1 | Complete    | 2026-03-22 | - |
-| 21. Hero Card Chart + Digital Counter | v4.0 | 0/1 | Planning | - |
+| 21. Hero Card Chart + Digital Counter | 1/1 | Complete   | 2026-03-22 | - |
