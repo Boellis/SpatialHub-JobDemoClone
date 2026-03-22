@@ -402,6 +402,111 @@ describe('useSimSource hook', () => {
     unmount();
   });
 
+  describe('visibilitychange recovery', () => {
+    it('calls probeBioSim when tab becomes visible and simSource is fallback', async () => {
+      // Start in fallback state (BioSim unavailable)
+      vi.stubGlobal('fetch', vi.fn()
+        .mockRejectedValueOnce(new Error('timeout'))  // initial probe -> fallback
+        .mockResolvedValueOnce({ ok: true, json: async () => [99] }) // visibility probe -> success
+      );
+
+      const { unmount } = renderHook(() => useSimSource());
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+
+      expect(useHabitatStore.getState().simSource).toBe('fallback');
+
+      // Simulate tab becoming visible
+      Object.defineProperty(document, 'hidden', { value: false, writable: true, configurable: true });
+      await act(async () => {
+        document.dispatchEvent(new Event('visibilitychange'));
+        await vi.advanceTimersByTimeAsync(100);
+      });
+
+      // Should have sent CONNECT to worker
+      const worker = getWorker();
+      const connectCmd = (worker.sentMessages as Array<{ type: string; wsUrl?: string }>)
+        .find((c) => c.type === 'CONNECT' && c.wsUrl?.includes('/ws/simulation/99'));
+      expect(connectCmd).toBeDefined();
+
+      unmount();
+    });
+
+    it('does NOT call probeBioSim when simSource is biosim', async () => {
+      // Start connected to BioSim
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [1] }));
+
+      const { unmount } = renderHook(() => useSimSource());
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+
+      // Simulate WS_OPEN -> biosim
+      act(() => {
+        getWorker().fireMessage({ type: 'WS_OPEN' });
+      });
+
+      expect(useHabitatStore.getState().simSource).toBe('biosim');
+
+      const fetchCountBefore = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      // Simulate tab becoming visible
+      Object.defineProperty(document, 'hidden', { value: false, writable: true, configurable: true });
+      await act(async () => {
+        document.dispatchEvent(new Event('visibilitychange'));
+        await vi.advanceTimersByTimeAsync(100);
+      });
+
+      // fetch should NOT have been called again (no probe)
+      expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(fetchCountBefore);
+
+      unmount();
+    });
+
+    it('does NOT probe when tab is going to background (document.hidden=true)', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('timeout')));
+
+      const { unmount } = renderHook(() => useSimSource());
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+
+      const fetchCountBefore = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      // Simulate tab going to background
+      Object.defineProperty(document, 'hidden', { value: true, writable: true, configurable: true });
+      await act(async () => {
+        document.dispatchEvent(new Event('visibilitychange'));
+        await vi.advanceTimersByTimeAsync(100);
+      });
+
+      // No additional fetch calls
+      expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(fetchCountBefore);
+
+      unmount();
+    });
+
+    it('cleanup removes visibilitychange listener', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('timeout')));
+      const removeSpy = vi.spyOn(document, 'removeEventListener');
+
+      const { unmount } = renderHook(() => useSimSource());
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+
+      unmount();
+
+      expect(removeSpy).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
+      removeSpy.mockRestore();
+    });
+  });
+
   // ANOM-04: startFallback -> setBiosimSimId called with null
   it('on startFallback, setBiosimSimId is called with null', async () => {
     vi.stubGlobal('fetch', vi.fn()

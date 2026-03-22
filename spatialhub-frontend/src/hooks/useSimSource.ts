@@ -254,6 +254,24 @@ export function useSimSource(): void {
       workerRef.current?.postMessage(connectCmd);
     }, PROBE_INTERVAL_MS);
 
+    // ---- Tab foreground recovery (Phase 19 — long-session resilience) ----
+    const handleVisibilityChange = () => {
+      if (!mountedRef.current || document.hidden) return;
+      // Tab became visible — probe immediately if stuck in fallback
+      const currentSource = useHabitatStore.getState().simSource;
+      if (currentSource !== 'fallback') return;
+      void probeBioSim().then((simId) => {
+        if (!mountedRef.current || simId === null) return;
+        simIdRef.current = simId;
+        useHabitatStore.getState().setSimSource('connecting');
+        const history = extractHistory();
+        workerRef.current?.postMessage({ type: 'SYNC_HISTORY', history } as WorkerCommand);
+        workerRef.current?.postMessage({ type: 'CONNECT', wsUrl: wsUrl(simId) } as WorkerCommand);
+      });
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     // ---- Initial probe ----
 
     probeBioSim().then((simId) => {
@@ -301,6 +319,9 @@ export function useSimSource(): void {
         clearTimeout(disconnectedTimerRef.current);
         disconnectedTimerRef.current = null;
       }
+
+      // Remove tab visibility listener
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
 
       // Stop client-side simulation engine
       useHabitatStore.getState().stopSimulation();
