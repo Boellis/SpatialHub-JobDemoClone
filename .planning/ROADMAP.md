@@ -155,7 +155,11 @@ Plans:
   2. Card content (text, chart, status badge) does not distort or scale incorrectly during a grid reorder animation
   3. After 10 minutes of continuous running in a production build, `renderer.info.memory.geometries` is flat (no GPU memory growth)
   4. The dashboard continues updating normally after the browser tab is backgrounded and re-foregrounded
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 19-01-PLAN.md — Install motion + FLIP-wrap PriorityGrid + ZoneCard distortion fix
+- [ ] 19-02-PLAN.md — visibilitychange probe recovery + visual verification checkpoint
 
 ### Phase 20: Parallax Polish
 **Goal**: A Three.js parallax background layer adds ambient depth behind the priority grid
@@ -191,5 +195,5 @@ Plans:
 | 16. Competition Package | v3.0 | 1/1 | Complete | 2026-03-20 |
 | 17. TV Scaffold + Priority Foundation | v4.0 | 2/2 | Complete | 2026-03-22 |
 | 18. Zone Cards + Static Grid | 3/3 | Complete    | 2026-03-22 | - |
-| 19. FLIP Animation + Long-Session Resilience | v4.0 | 0/? | Not started | - |
+| 19. FLIP Animation + Long-Session Resilience | v4.0 | 0/2 | Not started | - |
 | 20. Parallax Polish | v4.0 | 0/? | Not started | - |
