@@ -2,16 +2,14 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Mars Habitat Revamp
-status: planning
-stopped_at: Phase 17 context gathered
-last_updated: "2026-03-22T00:04:49.762Z"
-last_activity: 2026-03-21 — v4.0 roadmap created, 4 phases, 11 requirements mapped
+status: unknown
+stopped_at: Completed 17-01-PLAN.md
+last_updated: "2026-03-22T02:05:26.819Z"
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 2
+  completed_plans: 1
 ---
 
 # Project State
@@ -21,16 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** TV ambient dashboard where zone criticality drives visual hierarchy — most critical zone dominates the screen, judges see real data without touching anything.
-**Current focus:** Phase 17 — TV Scaffold + Priority Foundation
+**Current focus:** Phase 17 — tv-scaffold-priority-foundation
 
 ## Current Position
 
-Phase: 17 of 20 (TV Scaffold + Priority Foundation)
-Plan: — (not yet planned)
-Status: Ready to plan
-Last activity: 2026-03-21 — v4.0 roadmap created, 4 phases, 11 requirements mapped
-
-Progress: [░░░░░░░░░░] 0%
+Phase: 17 (tv-scaffold-priority-foundation) — EXECUTING
+Plan: 1 of 2
 
 ## Performance Metrics
 
@@ -47,6 +41,7 @@ Progress: [░░░░░░░░░░] 0%
 | - | - | - | - |
 
 *Updated after each plan completion*
+| Phase 17 P01 | 156s | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -58,6 +53,7 @@ Recent decisions affecting v4.0:
 - v4.0 roadmap: Coarse granularity → 4 phases (17-20); ranking hook merged into scaffold phase to front-load architectural risk
 - v4.0 research: FLIP animation is Phase 19 (after static grid validated), parallax is Phase 20 (cosmetic, ships last)
 - v4.0 research: `motion@12.x` pinned (not `^12.x`) for React 19 concurrent stability
+- [Phase 17]: Test object identity: each simulated tick provides new zones reference so useEffect dep fires — matches real Zustand behavior
 
 ### Pending Todos
 
@@ -69,6 +65,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T00:04:49.757Z
-Stopped at: Phase 17 context gathered
-Resume file: .planning/phases/17-tv-scaffold-priority-foundation/17-CONTEXT.md
+Last session: 2026-03-22T02:05:26.814Z
+Stopped at: Completed 17-01-PLAN.md
+Resume file: None
