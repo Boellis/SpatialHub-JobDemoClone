@@ -63,14 +63,16 @@ All TV components use `Space Mono, monospace`. This is the locked font for the T
 |------|------|--------|-------------|------|-------|
 | TV hero value | 48px | 700 (bold) | 1.1 | Space Mono | Primary sensor value in hero card |
 | TV secondary value | 28px | 700 (bold) | 1.1 | Space Mono | Primary sensor value in secondary cards |
-| TV label | 12px | 400 (regular) | 1.4 | Space Mono | Sensor name label, zone abbreviation |
-| TV meta / status bar | 16px | 400 (regular) | 1.0 | Space Mono | StatusBar text, sol counter |
-| TV sol counter | 18px | 400 (regular) | 1.0 | Space Mono | SOL 000 display (slightly larger than bar meta) |
-| Zone status badge | 11px | 700 (bold) | 1.0 | Space Mono | NOMINAL / CAUTION / CRITICAL badge in card top-right |
+| TV meta / status bar | 16px | 400 (regular) | 1.0 | Space Mono | StatusBar text, sol counter, all StatusBar content |
+| TV label / badge | 12px | 400 (regular) | 1.4 | Space Mono | Sensor name label, zone abbreviation, zone status badge |
 
 Letter spacing: `0.08em` for labels and status text; `0.1em` for sol counter. This matches HabitatHUD existing patterns.
 
 Two weights only: **regular (400)** and **bold (700)**. No semibold.
+
+Notes on consolidation:
+- Sol counter uses 16px (same as all StatusBar text). At TV viewing distance the one-step difference from 18px is imperceptible and adds zero hierarchy value.
+- Zone status badge uses 12px bold (consolidated from 11px). Badge weight is 700 to distinguish from sensor label weight 400 at the same size.
 
 Source: CONTEXT.md locked decisions (48px+ primary per DATA-01, 24px+ labels) + HabitatHUD.tsx pattern (`fontSize: '1.5rem'`, `fontWeight: 'bold'`).
 
@@ -118,7 +120,7 @@ Source: CONTEXT.md zone border states + STATUS_COLORS in HabitatHUD.tsx + `index
 - No borders, no separators, no animation
 - Status dot: 8px circle with `boxShadow: 0 0 6px {statusColor}`
 - Status message font: 16px Space Mono, color = `#9ca3af` (nominal) or status color (caution/critical)
-- Sol counter font: 18px Space Mono, color white (`#e2e5ed`), `letterSpacing: 0.1em`
+- Sol counter font: 16px Space Mono, color white (`#e2e5ed`), `letterSpacing: 0.1em`
 - Connection source: inline from BADGE_CONFIG — dot (6px) + label text, no pulse animation (bar has zero animation per locked decision)
 
 ### ZoneCard
@@ -139,7 +141,7 @@ Source: CONTEXT.md zone border states + STATUS_COLORS in HabitatHUD.tsx + `index
 - Hero card: `gridColumn: 1 / -1`, inner padding 24px, value text 48px bold
 - Secondary cards: inner padding 16px, value text 28px bold
 - Zone name: 12px Space Mono, `#9ca3af`, `letterSpacing: 0.08em`, uppercase
-- Zone status badge (top-right): 11px bold Space Mono, status color text, status dot 6px preceding label
+- Zone status badge (top-right): 12px bold Space Mono, status color text, status dot 6px preceding label
 - Sensor row layout: `display: flex`, `alignItems: center`, `justifyContent: space-between`; sensor name left, value center, sparkline right
 - Sensor name: 12px Space Mono, `#9ca3af`
 - Sensor value: hero = 48px bold, secondary = 28px bold, color = sensor status color
