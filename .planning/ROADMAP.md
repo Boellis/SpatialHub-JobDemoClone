@@ -115,15 +115,19 @@ Plans:
 ## Phase Details
 
 ### Phase 17: TV Scaffold + Priority Foundation
-**Goal**: A non-interactive `/tv` route exists with correct R3F setup and a working criticality ranking algorithm that drives zone order without thrashing
+**Goal**: A non-interactive `/habitat` route exists with correct R3F setup and a working criticality ranking algorithm that drives zone order without thrashing
 **Depends on**: Phase 16
 **Requirements**: LAYOUT-01, LAYOUT-03
 **Success Criteria** (what must be TRUE):
-  1. Navigating to `/tv` shows a full-viewport display with zero click/hover/touch handlers registered anywhere in the component tree
+  1. Navigating to `/habitat` shows a full-viewport display with zero click/hover/touch handlers registered anywhere in the component tree
   2. The `usePriorityRanking` hook returns zones ordered by `(red_count * 10) + (yellow_count * 3)` score, verified in browser devtools with a simulated zone state change
   3. Priority order does not change on every 2s tick when sensors are near threshold boundaries — requires 3 consecutive stable ticks before committing a reorder
   4. R3F Canvas has `events={null}` confirmed — no raycaster activity visible in Three.js renderer stats
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 17-01-PLAN.md — TDD: usePriorityRanking hook (scoring + stability debounce)
+- [ ] 17-02-PLAN.md — TvDashboardView scaffold + route wiring + visual verify
 
 ### Phase 18: Zone Cards + Static Grid
 **Goal**: The TV dashboard displays all four zones in a priority-ordered grid with live sensor readings, sparkline charts, HUD metadata, and status indicators — glanceable from across the room
@@ -180,7 +184,7 @@ Plans:
 | 14. Closed-Loop Control Service | v3.0 | 1/1 | Complete | 2026-03-20 |
 | 15. Frontend Real Sensor Visibility | v3.0 | 1/1 | Complete | 2026-03-20 |
 | 16. Competition Package | v3.0 | 1/1 | Complete | 2026-03-20 |
-| 17. TV Scaffold + Priority Foundation | v4.0 | 0/? | Not started | - |
+| 17. TV Scaffold + Priority Foundation | v4.0 | 0/2 | Not started | - |
 | 18. Zone Cards + Static Grid | v4.0 | 0/? | Not started | - |
 | 19. FLIP Animation + Long-Session Resilience | v4.0 | 0/? | Not started | - |
 | 20. Parallax Polish | v4.0 | 0/? | Not started | - |
