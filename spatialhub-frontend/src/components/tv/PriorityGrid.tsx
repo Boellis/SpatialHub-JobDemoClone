@@ -2,9 +2,11 @@
 // Positions 4 ZoneCards: hero slot (top, full-width) + 3 secondary slots (bottom row).
 // Hero = rankedIds[0] (most critical zone), secondary = rankedIds[1..3].
 //
-// Key: uses zoneId as React key (not index) — Phase 19 FLIP animation needs stable keys.
+// Key: uses zoneId as React key (not index) — FLIP animation needs stable identity keys.
 // Does NOT subscribe to zones — only consumes rankedIds from usePriorityRanking.
+// Phase 19: LayoutGroup + motion.div wrappers enable FLIP position+size transitions.
 
+import { motion, LayoutGroup } from 'motion/react';
 import { usePriorityRanking } from '../../hooks/usePriorityRanking';
 import { ZoneCard } from './ZoneCard';
 
@@ -18,27 +20,37 @@ const gridStyle: React.CSSProperties = {
   boxSizing: 'border-box' as const,
 };
 
+const FLIP_TRANSITION = { duration: 0.5, ease: 'easeOut' } as const;
+
 export const PriorityGrid = () => {
   const rankedIds = usePriorityRanking();
 
   if (rankedIds.length === 0) return null;
 
   return (
-    <div style={gridStyle} data-testid="priority-grid">
-      <ZoneCard
-        key={rankedIds[0]}
-        zoneId={rankedIds[0]}
-        isHero={true}
-        style={{ gridColumn: '1 / -1', gridRow: '1' }}
-      />
-      {rankedIds.slice(1, 4).map((id) => (
-        <ZoneCard
-          key={id}
-          zoneId={id}
-          isHero={false}
-          style={{ gridRow: '2' }}
-        />
-      ))}
-    </div>
+    <LayoutGroup>
+      <div style={gridStyle} data-testid="priority-grid">
+        <motion.div
+          key={rankedIds[0]}
+          layoutId={`zone-${rankedIds[0]}`}
+          layout
+          transition={FLIP_TRANSITION}
+          style={{ gridColumn: '1 / -1', gridRow: '1' }}
+        >
+          <ZoneCard zoneId={rankedIds[0]} isHero={true} />
+        </motion.div>
+        {rankedIds.slice(1, 4).map((id) => (
+          <motion.div
+            key={id}
+            layoutId={`zone-${id}`}
+            layout
+            transition={FLIP_TRANSITION}
+            style={{ gridRow: '2' }}
+          >
+            <ZoneCard zoneId={id} isHero={false} />
+          </motion.div>
+        ))}
+      </div>
+    </LayoutGroup>
   );
 };
