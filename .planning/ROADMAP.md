@@ -126,8 +126,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 17-01-PLAN.md — TDD: usePriorityRanking hook (scoring + stability debounce)
-- [ ] 17-02-PLAN.md — TvDashboardView scaffold + route wiring + visual verify
+- [x] 17-01-PLAN.md — TDD: usePriorityRanking hook (scoring + stability debounce)
+- [x] 17-02-PLAN.md — TvDashboardView scaffold + route wiring + visual verify
 
 ### Phase 18: Zone Cards + Static Grid
 **Goal**: The TV dashboard displays all four zones in a priority-ordered grid with live sensor readings, sparkline charts, HUD metadata, and status indicators — glanceable from across the room
@@ -139,7 +139,12 @@ Plans:
   3. Each zone card shows a sparkline chart that updates with the zone's sensor history
   4. The full-width status bar reads "ALL SYSTEMS NOMINAL" when all zones are green, or shows a specific alert message when any zone is yellow/red
   5. Red-status zone cards pulse with an animated border/glow; the Sol counter and data source badge are visible in the HUD
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 18-01-PLAN.md — History cap bump + TV constants + StatusBar
+- [ ] 18-02-PLAN.md — ZoneCard + PriorityGrid + TvDashboardView rewire
+- [ ] 18-03-PLAN.md — Visual verification checkpoint
 
 ### Phase 19: FLIP Animation + Long-Session Resilience
 **Goal**: Zone cards animate into new grid positions when criticality ranking changes, and the dashboard runs without degradation over 8+ hour TV sessions
@@ -184,7 +189,7 @@ Plans:
 | 14. Closed-Loop Control Service | v3.0 | 1/1 | Complete | 2026-03-20 |
 | 15. Frontend Real Sensor Visibility | v3.0 | 1/1 | Complete | 2026-03-20 |
 | 16. Competition Package | v3.0 | 1/1 | Complete | 2026-03-20 |
-| 17. TV Scaffold + Priority Foundation | 2/2 | Complete   | 2026-03-22 | - |
-| 18. Zone Cards + Static Grid | v4.0 | 0/? | Not started | - |
+| 17. TV Scaffold + Priority Foundation | v4.0 | 2/2 | Complete | 2026-03-22 |
+| 18. Zone Cards + Static Grid | v4.0 | 0/3 | Not started | - |
 | 19. FLIP Animation + Long-Session Resilience | v4.0 | 0/? | Not started | - |
 | 20. Parallax Polish | v4.0 | 0/? | Not started | - |
