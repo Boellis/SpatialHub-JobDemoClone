@@ -184,7 +184,7 @@ Plans:
 | 14. Closed-Loop Control Service | v3.0 | 1/1 | Complete | 2026-03-20 |
 | 15. Frontend Real Sensor Visibility | v3.0 | 1/1 | Complete | 2026-03-20 |
 | 16. Competition Package | v3.0 | 1/1 | Complete | 2026-03-20 |
-| 17. TV Scaffold + Priority Foundation | 1/2 | In Progress|  | - |
+| 17. TV Scaffold + Priority Foundation | 2/2 | Complete   | 2026-03-22 | - |
 | 18. Zone Cards + Static Grid | v4.0 | 0/? | Not started | - |
 | 19. FLIP Animation + Long-Session Resilience | v4.0 | 0/? | Not started | - |
 | 20. Parallax Polish | v4.0 | 0/? | Not started | - |

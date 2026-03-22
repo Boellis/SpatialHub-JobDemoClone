@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Mars Habitat Revamp
 status: unknown
-stopped_at: Completed 17-01-PLAN.md
-last_updated: "2026-03-22T02:05:26.819Z"
+stopped_at: Completed 17-02-PLAN.md (checkpoint:human-verify)
+last_updated: "2026-03-22T02:09:00Z"
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -23,8 +23,8 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 
 ## Current Position
 
-Phase: 17 (tv-scaffold-priority-foundation) — EXECUTING
-Plan: 1 of 2
+Phase: 17 (tv-scaffold-priority-foundation) — CHECKPOINT (human-verify pending)
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -42,6 +42,7 @@ Plan: 1 of 2
 
 *Updated after each plan completion*
 | Phase 17 P01 | 156s | 1 tasks | 2 files |
+| Phase 17 P02 | 3min | 1 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -54,6 +55,8 @@ Recent decisions affecting v4.0:
 - v4.0 research: FLIP animation is Phase 19 (after static grid validated), parallax is Phase 20 (cosmetic, ships last)
 - v4.0 research: `motion@12.x` pinned (not `^12.x`) for React 19 concurrent stability
 - [Phase 17]: Test object identity: each simulated tick provides new zones reference so useEffect dep fires — matches real Zustand behavior
+- [Phase 17-02]: R3F events=null cast: `null as unknown as undefined` satisfies TypeScript while preserving null at runtime — raycaster disabled
+- [Phase 17-02]: scoreZone duplicated locally in TvDashboardView (not exported from usePriorityRanking) — dev debug duplication acceptable, removed Phase 18
 
 ### Pending Todos
 
@@ -65,6 +68,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T02:05:26.814Z
-Stopped at: Completed 17-01-PLAN.md
+Last session: 2026-03-22T02:09:00Z
+Stopped at: Completed 17-02-PLAN.md task 1; awaiting human-verify checkpoint (Task 2)
 Resume file: None
