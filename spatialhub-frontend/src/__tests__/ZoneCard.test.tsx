@@ -22,6 +22,18 @@ vi.mock('../components/habitat/Sparkline', () => ({
   ),
 }));
 
+vi.mock('../components/tv/AreaChart', () => ({
+  AreaChart: (props: { data: number[]; color: string; height?: number }) => (
+    <div data-testid="area-chart" data-color={props.color} data-points={props.data.length} />
+  ),
+}));
+
+vi.mock('../components/tv/DigitRoll', () => ({
+  DigitRoll: (props: { value: string; fontSize: number; color: string }) => (
+    <span data-testid="digit-roll" data-value={props.value}>{props.value}</span>
+  ),
+}));
+
 // Configurable mock zone state
 let mockZone: ZoneState | undefined;
 
@@ -164,5 +176,45 @@ describe('ZoneCard', () => {
   it('zone card renders without crash with motion children (isHero=false)', () => {
     mockZone = makeZone('green');
     expect(() => render(<ZoneCard zoneId="grow-bays" isHero={false} />)).not.toThrow();
+  });
+
+  // Test: hero card renders AreaChart
+  it('hero card renders AreaChart with primary sensor history', () => {
+    mockZone = makeZone('green');
+    render(<ZoneCard zoneId="grow-bays" isHero={true} />);
+    expect(screen.getByTestId('hero-area-chart')).toBeInTheDocument();
+    const chart = screen.getByTestId('area-chart');
+    expect(chart).toBeInTheDocument();
+    expect(chart).toHaveAttribute('data-points', '3'); // history has 3 points in mock
+  });
+
+  // Test: secondary card does NOT render AreaChart
+  it('secondary card does NOT render AreaChart', () => {
+    mockZone = makeZone('green');
+    render(<ZoneCard zoneId="grow-bays" isHero={false} />);
+    expect(screen.queryByTestId('hero-area-chart')).not.toBeInTheDocument();
+  });
+
+  // Test: hero card renders DigitRoll for sensor values
+  it('hero card renders DigitRoll for sensor values', () => {
+    mockZone = makeZone('green');
+    render(<ZoneCard zoneId="grow-bays" isHero={true} />);
+    const digitRolls = screen.getAllByTestId('digit-roll');
+    expect(digitRolls.length).toBe(3); // one per sensor
+  });
+
+  // Test: secondary card does NOT render DigitRoll
+  it('secondary card does NOT render DigitRoll (uses plain text values)', () => {
+    mockZone = makeZone('green');
+    render(<ZoneCard zoneId="grow-bays" isHero={false} />);
+    expect(screen.queryByTestId('digit-roll')).not.toBeInTheDocument();
+  });
+
+  // Test: area chart color reacts to sensor status
+  it('area chart color matches worst-status sensor color', () => {
+    mockZone = makeZone('red', { 'gb-co2': { status: 'red' } });
+    render(<ZoneCard zoneId="grow-bays" isHero={true} />);
+    const chart = screen.getByTestId('area-chart');
+    expect(chart).toHaveAttribute('data-color', '#ff2200');
   });
 });

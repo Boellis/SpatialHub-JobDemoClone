@@ -12,6 +12,8 @@ import { useEffect } from 'react';
 import { motion } from 'motion/react';
 import { useHabitatStore, selectZone } from '../../store/habitatStore';
 import { Sparkline } from '../habitat/Sparkline';
+import { AreaChart } from './AreaChart';
+import { DigitRoll } from './DigitRoll';
 import { ZONE_MAP } from '../../simulation/constants';
 import { STATUS_COLORS, STATUS_LABELS } from './constants';
 import type { ZoneStatus } from '../../types/habitat';
@@ -79,6 +81,24 @@ export const ZoneCard = ({ zoneId, isHero }: ZoneCardProps) => {
 
   if (!zone) return null;
 
+  // Primary sensor: worst-status sensor (red > yellow > green) for the hero area chart
+  const primarySensor = isHero
+    ? (() => {
+        const statusPriority: Record<string, number> = { red: 2, yellow: 1, green: 0 };
+        let best = sensorConfigs[0];
+        let bestScore = -1;
+        for (const cfg of sensorConfigs) {
+          const reading = zone.sensors[cfg.sensorId];
+          if (reading) {
+            const score = statusPriority[reading.status] ?? 0;
+            if (score > bestScore) { bestScore = score; best = cfg; }
+          }
+        }
+        return best;
+      })()
+    : null;
+  const primaryReading = primarySensor ? zone.sensors[primarySensor.sensorId] : null;
+
   const containerStyle: React.CSSProperties = {
     background: '#0c0e16',
     borderRadius: isHero ? 12 : 10,
@@ -137,6 +157,17 @@ export const ZoneCard = ({ zoneId, isHero }: ZoneCardProps) => {
         </motion.div>
       </motion.div>
 
+      {/* Hero area chart — primary sensor history, between header and sensor rows */}
+      {isHero && primaryReading && (
+        <div data-testid="hero-area-chart" style={{ width: '100%', flexGrow: 1, minHeight: 120 }}>
+          <AreaChart
+            data={primaryReading.history}
+            color={STATUS_COLORS[primaryReading.status]}
+            height={160}
+          />
+        </div>
+      )}
+
       {/* Sensor rows */}
       {sensorConfigs.map((cfg) => {
         const reading = zone.sensors[cfg.sensorId];
@@ -177,7 +208,15 @@ export const ZoneCard = ({ zoneId, isHero }: ZoneCardProps) => {
                   lineHeight: 1.1,
                 }}
               >
-                {Number(reading.value.toFixed(1))}
+                {isHero ? (
+                  <DigitRoll
+                    value={reading.value.toFixed(1)}
+                    fontSize={valueFontSize}
+                    color={sensorColor}
+                  />
+                ) : (
+                  Number(reading.value.toFixed(1))
+                )}
                 <span style={{ fontSize: Math.round(valueFontSize * 0.5), fontWeight: 400, color: '#9ca3af' }}>
                   {' '}{cfg.unit}
                 </span>
