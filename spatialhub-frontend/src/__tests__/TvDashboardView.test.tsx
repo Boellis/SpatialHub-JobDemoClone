@@ -22,20 +22,20 @@ vi.mock('../hooks/useLiveSensors', () => ({
   useLiveSensors: () => mockUseLiveSensors(),
 }));
 
-vi.mock('../hooks/usePriorityRanking', () => ({
-  usePriorityRanking: () => ['water-recycling', 'atmosphere-control', 'grow-bays', 'power-thermal'],
+// TvDashboardView no longer calls usePriorityRanking directly — PriorityGrid does internally.
+// Mock StatusBar and PriorityGrid as simple divs.
+vi.mock('../components/tv/StatusBar', () => ({
+  StatusBar: () => <div data-testid="status-bar" />,
 }));
 
+vi.mock('../components/tv/PriorityGrid', () => ({
+  PriorityGrid: () => <div data-testid="priority-grid" />,
+}));
+
+// Keep a minimal habitatStore mock in case other hooks touch it indirectly
 vi.mock('../store/habitatStore', () => ({
-  useHabitatStore: (selector: (s: { zones: Record<string, { sensors: Record<string, { status: string }> }> }) => unknown) => {
-    const mockZones = {
-      'water-recycling': { sensors: { 'wr-ph': { status: 'green' } } },
-      'atmosphere-control': { sensors: { 'ac-co2': { status: 'green' } } },
-      'grow-bays': { sensors: { 'gb-temp': { status: 'green' } } },
-      'power-thermal': { sensors: { 'pt-temp': { status: 'green' } } },
-    };
-    return selector({ zones: mockZones });
-  },
+  useHabitatStore: () => undefined,
+  selectSimSource: (s: unknown) => s,
 }));
 
 import TvDashboardView from '../pages/TvDashboardView';
@@ -57,10 +57,14 @@ describe('TvDashboardView', () => {
     expect(canvas).toHaveAttribute('data-events', 'null');
   });
 
-  it('displays ranked zone IDs', () => {
+  it('renders StatusBar', () => {
     render(<TvDashboardView />);
-    expect(screen.getByText(/water-recycling/)).toBeTruthy();
-    expect(screen.getByText(/atmosphere-control/)).toBeTruthy();
+    expect(screen.getByTestId('status-bar')).toBeInTheDocument();
+  });
+
+  it('renders PriorityGrid', () => {
+    render(<TvDashboardView />);
+    expect(screen.getByTestId('priority-grid')).toBeInTheDocument();
   });
 
   it('does not contain any event handler attributes', () => {
