@@ -141,7 +141,7 @@ function applyCorrelations(
 
 // ---- History tracking -------------------------------------------------------
 
-const MAX_HISTORY = 30;
+const MAX_HISTORY = 60;
 
 function updateHistory(existing: number[], newValue: number): number[] {
   const next = [...existing, newValue];

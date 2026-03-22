@@ -9,7 +9,7 @@ import type { SensorReading, SensorStatus } from '../types/habitat';
 import { BIOSIM_SENSOR_THRESHOLDS } from './constants';
 
 /** Fixed ring-buffer cap. Matches MAX_HISTORY in engine.ts. */
-export const HISTORY_CAP = 30;
+export const HISTORY_CAP = 60;
 
 /**
  * Append a value to a fixed-capacity ring buffer.

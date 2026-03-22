@@ -154,7 +154,7 @@ describe('mapBioSimToHabitatReadings', () => {
 describe('appendRingBuffer', () => {
   it('never exceeds HISTORY_CAP when filled past cap', () => {
     let history: number[] = [];
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 80; i++) {
       history = appendRingBuffer(history, i);
     }
     expect(history.length).toBeLessThanOrEqual(HISTORY_CAP);
@@ -179,6 +179,6 @@ describe('appendRingBuffer', () => {
   });
 
   it('uses default cap of HISTORY_CAP', () => {
-    expect(HISTORY_CAP).toBe(30);
+    expect(HISTORY_CAP).toBe(60);
   });
 });
