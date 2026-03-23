@@ -55,9 +55,16 @@ export const AreaChart = ({ data, color, width = 400, height = 160 }: AreaChartP
   }
 
   const padding = 4; // px padding so line doesn't clip edges
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1; // avoid division by zero when all values equal
+  const rawMin = Math.min(...data);
+  const rawMax = Math.max(...data);
+  const rawRange = rawMax - rawMin;
+  // Minimum visual range: at least 5% of the midpoint value, so small fluctuations
+  // (e.g., pH 7.49-7.51) are visually amplified instead of rendering as a flat line
+  const midpoint = (rawMax + rawMin) / 2 || 1;
+  const minRange = Math.abs(midpoint) * 0.05;
+  const range = Math.max(rawRange, minRange);
+  const min = midpoint - range / 2;
+  const max = midpoint + range / 2;
 
   // Map each data point to (x, y) coordinates within the viewBox
   const coords = data.map((value, i) => {
