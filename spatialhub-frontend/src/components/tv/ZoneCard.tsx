@@ -107,6 +107,8 @@ export const ZoneCard = ({ zoneId, isHero }: ZoneCardProps) => {
     flexDirection: 'column',
     gap: 8,
     overflow: 'hidden',
+    height: '100%',
+    boxSizing: 'border-box' as const,
     ...cardBorderStyle(zone.status),
   };
 
@@ -159,11 +161,11 @@ export const ZoneCard = ({ zoneId, isHero }: ZoneCardProps) => {
 
       {/* Hero area chart — primary sensor history, between header and sensor rows */}
       {isHero && primaryReading && (
-        <div data-testid="hero-area-chart" style={{ width: '100%', flexGrow: 1, minHeight: 120 }}>
+        <div data-testid="hero-area-chart" style={{ width: '100%', flex: '1 1 0', minHeight: 0, overflow: 'hidden' }}>
           <AreaChart
             data={primaryReading.history}
             color={STATUS_COLORS[primaryReading.status]}
-            height={160}
+            height="100%"
           />
         </div>
       )}

@@ -8,21 +8,23 @@ interface AreaChartProps {
   data: number[];      // sensor.history (up to 60 points)
   color: string;       // STATUS_COLORS[sensor.status] — line color
   width?: number;      // viewBox width (default 400, scales via width="100%")
-  height?: number;     // viewBox height (default 160)
+  height?: number | string;     // viewBox height (default 160) or "100%" for flex fill
 }
 
 export const AreaChart = ({ data, color, width = 400, height = 160 }: AreaChartProps) => {
+  const viewBoxHeight = typeof height === 'string' ? 160 : height;
   const uid = useId();
   const gradId = `area-grad-${uid.replace(/:/g, '')}`;
 
   // Flat line fallback: not enough data to draw a meaningful chart
   if (data.length < 2) {
-    const midY = height / 2;
+    const midY = viewBoxHeight / 2;
     return (
       <svg
-        viewBox={`0 0 ${width} ${height}`}
+        viewBox={`0 0 ${width} ${viewBoxHeight}`}
         preserveAspectRatio="none"
         width="100%"
+        height="100%"
         style={{ display: 'block' }}
       >
         <defs>
@@ -33,7 +35,7 @@ export const AreaChart = ({ data, color, width = 400, height = 160 }: AreaChartP
         </defs>
         {/* Gradient fill area below the flat line */}
         <path
-          d={`M0,${midY} L${width},${midY} L${width},${height} L0,${height} Z`}
+          d={`M0,${midY} L${width},${midY} L${width},${viewBoxHeight} L0,${viewBoxHeight} Z`}
           fill={`url(#${gradId})`}
           style={{ transition: 'all 0.4s ease-out' }}
         />
@@ -60,7 +62,7 @@ export const AreaChart = ({ data, color, width = 400, height = 160 }: AreaChartP
   // Map each data point to (x, y) coordinates within the viewBox
   const coords = data.map((value, i) => {
     const x = (i / (data.length - 1)) * width;
-    const y = height - padding - ((value - min) / range) * (height - padding * 2);
+    const y = viewBoxHeight - padding - ((value - min) / range) * (viewBoxHeight - padding * 2);
     return { x, y };
   });
 
@@ -71,17 +73,18 @@ export const AreaChart = ({ data, color, width = 400, height = 160 }: AreaChartP
   const firstX = coords[0].x.toFixed(1);
   const lastX = coords[coords.length - 1].x.toFixed(1);
   const areaPath = [
-    `M${firstX},${height}`,
+    `M${firstX},${viewBoxHeight}`,
     ...coords.map(({ x, y }) => `L${x.toFixed(1)},${y.toFixed(1)}`),
-    `L${lastX},${height}`,
+    `L${lastX},${viewBoxHeight}`,
     'Z',
   ].join(' ');
 
   return (
     <svg
-      viewBox={`0 0 ${width} ${height}`}
+      viewBox={`0 0 ${width} ${viewBoxHeight}`}
       preserveAspectRatio="none"
       width="100%"
+      height="100%"
       style={{ display: 'block' }}
     >
       <defs>
