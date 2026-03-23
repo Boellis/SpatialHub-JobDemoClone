@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Mars Habitat Revamp
 status: unknown
-stopped_at: "Phase 21-01 checkpoint:human-verify (Tasks 1-2 complete — awaiting visual sign-off)"
-last_updated: "2026-03-22T23:03:32.470Z"
+stopped_at: Completed 21-01-PLAN.md — Phase 21 complete, v4.0 milestone done
+last_updated: "2026-03-23T00:16:18.453Z"
 progress:
   total_phases: 5
   completed_phases: 5
@@ -50,6 +50,7 @@ Plan: 1 of 1
 | Phase 19 P02 | 2min | 2 tasks | 2 files |
 | Phase 20-parallax-polish P01 | 2min | 2 tasks | 4 files |
 | Phase 21 P01 | 4min | 2 tasks | 4 files |
+| Phase 21 P01 | 20min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,7 @@ Recent decisions affecting v4.0:
 - [Phase 21]: AreaChart uses CSS transition on SVG path d attribute recalculation — zero JS animation loop overhead
 - [Phase 21]: Primary sensor for hero area chart = worst-status sensor (red>yellow>green) — most dramatic telemetry at a glance
 - [Phase 21]: DigitRoll per-digit @keyframes animation with 30ms stagger — unchanged digits stay static
+- [Phase 21]: Hero card flexbox height constrained via height:100% + boxSizing:border-box; area chart uses flex:1 1 0 + minHeight:0 to prevent viewport overflow
 
 ### Pending Todos
 
@@ -98,6 +100,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T23:03:32.465Z
-Stopped at: Phase 21-01 checkpoint:human-verify (Tasks 1-2 complete — awaiting visual sign-off)
+Last session: 2026-03-23T00:16:18.448Z
+Stopped at: Completed 21-01-PLAN.md — Phase 21 complete, v4.0 milestone done
 Resume file: None

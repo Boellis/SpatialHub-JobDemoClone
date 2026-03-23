@@ -46,7 +46,7 @@ patterns-established:
 requirements-completed: []
 
 # Metrics
-duration: 4min
+duration: ~20min
 completed: 2026-03-22
 ---
 
@@ -56,10 +56,10 @@ completed: 2026-03-22
 
 ## Performance
 
-- **Duration:** ~4 min
+- **Duration:** ~20 min
 - **Started:** 2026-03-22T22:59:43Z
-- **Completed:** 2026-03-22T23:03:00Z
-- **Tasks:** 2 of 2 (Task 3 is checkpoint:human-verify — awaiting visual sign-off)
+- **Completed:** 2026-03-22T23:20:00Z
+- **Tasks:** 3 of 3 (checkpoint:human-verify approved)
 - **Files modified:** 4
 
 ## Accomplishments
@@ -72,6 +72,9 @@ completed: 2026-03-22
 
 1. **Task 1: Create AreaChart and DigitRoll components** - `ada5e34` (feat)
 2. **Task 2: Wire AreaChart and DigitRoll into hero ZoneCard + update tests** - `4192dcf` (feat)
+3. **Layout fix (during human-verify): Constrain hero card to grid row height** - `773556c` (fix)
+
+**Plan metadata:** `0364807` (docs: complete hero card chart + digital counter plan)
 
 ## Files Created/Modified
 - `spatialhub-frontend/src/components/tv/AreaChart.tsx` — SVG area chart: gradient fill, stroke polyline, CSS-transitioned path, useId gradient uniqueness
@@ -86,18 +89,32 @@ completed: 2026-03-22
 
 ## Deviations from Plan
 
-None - plan executed exactly as written.
+### Auto-fixed Issues
+
+**1. [Rule 1 - Bug] Hero card overflowed viewport — secondary cards not visible**
+- **Found during:** Task 3 (checkpoint:human-verify — visual review)
+- **Issue:** Area chart container had `flexGrow:1` + `minHeight:120` with no height ceiling on the ZoneCard itself; the SVG expanded unboundedly, pushing secondary cards entirely off-screen
+- **Fix:** Added `height:100%` + `boxSizing:border-box` on ZoneCard outer container, changed area chart div to `flex:1 1 0` + `minHeight:0` (flex shrink basis-zero pattern), set AreaChart SVG `height="100%"` to fill the constrained container
+- **Files modified:** `spatialhub-frontend/src/components/tv/ZoneCard.tsx`, `spatialhub-frontend/src/components/tv/AreaChart.tsx`
+- **Verification:** Visual approval confirmed — hero card fits its grid row, secondary cards render below it
+- **Committed in:** `773556c` (fix(21): constrain hero card to grid row height)
+
+---
+
+**Total deviations:** 1 auto-fixed (Rule 1 — bug)
+**Impact on plan:** Layout fix was necessary for the feature to function correctly. No scope creep.
 
 ## Issues Encountered
-None.
+None beyond the overflow fix documented above.
 
 ## User Setup Required
 None - no external service configuration required.
 
 ## Next Phase Readiness
-- Task 3 (checkpoint:human-verify) requires visual sign-off: hero card shows area chart with gradient + digit roll animation, secondary cards unchanged
-- After visual approval, phase 21 is complete
+- Phase 21 complete — visual sign-off approved
+- TV dashboard is judge-ready: ambient zone telemetry, FLIP priority animation, parallax background, animated hero card
 - TypeScript compiles clean, all 158 tests pass
+- v4.0 Mars Habitat Revamp milestone complete
 
 ---
 *Phase: 21-hero-card-chart-digital-counter*
