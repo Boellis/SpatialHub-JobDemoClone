@@ -64,7 +64,6 @@ export const AreaChart = ({ data, color, width = 400, height = 160 }: AreaChartP
   const minRange = Math.abs(midpoint) * 0.05;
   const range = Math.max(rawRange, minRange);
   const min = midpoint - range / 2;
-  const max = midpoint + range / 2;
 
   // Map each data point to (x, y) coordinates within the viewBox
   const coords = data.map((value, i) => {
