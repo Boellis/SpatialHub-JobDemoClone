@@ -210,4 +210,4 @@ Plans:
 | 18. Zone Cards + Static Grid | 3/3 | Complete    | 2026-03-22 | - |
 | 19. FLIP Animation + Long-Session Resilience | 2/2 | Complete    | 2026-03-22 | - |
 | 20. Parallax Polish | 1/1 | Complete    | 2026-03-22 | - |
-| 21. Hero Card Chart + Digital Counter | 1/1 | Complete   | 2026-03-23 | - |
+| 21. Hero Card Chart + Digital Counter | 1/1 | Complete    | 2026-03-23 | - |
