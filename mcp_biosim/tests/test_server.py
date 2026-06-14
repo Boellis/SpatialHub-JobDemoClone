@@ -245,6 +245,51 @@ def test_set_flows_publishes_sol_with_actions():
     assert "rates" not in sol["actions"][0]
 
 
+def test_poll_command_noop_when_relay_unset(monkeypatch):
+    monkeypatch.setattr(server, "SURVIVAL_RELAY_URL", "")
+    monkeypatch.setattr(server, "SURVIVAL_RELAY_TOKEN", "")
+
+    def _boom(*a, **k):
+        raise AssertionError("requests.get must not be called when relay is unset")
+
+    monkeypatch.setattr(server.requests, "get", _boom)
+    assert server.poll_command()["command"] is None
+
+
+def test_poll_command_returns_pending(monkeypatch):
+    monkeypatch.setattr(server, "SURVIVAL_RELAY_URL", "http://relay")
+    monkeypatch.setattr(server, "SURVIVAL_RELAY_TOKEN", "tok")
+    import types
+    monkeypatch.setattr(server.requests, "get",
+                        lambda *a, **k: types.SimpleNamespace(
+                            status_code=200, json=lambda: {"command": "new_session"}))
+    assert server.poll_command()["command"] == "new_session"
+
+
+def test_poll_command_flags_stale_token_on_401(monkeypatch):
+    monkeypatch.setattr(server, "SURVIVAL_RELAY_URL", "http://relay")
+    monkeypatch.setattr(server, "SURVIVAL_RELAY_TOKEN", "stale")
+    import types
+    monkeypatch.setattr(server.requests, "get",
+                        lambda *a, **k: types.SimpleNamespace(status_code=401, json=lambda: {}))
+    out = server.poll_command()
+    assert out["command"] is None
+    assert "stale" in out["error"].lower()
+
+
+def test_poll_command_swallows_network_error(monkeypatch):
+    monkeypatch.setattr(server, "SURVIVAL_RELAY_URL", "http://relay")
+    monkeypatch.setattr(server, "SURVIVAL_RELAY_TOKEN", "tok")
+
+    def _raise(*a, **k):
+        raise OSError("connection refused")
+
+    monkeypatch.setattr(server.requests, "get", _raise)
+    out = server.poll_command()
+    assert out["command"] is None
+    assert "error" in out
+
+
 def test_publish_is_noop_when_relay_unset(monkeypatch):
     # Relay disabled (env unset by default) -> _publish must never POST.
     monkeypatch.setattr(server, "SURVIVAL_RELAY_URL", "")
@@ -257,6 +302,70 @@ def test_publish_is_noop_when_relay_unset(monkeypatch):
     # Should not raise and should not enqueue / post anything.
     server._publish("sol", {"sol": 1})
     server._publish("run", {"run_id": "x", "difficulty": "off", "crew_size": 15})
+
+
+# ---------------------------------------------------------------------------
+# Habitat plan: farm layout + crew food plan (Claude-generated, published as `plan`)
+
+def test_generate_farm_layout_computes_totals_and_feeds_crew():
+    _fresh()
+    with _Capture() as cap:
+        out = server.generate_farm_layout(crops=[
+            {"crop": "Potato", "area_m2": 60, "yield_kcal_per_day": 22000,
+             "zone": "Grow Bay A", "purpose": "calorie staple"},
+            {"crop": "Soybean", "area_m2": 40, "yield_kcal_per_day": 19000},
+        ], crew_size=15)
+    assert out["total_area_m2"] == 100.0
+    assert out["total_kcal_per_day"] == 41000
+    assert out["crew_kcal_need_per_day"] == 15 * 2700      # 40500
+    assert out["feeds_crew"] is True                        # 41000 >= 40500
+    assert out["crops"][0]["crop"] == "Potato"
+    assert out["crops"][1]["zone"] == "Grow Bay"            # default filled
+    plan = [d for t, d in cap.events if t == "plan"]
+    assert len(plan) == 1 and plan[0]["farm_layout"]["total_kcal_per_day"] == 41000
+    assert plan[0]["food_plan"] is None
+
+
+def test_generate_farm_layout_flags_shortfall():
+    _fresh()
+    out = server.generate_farm_layout(
+        crops=[{"crop": "Lettuce", "area_m2": 10, "yield_kcal_per_day": 1000}], crew_size=15)
+    assert out["feeds_crew"] is False                       # 1000 < 40500
+
+
+def test_generate_food_plan_sums_and_meets_target():
+    _fresh()
+    with _Capture() as cap:
+        out = server.generate_food_plan(meals=[
+            {"meal": "Breakfast", "items": ["Porridge", "Soy milk"], "kcal": 700, "protein_g": 20},
+            {"meal": "Lunch", "items": ["Bean stew"], "kcal": 1100, "protein_g": 40},
+            {"meal": "Dinner", "items": ["Potato mash"], "kcal": 1000, "protein_g": 25},
+        ], crew_size=15)
+    assert out["total_kcal_per_day"] == 2800
+    assert out["total_protein_g"] == 85
+    assert out["meets_target"] is True                      # 2800 >= 2700
+    assert out["meals"][0]["items"] == ["Porridge", "Soy milk"]
+    plan = [d for t, d in cap.events if t == "plan"]
+    assert plan[0]["food_plan"]["total_kcal_per_day"] == 2800
+
+
+def test_farm_and_food_merge_into_one_plan_slot():
+    _fresh()
+    server.generate_farm_layout(
+        crops=[{"crop": "Potato", "area_m2": 60, "yield_kcal_per_day": 41000}], crew_size=15)
+    with _Capture() as cap:
+        server.generate_food_plan(meals=[{"meal": "Dinner", "items": ["Mash"], "kcal": 2800}], crew_size=15)
+    plan = [d for t, d in cap.events if t == "plan"][0]
+    # The food-plan call still carries the earlier farm layout — one merged slot.
+    assert plan["farm_layout"] is not None and plan["food_plan"] is not None
+
+
+def test_start_run_clears_prior_plan():
+    _fresh()
+    server.generate_food_plan(meals=[{"meal": "D", "items": ["x"], "kcal": 1}], crew_size=15)
+    assert server.RUN.food_plan is not None
+    server.start_run(crew_size=15)                          # fresh run wipes the plan
+    assert server.RUN.farm_layout is None and server.RUN.food_plan is None
 
 
 # ---------------------------------------------------------------------------

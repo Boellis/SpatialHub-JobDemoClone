@@ -326,6 +326,11 @@ def survival_live(request):
             sent["sol"] = stamp
             yield _sse_frame({"type": "sol", "data": data})
 
+        data, stamp = slots["plan"]
+        if data is not None and stamp > sent["plan"]:
+            sent["plan"] = stamp
+            yield _sse_frame({"type": "plan", "data": data})
+
         data, stamp = slots["end"]
         if data is not None and stamp > sent["end"]:
             sent["end"] = stamp
@@ -397,6 +402,13 @@ def survival_control(request):
             )
         elif action == "stop":
             out = survival_control_mod.stop()
+        elif action == "new_session":
+            # Reverse-channel signal, NOT a server-side run command: queue a
+            # "respawn the pilot" request the external supervisor polls via
+            # /survival/command. Lets the operator compact the live MCP-piloted
+            # run from the web app without touching the run itself.
+            relay.set_command("new_session")
+            out = {"ok": True, "command": "new_session"}
         else:
             return JsonResponse({"error": "unknown action"}, status=400)
     except (KeyError, ValueError) as e:
@@ -406,6 +418,28 @@ def survival_control(request):
         return JsonResponse({"error": str(e)}, status=502)
 
     return JsonResponse(out)
+
+
+def survival_command(request):
+    """Consume-once poll endpoint for the external survival supervisor.
+
+    Same Bearer gate as ingest (SURVIVAL_RELAY_TOKEN — the MCP already holds it).
+    Returns ``{"command": "new_session"|null}`` and clears the slot, so a web-app
+    'New Pilot Session' click reaches the supervisor exactly once. GET only.
+    """
+    if request.method != "GET":
+        return JsonResponse({"error": "GET only"}, status=405)
+
+    token = getattr(settings, "SURVIVAL_RELAY_TOKEN", "")
+    if not token:
+        return JsonResponse({"error": "command channel disabled (no SURVIVAL_RELAY_TOKEN)"}, status=503)
+
+    auth = request.headers.get("Authorization", "")
+    provided = auth[7:] if auth.startswith("Bearer ") else ""
+    if not hmac.compare_digest(provided, token):
+        return JsonResponse({"error": "unauthorized"}, status=401)
+
+    return JsonResponse({"command": relay.take_command()})
 
 
 def _run_summary(run):

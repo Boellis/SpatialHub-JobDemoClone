@@ -21,7 +21,7 @@ Two kinds of state are kept:
 
 import threading
 
-EVENT_TYPES = ("run", "sol", "end")
+EVENT_TYPES = ("run", "sol", "end", "plan")
 # Replay buffer for late-joining browsers. The durable, unbounded history lives in
 # Postgres (see history.py); this just keeps the current run replayable from memory.
 _LOG_CAP = 500
@@ -32,8 +32,17 @@ _STATE = {
     "run": (None, 0),   # latest 'run' event data + the version it was set at
     "sol": (None, 0),   # latest 'sol' event data + version
     "end": (None, 0),   # 'end' event data once the run ends + version
+    "plan": (None, 0),  # latest 'plan' (farm layout + food plan) + version
     "log": [],          # [(version, sol_data), ...] for sol events with reasoning
 }
+
+# Reverse channel: a single pending command the web app sets for the external
+# supervisor to act on (e.g. "new_session" — respawn a fresh pilot subagent that
+# resume_run's, compacting context without losing the run). Consume-once: the
+# supervisor polls take_command(), acts, and the slot clears. Kept separate from the
+# version-stamped telemetry above so polling it never disturbs the SSE stream.
+_COMMAND = {"pending": None}
+KNOWN_COMMANDS = ("new_session",)
 
 
 def publish(event_type, data):
@@ -52,6 +61,7 @@ def publish(event_type, data):
             _STATE["run"] = (data, v)
             _STATE["sol"] = (None, v)
             _STATE["end"] = (None, v)
+            _STATE["plan"] = (None, v)  # fresh run -> drop any stale habitat plan
             _STATE["log"] = []
         elif event_type == "sol":
             _STATE["sol"] = (data, v)
@@ -60,6 +70,8 @@ def publish(event_type, data):
                 log.append((v, data))
                 if len(log) > _LOG_CAP:
                     del log[0:len(log) - _LOG_CAP]
+        elif event_type == "plan":
+            _STATE["plan"] = (data, v)
         else:  # end
             _STATE["end"] = (data, v)
         _COND.notify_all()
@@ -104,6 +116,24 @@ def wait(last_version, timeout):
         return _read()
 
 
+def set_command(command):
+    """Queue a single web→supervisor command (latest wins). Raises on unknown ones
+    so a typo can't silently strand the supervisor waiting for a command that the
+    poller will never recognise."""
+    if command not in KNOWN_COMMANDS:
+        raise ValueError(f"unknown command: {command}")
+    with _COND:
+        _COMMAND["pending"] = command
+
+
+def take_command():
+    """Return the pending command and clear it (consume-once); None if none queued."""
+    with _COND:
+        cmd = _COMMAND["pending"]
+        _COMMAND["pending"] = None
+        return cmd
+
+
 def reset():
     """Clear all relay state (tests, or a fresh process)."""
     with _COND:
@@ -111,6 +141,7 @@ def reset():
         for k in EVENT_TYPES:
             _STATE[k] = (None, 0)
         _STATE["log"] = []
+        _COMMAND["pending"] = None
         _COND.notify_all()
     try:
         from . import history

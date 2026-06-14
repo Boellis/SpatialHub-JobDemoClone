@@ -129,6 +129,8 @@ class Run:
         self.ended_reason = None
         self.trend = {}          # store name -> [pct, ...]
         self.last_actions = []
+        self.farm_layout = None  # latest Claude-generated crop layout (dict)
+        self.food_plan = None    # latest Claude-generated crew food plan (dict)
         _load_state_into(self)   # survive a full MCP restart (Claude Code restart)
 
     def reset(self, difficulty):
@@ -140,6 +142,8 @@ class Run:
         self.ended_reason = None
         self.trend = {}
         self.last_actions = []
+        self.farm_layout = None
+        self.food_plan = None
 
 
 # ---------------------------------------------------------------------------
@@ -492,6 +496,37 @@ def advance(sols: int = 1, detail: str = "normal", note: str = "") -> dict:
 
 
 @mcp.tool()
+def poll_command() -> dict:
+    """Supervisor: check for a pending web-app control command (consume-once).
+
+    Returns ``{"command": "new_session"|None}``. The web app's token-gated
+    'New Pilot Session' button queues ``new_session`` on the relay; the supervisor
+    calls this each loop tick and, when it sees it, RESPAWNS a fresh pilot subagent
+    (which calls ``resume_run`` to re-attach to the live sim) — compacting context
+    without losing the run or the relay key. This is a SUPERVISOR call, not pilot
+    telemetry, so it does not count toward the pilot-context gauge. No-op (returns
+    ``None``) when the relay isn't configured.
+    """
+    if not _relay_enabled():
+        return {"command": None, "note": "relay not configured"}
+    try:
+        r = requests.get(
+            f"{SURVIVAL_RELAY_URL}/api/survival/command",
+            headers={"Authorization": f"Bearer {SURVIVAL_RELAY_TOKEN}"},
+            timeout=3,
+        )
+        if r.status_code == 200:
+            return {"command": r.json().get("command")}
+        if r.status_code == 401:
+            return {"command": None,
+                    "error": "relay rejected token (401) — the MCP's SURVIVAL_RELAY_TOKEN "
+                             "is stale; restart Claude Code after rotating the key."}
+        return {"command": None, "error": f"HTTP {r.status_code}"}
+    except Exception as e:  # network guard — never raise into the supervisor loop
+        return {"command": None, "error": str(e)}
+
+
+@mcp.tool()
 def inject_malfunction(
     module: str = "Grey_Water_Store",
     intensity: str = "SEVERE_MALF",
@@ -509,6 +544,104 @@ def inject_malfunction(
               "intensity": intensity, "length": length}
     _track_call(result)
     return result
+
+
+DAILY_KCAL_PER_PERSON = 2700  # NASA planning figure for an active Mars crew member
+
+
+def _publish_plan(note: str) -> dict:
+    """Merge the latest farm layout + food plan and push to the relay as one `plan`
+    event (latest-wins single slot), so a late-joining browser always sees BOTH
+    halves even though the pilot generates them in separate tool calls."""
+    plan = {
+        "farm_layout": RUN.farm_layout,
+        "food_plan": RUN.food_plan,
+        "note": note,
+        "sol": RUN.sols,
+    }
+    _publish("plan", plan)
+    return plan
+
+
+@mcp.tool()
+def generate_farm_layout(crops: list[dict], crew_size: int = 15, note: str = "") -> dict:
+    """Publish a crop/grow-bay layout sized to feed the habitat crew to the web app.
+
+    YOU (the pilot) design the layout from the crew size and the live food/biomass
+    state, then call this to render it on the dashboard. Pass `crops` as a list of:
+      {"crop": str, "area_m2": float, "yield_kcal_per_day": float,
+       "zone": str (e.g. "Grow Bay A"), "purpose": str (e.g. "calorie staple")}
+    The tool sums area + kcal/day, computes kcal/person and whether the layout meets
+    the crew's caloric need (crew_size * 2700 kcal/day), and publishes. Returns the
+    computed summary so you can iterate. Pair with generate_food_plan.
+    """
+    clean = []
+    total_area = total_kcal = 0.0
+    for c in crops or []:
+        area = max(0.0, float(c.get("area_m2", 0) or 0))
+        kcal = max(0.0, float(c.get("yield_kcal_per_day", 0) or 0))
+        total_area += area
+        total_kcal += kcal
+        clean.append({
+            "crop": str(c.get("crop", "Crop")),
+            "area_m2": round(area, 1),
+            "yield_kcal_per_day": round(kcal, 0),
+            "zone": str(c.get("zone", "Grow Bay")),
+            "purpose": str(c.get("purpose", "")),
+        })
+    need = crew_size * DAILY_KCAL_PER_PERSON
+    RUN.farm_layout = {
+        "crew_size": crew_size,
+        "crops": clean,
+        "total_area_m2": round(total_area, 1),
+        "total_kcal_per_day": round(total_kcal, 0),
+        "kcal_per_person_per_day": round(total_kcal / crew_size, 0) if crew_size else 0,
+        "crew_kcal_need_per_day": need,
+        "feeds_crew": total_kcal >= need,
+    }
+    _publish_plan(note or "Generated farm layout.")
+    _track_call(RUN.farm_layout)
+    return RUN.farm_layout
+
+
+@mcp.tool()
+def generate_food_plan(
+    meals: list[dict], crew_size: int = 15,
+    daily_kcal_per_person: float = DAILY_KCAL_PER_PERSON, note: str = "",
+) -> dict:
+    """Publish a crew daily food/nutrition plan to the web app.
+
+    YOU design the plan from the farm layout's harvest, then call this to render it.
+    Pass `meals` as a list of:
+      {"meal": str (e.g. "Breakfast"), "items": [str, ...], "kcal": float,
+       "protein_g": float (optional)}
+    The tool sums kcal + protein, compares the day's total to the per-person target,
+    and publishes. Returns the computed summary. Pair with generate_farm_layout.
+    """
+    clean = []
+    total_kcal = total_protein = 0.0
+    for m in meals or []:
+        kcal = max(0.0, float(m.get("kcal", 0) or 0))
+        protein = max(0.0, float(m.get("protein_g", 0) or 0))
+        total_kcal += kcal
+        total_protein += protein
+        clean.append({
+            "meal": str(m.get("meal", "Meal")),
+            "items": [str(x) for x in (m.get("items") or [])],
+            "kcal": round(kcal, 0),
+            "protein_g": round(protein, 0),
+        })
+    RUN.food_plan = {
+        "crew_size": crew_size,
+        "meals": clean,
+        "total_kcal_per_day": round(total_kcal, 0),
+        "total_protein_g": round(total_protein, 0),
+        "target_kcal_per_person": daily_kcal_per_person,
+        "meets_target": total_kcal >= daily_kcal_per_person,
+    }
+    _publish_plan(note or "Generated crew food plan.")
+    _track_call(RUN.food_plan)
+    return RUN.food_plan
 
 
 # ---------------------------------------------------------------------------
@@ -551,7 +684,12 @@ def survival_doctrine() -> str:
         "ADVANCE IN CHUNKS to conserve context: advance(3) while learning, advance(10) "
         "or more once balances are stable — advance stops automatically at crew death, "
         "so larger chunks never overshoot a crisis. Make the smallest set of changes "
-        "that keeps every balance non-negative with margin."
+        "that keeps every balance non-negative with margin.\n\n"
+        "HABITAT PLANNING (optional, for the dashboard): call generate_farm_layout to "
+        "design a crop/grow-bay layout sized to feed the crew (each crop's area_m2 and "
+        "yield_kcal_per_day), and generate_food_plan to lay out the crew's daily meals. "
+        "Aim for total crop kcal/day >= crew_size * 2700 so the layout actually feeds "
+        "everyone. These render live in the web app and don't affect the sim."
     )
 
 

@@ -60,6 +60,19 @@ class RelayStoreTests(TestCase):
         self.assertEqual(slots["run"][0]["run_id"], "r2")
         self.assertEqual(log, [])            # decision log reset
 
+    def test_plan_event_stored_and_replayable(self):
+        relay.publish("run", {"run_id": "r1", "difficulty": "off"})
+        relay.publish("plan", {"farm_layout": {"total_kcal_per_day": 41000},
+                               "food_plan": None, "note": "layout"})
+        slots, _, _ = relay.snapshot()
+        self.assertEqual(slots["plan"][0]["farm_layout"]["total_kcal_per_day"], 41000)
+
+    def test_run_event_clears_stale_plan(self):
+        relay.publish("plan", {"farm_layout": {"x": 1}, "food_plan": None})
+        relay.publish("run", {"run_id": "r2", "difficulty": "off"})
+        slots, _, _ = relay.snapshot()
+        self.assertIsNone(slots["plan"][0])  # fresh run drops the prior plan
+
     def test_publish_rejects_unknown_event_type(self):
         with self.assertRaises(ValueError):
             relay.publish("explode", {})
@@ -162,6 +175,76 @@ class ControlEndpointTests(TestCase):
         # No active run -> control.advance raises ValueError -> 400 (not a 502).
         self.assertEqual(self._post({"action": "advance", "sols": 1}).status_code, 400)
 
+    def test_new_session_queues_command_without_touching_the_run(self):
+        # 'new_session' is a reverse-channel signal: it queues a command for the
+        # supervisor and never calls into the server-side run, so it's OK with no run.
+        resp = self._post({"action": "new_session"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["command"], "new_session")
+        self.assertEqual(relay.take_command(), "new_session")
+
+
+class CommandChannelTests(TestCase):
+    """The web→supervisor reverse channel: relay store + consume-once poll endpoint."""
+
+    def setUp(self):
+        relay.reset()
+
+    def test_set_and_take_is_consume_once(self):
+        self.assertIsNone(relay.take_command())
+        relay.set_command("new_session")
+        self.assertEqual(relay.take_command(), "new_session")
+        self.assertIsNone(relay.take_command())  # cleared after one read
+
+    def test_latest_command_wins(self):
+        relay.set_command("new_session")
+        relay.set_command("new_session")
+        self.assertEqual(relay.take_command(), "new_session")
+        self.assertIsNone(relay.take_command())
+
+    def test_unknown_command_rejected(self):
+        with self.assertRaises(ValueError):
+            relay.set_command("self_destruct")
+
+    def test_reset_clears_pending_command(self):
+        relay.set_command("new_session")
+        relay.reset()
+        self.assertIsNone(relay.take_command())
+
+
+@override_settings(SURVIVAL_RELAY_TOKEN=TOKEN)
+class CommandEndpointTests(TestCase):
+    def setUp(self):
+        relay.reset()
+        self.url = reverse("survival-command")
+
+    def _get(self, token=TOKEN):
+        headers = {"HTTP_AUTHORIZATION": f"Bearer {token}"} if token is not None else {}
+        return self.client.get(self.url, **headers)
+
+    def test_requires_token(self):
+        self.assertEqual(self._get(token=None).status_code, 401)
+        self.assertEqual(self._get(token="nope").status_code, 401)
+
+    def test_post_not_allowed(self):
+        self.assertEqual(self.client.post(self.url).status_code, 405)
+
+    def test_returns_null_when_no_command(self):
+        self.assertIsNone(self._get().json()["command"])
+
+    def test_consumes_pending_command_once(self):
+        relay.set_command("new_session")
+        self.assertEqual(self._get().json()["command"], "new_session")
+        self.assertIsNone(self._get().json()["command"])  # already consumed
+
+
+@override_settings(SURVIVAL_RELAY_TOKEN="")
+class CommandDisabledTests(TestCase):
+    def test_command_fails_closed_without_token(self):
+        resp = self.client.get(reverse("survival-command"),
+                               HTTP_AUTHORIZATION="Bearer anything")
+        self.assertEqual(resp.status_code, 503)
+
 
 @override_settings(SURVIVAL_RELAY_TOKEN="relay-tok", SURVIVAL_CONTROL_TOKEN="control-pw")
 class ControlSeparateTokenTests(TestCase):
@@ -214,6 +297,19 @@ class LiveStreamTests(TestCase):
         self.assertIn("event: run", first)
         self.assertIn("event: sol", second)
         self.assertIn('"sol": 5', second)
+
+    def test_live_replays_plan_on_connect(self):
+        relay.publish("run", {"run_id": "r1", "difficulty": "off"})
+        relay.publish("plan", {"farm_layout": {"total_kcal_per_day": 41000},
+                               "food_plan": None, "note": "layout"})
+
+        resp = self.client.get(reverse("survival-live"))
+        gen = iter(resp.streaming_content)
+        first = next(gen).decode()    # run
+        second = next(gen).decode()   # plan
+        self.assertIn("event: run", first)
+        self.assertIn("event: plan", second)
+        self.assertIn("41000", second)
 
     def test_live_replays_reasoning_history_on_connect(self):
         relay.publish("run", {"run_id": "r1", "difficulty": "off"})
