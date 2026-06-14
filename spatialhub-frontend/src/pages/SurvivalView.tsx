@@ -56,7 +56,16 @@ const RESOURCES: {
 ];
 const META = new Map(RESOURCES.map((r) => [r.name, r]));
 
-const RECONNECT_DELAY_MS = 3000;
+// Exponential backoff schedule for SSE reconnects: 1s → 2s → 4s → 8s → 16s → 32s cap.
+// After repeated failures we keep retrying at the 32s cap but surface a hard error.
+const RECONNECT_BACKOFF_MS = [1000, 2000, 4000, 8000, 16000, 32000];
+const RECONNECT_MAX_MS = 32000;
+const HARD_ERROR_AFTER = RECONNECT_BACKOFF_MS.length; // attempts before "hard error" state
+// If no SSE event arrives for this long the stream is considered stalled (a hung
+// backend would otherwise show "LIVE" forever) — force-close and reconnect.
+const IDLE_TIMEOUT_MS = 45000;
+// Cap rows rendered in the "See all" modal (lightweight windowing, no deps).
+const SEE_ALL_LIMIT = 100;
 const GREEN = '#00ff9c';
 const AMBER = '#ffb000';
 const GOLD = '#ffd166';
@@ -100,6 +109,11 @@ function deriveStores(modules: Record<string, unknown>): SurvivalStore[] {
 
 const SurvivalView = () => {
   const [connected, setConnected] = useState(false);
+  // Connection lifecycle for the live-feed banner / LivePill.
+  // `connected` flips true ONLY after the first real event (run/sol/end/plan).
+  const [reconnectAttempt, setReconnectAttempt] = useState(0); // 0 = not reconnecting
+  const [retryInSec, setRetryInSec] = useState(0);             // countdown to next attempt
+  const [hardError, setHardError] = useState(false);          // repeated failures
   const [difficulty, setDifficulty] = useState<Difficulty | null>(null);
   const [crewSize, setCrewSize] = useState(15);
   const [sol, setSol] = useState(0);
@@ -124,6 +138,9 @@ const SurvivalView = () => {
 
   const esRef = useRef<EventSource | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const attemptRef = useRef(0);      // consecutive failed connect attempts (for backoff)
   const mountedRef = useRef(true);
   const lastPctRef = useRef<Map<string, number>>(new Map()); // for per-store delta
   const bestRef = useRef(0);          // record at-large (ref avoids stale closures)
@@ -132,6 +149,11 @@ const SurvivalView = () => {
 
   const setBest = (n: number) => { bestRef.current = n; setBestState(n); };
 
+  // Refs for modal a11y (focus restore on close).
+  const seeAllRef = useRef<HTMLDivElement | null>(null);
+  const seeAllTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const resultRef = useRef<HTMLDivElement | null>(null);
+
   // Load the persisted record once.
   useEffect(() => {
     const r = loadRecord();
@@ -139,6 +161,14 @@ const SurvivalView = () => {
     recordStartRef.current = r.best;
     logRef.current = r.log;
   }, []);
+
+  // Modal a11y: Escape to close, Tab focus trap, restore focus to trigger on close.
+  // Stable callbacks so the effect doesn't re-fire (and re-grab focus) on every
+  // SSE-driven re-render while a modal is open.
+  const closeSeeAll = useCallback(() => setSeeAllOpen(false), []);
+  const closeResult = useCallback(() => setResult(null), []);
+  useModalA11y(seeAllOpen, seeAllRef, closeSeeAll, seeAllTriggerRef);
+  useModalA11y(!!result, resultRef, closeResult, null);
 
   const handleSol = useCallback((d: SurvivalSolEvent) => {
     const raw = d.stores && d.stores.length ? d.stores : deriveStores(d.modules);
@@ -207,18 +237,90 @@ const SurvivalView = () => {
     }
   }, []);
 
-  // Auto-connect with reconnect loop.
+  // Auto-connect with exponential-backoff reconnect loop + idle watchdog.
   useEffect(() => {
     mountedRef.current = true;
+
+    const clearIdleTimer = () => {
+      if (idleTimerRef.current !== null) {
+        clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = null;
+      }
+    };
+    const clearCountdown = () => {
+      if (countdownTimerRef.current !== null) {
+        clearInterval(countdownTimerRef.current);
+        countdownTimerRef.current = null;
+      }
+    };
+
+    // A real event arrived: mark connected, reset backoff/banner, and (re)arm the
+    // idle watchdog so a stalled backend can't keep us pinned on "LIVE".
+    const onLiveEvent = () => {
+      attemptRef.current = 0;
+      setConnected(true);
+      setReconnectAttempt(0);
+      setRetryInSec(0);
+      setHardError(false);
+      armIdleWatchdog();
+    };
+
+    // If no event lands within IDLE_TIMEOUT_MS, treat the stream as stalled.
+    function armIdleWatchdog() {
+      clearIdleTimer();
+      idleTimerRef.current = setTimeout(() => {
+        if (!mountedRef.current) return;
+        console.error('[Survival SSE] idle timeout — no event for %dms, forcing reconnect', IDLE_TIMEOUT_MS);
+        // Treat a stall like a connection drop.
+        esRef.current?.close();
+        esRef.current = null;
+        setConnected(false);
+        scheduleReconnect();
+      }, IDLE_TIMEOUT_MS);
+    }
+
+    // Parse one SSE frame defensively; on failure log + skip (never crash).
+    const parseFrame = <T,>(ev: Event, kind: string): T | null => {
+      try {
+        return JSON.parse((ev as MessageEvent).data) as T;
+      } catch (err) {
+        console.error(`[Survival SSE] failed to parse "${kind}" frame — skipping`, err, (ev as MessageEvent).data);
+        return null;
+      }
+    };
+
+    function scheduleReconnect() {
+      if (!mountedRef.current || reconnectTimerRef.current !== null) return;
+      const idx = attemptRef.current;
+      attemptRef.current = idx + 1;
+      const delay = RECONNECT_BACKOFF_MS[Math.min(idx, RECONNECT_BACKOFF_MS.length - 1)] ?? RECONNECT_MAX_MS;
+      setReconnectAttempt(attemptRef.current);
+      if (attemptRef.current >= HARD_ERROR_AFTER) setHardError(true);
+      // Visible countdown to the next attempt.
+      setRetryInSec(Math.ceil(delay / 1000));
+      clearCountdown();
+      countdownTimerRef.current = setInterval(() => {
+        setRetryInSec((s) => (s > 1 ? s - 1 : 0));
+      }, 1000);
+      reconnectTimerRef.current = setTimeout(() => {
+        reconnectTimerRef.current = null;
+        clearCountdown();
+        connect();
+      }, delay);
+    }
+
     const connect = () => {
       if (!mountedRef.current) return;
       const es = new EventSource(survivalLiveUrl());
       esRef.current = es;
-      es.onopen = () => setConnected(true);
+      // Do NOT mark connected on open — wait for the first real event so a half-open
+      // socket against a dead backend doesn't show a false "LIVE".
+      es.onopen = () => armIdleWatchdog();
 
       es.addEventListener('run', (ev) => {
-        setConnected(true);
-        const d = JSON.parse((ev as MessageEvent).data) as RunEvent;
+        onLiveEvent();
+        const d = parseFrame<RunEvent>(ev, 'run');
+        if (!d) return;
         setResult(null);
         setSol(0);
         setAlive(true);
@@ -235,16 +337,19 @@ const SurvivalView = () => {
         if (d.pilot) setPilot(d.pilot);
       });
       es.addEventListener('sol', (ev) => {
-        setConnected(true);
-        handleSol(JSON.parse((ev as MessageEvent).data) as SurvivalSolEvent);
+        onLiveEvent();
+        const d = parseFrame<SurvivalSolEvent>(ev, 'sol');
+        if (d) handleSol(d);
       });
       es.addEventListener('plan', (ev) => {
-        setConnected(true);
-        setPlan(JSON.parse((ev as MessageEvent).data) as SurvivalPlanEvent);
+        onLiveEvent();
+        const d = parseFrame<SurvivalPlanEvent>(ev, 'plan');
+        if (d) setPlan(d);
       });
       es.addEventListener('end', (ev) => {
-        setConnected(true);
-        const d = JSON.parse((ev as MessageEvent).data) as SurvivalEndEvent;
+        onLiveEvent();
+        const d = parseFrame<SurvivalEndEvent>(ev, 'end');
+        if (!d) return;
         setAlive(false);
         setResult({ sols_survived: d.sols_survived, ended_reason: d.ended_reason });
         // Log the completed run + persist any new record.
@@ -254,16 +359,14 @@ const SurvivalView = () => {
         setBest(nb);
         saveRecord(nb, logRef.current);
       });
-      es.addEventListener('error', () => {
+      es.addEventListener('error', (ev) => {
+        console.error('[Survival SSE] EventSource error — readyState=%d, attempt=%d, url=%s',
+          es.readyState, attemptRef.current, survivalLiveUrl(), ev);
         setConnected(false);
+        clearIdleTimer();
         es.close();
         esRef.current = null;
-        if (mountedRef.current && reconnectTimerRef.current === null) {
-          reconnectTimerRef.current = setTimeout(() => {
-            reconnectTimerRef.current = null;
-            connect();
-          }, RECONNECT_DELAY_MS);
-        }
+        scheduleReconnect();
       });
     };
     connect();
@@ -271,6 +374,8 @@ const SurvivalView = () => {
       mountedRef.current = false;
       if (reconnectTimerRef.current !== null) clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
+      clearIdleTimer();
+      clearCountdown();
       esRef.current?.close();
       esRef.current = null;
     };
@@ -320,8 +425,33 @@ const SurvivalView = () => {
         boxSizing: 'border-box',
       }}
     >
+      {/* Mobile responsiveness — stack hero / deck (crew + decision log)
+          vertically under 768px. Desktop layout is untouched. */}
+      <style>{`
+        @media (max-width: 768px) {
+          .surv-hero {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+          }
+          .surv-hero > div:last-child {
+            align-items: stretch;
+          }
+          .surv-deck {
+            flex-direction: column;
+          }
+          .surv-crew,
+          .surv-log {
+            flex: 1 1 auto;
+            max-width: 100%;
+            min-width: 0;
+          }
+        }
+      `}</style>
+
       {/* ── HERO ─────────────────────────────────────────────── */}
       <header
+        className="surv-hero"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -369,7 +499,7 @@ const SurvivalView = () => {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-          <LivePill connected={connected} />
+          <LivePill connected={connected} reconnecting={reconnectAttempt > 0} />
           <div style={{
             display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 10,
             border: `1px solid ${isRecord ? GOLD : 'rgba(255,209,102,0.3)'}`,
@@ -391,6 +521,41 @@ const SurvivalView = () => {
           <ContextGauge pilot={pilot} />
         </div>
       </header>
+
+      {/* ── LIVE-FEED INTERRUPTION BANNER ────────────────────── */}
+      {/* Visible whenever the stream has dropped — judges never see a silent freeze. */}
+      {reconnectAttempt > 0 && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+            fontFamily: '"Space Mono", monospace', fontSize: 12.5, letterSpacing: '0.04em',
+            padding: '10px 14px', borderRadius: 10,
+            border: `1px solid ${hardError ? 'rgba(255,59,48,0.55)' : 'rgba(255,176,0,0.5)'}`,
+            background: hardError ? 'rgba(255,59,48,0.08)' : 'rgba(255,176,0,0.06)',
+            color: hardError ? '#ff7a7a' : AMBER,
+            boxShadow: hardError ? '0 0 18px rgba(255,59,48,0.18)' : 'none',
+          }}
+        >
+          <span style={{
+            width: 9, height: 9, borderRadius: '50%',
+            background: hardError ? '#ff3b30' : AMBER,
+            animation: 'survPulse 1.1s ease-in-out infinite',
+          }} />
+          {hardError ? (
+            <span>
+              <strong>Live feed lost.</strong> Backend unreachable — still retrying
+              {retryInSec > 0 ? ` in ${retryInSec}s` : ' now'} (attempt {reconnectAttempt}).
+            </span>
+          ) : (
+            <span>
+              Live feed interrupted — reconnecting
+              {retryInSec > 0 ? ` in ${retryInSec}s` : ' now'} (attempt {reconnectAttempt})…
+            </span>
+          )}
+        </div>
+      )}
 
       {/* ── LIFE SUPPORT TELEMETRY ───────────────────────────── */}
       <section>
@@ -426,8 +591,8 @@ const SurvivalView = () => {
       <PlanPanel plan={plan} />
 
       {/* ── DECK + DECISION LOG ──────────────────────────────── */}
-      <section style={{ flex: 1, minHeight: 300, display: 'flex', gap: 12 }}>
-        <div style={{ flex: 1.7, minWidth: 0 }}>
+      <section className="surv-deck" style={{ flex: 1, minHeight: 300, display: 'flex', gap: 12 }}>
+        <div className="surv-crew" style={{ flex: 1.7, minWidth: 0 }}>
           <CrewYard
             crewSize={crewSize} alive={alive} sol={sol} hot={hotStores} waiting={!connected}
             crops={plan?.farm_layout?.crops.map((c) => c.crop)}
@@ -436,6 +601,7 @@ const SurvivalView = () => {
         </div>
 
         <div
+          className="surv-log"
           style={{
             flex: 1,
             minWidth: 280,
@@ -455,7 +621,7 @@ const SurvivalView = () => {
             <span><span style={{ color: GREEN }}>◆</span> Claude · Decision Log</span>
             <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
               {!showHistory && reasoningLog.length > 0 && (
-                <button type="button" onClick={() => setSeeAllOpen(true)} style={logTabStyle(false)}>
+                <button ref={seeAllTriggerRef} type="button" onClick={() => setSeeAllOpen(true)} style={logTabStyle(false)}>
                   See all ({reasoningLog.length})
                 </button>
               )}
@@ -476,7 +642,7 @@ const SurvivalView = () => {
                 </div>
               ) : (
                 reasoningLog.map((e, i) => (
-                  <div key={`${e.sol}-${i}`} style={{ marginBottom: 12, opacity: i === 0 ? 1 : 0.7 }}>
+                  <div key={e.sol} style={{ marginBottom: 12, opacity: i === 0 ? 1 : 0.7 }}>
                     <span style={{ fontFamily: '"Space Mono", monospace', fontSize: 11, color: GREEN, fontWeight: 700 }}>
                       SOL {String(e.sol).padStart(3, '0')}
                     </span>
@@ -497,8 +663,8 @@ const SurvivalView = () => {
                 ) : archiveLog.length === 0 ? (
                   <div style={{ ...standbyStyle, border: 'none', padding: '8px 0' }}>No reasoned decisions recorded.</div>
                 ) : (
-                  archiveLog.map((d, i) => (
-                    <div key={`${d.sol}-${i}`} style={{ marginBottom: 12 }}>
+                  archiveLog.map((d) => (
+                    <div key={d.sol} style={{ marginBottom: 12 }}>
                       <span style={{ fontFamily: '"Space Mono", monospace', fontSize: 11, color: GREEN, fontWeight: 700 }}>
                         SOL {String(d.sol).padStart(3, '0')}
                       </span>
@@ -579,7 +745,12 @@ const SurvivalView = () => {
       </footer>
 
       {/* ── SEE ALL: full current-session decision log ───────── */}
-      {seeAllOpen && (
+      {seeAllOpen && (() => {
+        // Lightweight windowing: render only the latest SEE_ALL_LIMIT entries
+        // (reasoningLog is newest-first). Display oldest→newest within that window.
+        const truncated = reasoningLog.length > SEE_ALL_LIMIT;
+        const windowed = [...reasoningLog.slice(0, SEE_ALL_LIMIT)].reverse();
+        return (
         <div
           style={{
             position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -588,6 +759,10 @@ const SurvivalView = () => {
           onClick={() => setSeeAllOpen(false)}
         >
           <div
+            ref={seeAllRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Claude decision log — full session"
             onClick={(e) => e.stopPropagation()}
             style={{
               background: 'rgba(12,16,22,0.97)', border: '1px solid rgba(255,255,255,0.12)',
@@ -603,10 +778,18 @@ const SurvivalView = () => {
               <button type="button" onClick={() => setSeeAllOpen(false)} style={logTabStyle(false)}>✕ Close</button>
             </div>
             <div style={{ overflowY: 'auto', padding: '14px 20px' }}>
-              {[...reasoningLog].reverse().map((e, i) => (
-                <div key={`all-${e.sol}-${i}`} style={{
+              {truncated && (
+                <div style={{
+                  fontFamily: '"Space Mono", monospace', fontSize: 10.5, letterSpacing: '0.08em',
+                  color: 'rgba(150,162,178,0.7)', marginBottom: 12,
+                }}>
+                  Showing latest {SEE_ALL_LIMIT} of {reasoningLog.length} decisions.
+                </div>
+              )}
+              {windowed.map((e, i) => (
+                <div key={e.sol} style={{
                   marginBottom: 14, paddingBottom: 14,
-                  borderBottom: i === reasoningLog.length - 1 ? 'none' : '1px solid rgba(255,255,255,0.05)',
+                  borderBottom: i === windowed.length - 1 ? 'none' : '1px solid rgba(255,255,255,0.05)',
                 }}>
                   <span style={{ fontFamily: '"Space Mono", monospace', fontSize: 11, color: GREEN, fontWeight: 700 }}>
                     SOL {String(e.sol).padStart(3, '0')}
@@ -617,7 +800,8 @@ const SurvivalView = () => {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* ── END-OF-RUN CLIMAX ────────────────────────────────── */}
       {result && (
@@ -627,7 +811,12 @@ const SurvivalView = () => {
             background: 'rgba(2,4,7,0.72)', backdropFilter: 'blur(6px)', zIndex: 40,
           }}
         >
-          <div style={{
+          <div
+            ref={resultRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Run complete"
+            style={{
             background: 'rgba(12,16,22,0.96)', border: '1px solid rgba(255,255,255,0.12)',
             borderRadius: 18, padding: '2.4rem 3rem', textAlign: 'center',
             boxShadow: '0 12px 60px rgba(0,0,0,0.7)', minWidth: 340,
@@ -655,6 +844,66 @@ const SurvivalView = () => {
     </div>
   );
 };
+
+// Modal a11y: while `open`, close on Escape, trap Tab focus inside `dialogRef`,
+// focus the dialog on open, and restore focus to `triggerRef` (or the
+// previously-focused element) on close.
+function useModalA11y(
+  open: boolean,
+  dialogRef: React.RefObject<HTMLElement | null>,
+  onClose: () => void,
+  triggerRef: React.RefObject<HTMLElement | null> | null,
+) {
+  useEffect(() => {
+    if (!open) return;
+    const prevFocused = (document.activeElement as HTMLElement | null);
+    // Capture the trigger now (it's stable while the modal is open) so cleanup
+    // doesn't read a stale ref.
+    const trigger = triggerRef?.current ?? null;
+    const dialog = dialogRef.current;
+    // Focus the first focusable element (or the dialog itself).
+    const focusables = () => Array.from(
+      dialog?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])',
+      ) ?? [],
+    ).filter((el) => el.offsetParent !== null || el === document.activeElement);
+    const first = focusables()[0];
+    if (first) first.focus();
+    else dialog?.focus();
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      if (e.key === 'Tab') {
+        const els = focusables();
+        if (els.length === 0) {
+          e.preventDefault();
+          return;
+        }
+        const firstEl = els[0];
+        const lastEl = els[els.length - 1];
+        const active = document.activeElement as HTMLElement | null;
+        if (e.shiftKey && (active === firstEl || !dialog?.contains(active))) {
+          e.preventDefault();
+          lastEl.focus();
+        } else if (!e.shiftKey && active === lastEl) {
+          e.preventDefault();
+          firstEl.focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      // Restore focus to the trigger (or whatever was focused before).
+      const restore = trigger ?? prevFocused;
+      restore?.focus?.();
+    };
+  }, [open, dialogRef, onClose, triggerRef]);
+}
 
 const labelStyle: React.CSSProperties = {
   fontFamily: '"Space Mono", monospace',
@@ -783,7 +1032,11 @@ function ContextGauge({ pilot }: { pilot: PilotStat | null }) {
   );
 }
 
-function LivePill({ connected }: { connected: boolean }) {
+// Three states: LIVE (a real event has arrived), RECONNECTING (stream dropped),
+// or CONNECTING… (initial socket open, before the first event lands).
+function LivePill({ connected, reconnecting }: { connected: boolean; reconnecting: boolean }) {
+  const label = connected ? 'LIVE' : reconnecting ? 'RECONNECTING' : 'CONNECTING…';
+  const accent = connected ? GREEN : AMBER;
   return (
     <div
       style={{
@@ -791,7 +1044,7 @@ function LivePill({ connected }: { connected: boolean }) {
         fontFamily: '"Space Mono", monospace', fontSize: 12, fontWeight: 700, letterSpacing: '0.1em',
         borderRadius: 10,
         border: `1px solid ${connected ? 'rgba(0,255,150,0.5)' : 'rgba(255,176,0,0.5)'}`,
-        color: connected ? GREEN : AMBER,
+        color: accent,
         background: connected ? 'rgba(0,255,150,0.06)' : 'rgba(255,176,0,0.06)',
         boxShadow: connected ? '0 0 18px rgba(0,255,150,0.2)' : 'none',
       }}
@@ -799,12 +1052,12 @@ function LivePill({ connected }: { connected: boolean }) {
       <span
         style={{
           width: 8, height: 8, borderRadius: '50%',
-          background: connected ? GREEN : AMBER,
+          background: accent,
           boxShadow: connected ? `0 0 8px ${GREEN}` : 'none',
           animation: connected ? 'survPulse 1.4s ease-in-out infinite' : 'none',
         }}
       />
-      {connected ? 'LIVE' : 'RECONNECTING'}
+      {label}
       <style>{`@keyframes survPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }`}</style>
     </div>
   );

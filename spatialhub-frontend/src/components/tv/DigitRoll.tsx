@@ -2,7 +2,7 @@
 // Each digit animates independently on value change (translateY roll effect).
 // Only changed digits animate — unchanged digits stay static.
 
-import { useRef, useEffect, useState } from 'react';
+import { memo, useRef, useEffect, useState } from 'react';
 
 interface DigitRollProps {
   value: string;      // formatted value string, e.g. "22.5" or "800.0"
@@ -19,7 +19,7 @@ interface DigitState {
   delay: number;
 }
 
-export const DigitRoll = ({ value, fontSize, color }: DigitRollProps) => {
+const DigitRollComponent = ({ value, fontSize, color }: DigitRollProps) => {
   const prevValueRef = useRef<string>('');
   const [digits, setDigits] = useState<DigitState[]>(() =>
     value.split('').map((char) => ({ char, animating: false, delay: 0 }))
@@ -117,6 +117,8 @@ export const DigitRoll = ({ value, fontSize, color }: DigitRollProps) => {
     </span>
   );
 };
+
+export const DigitRoll = memo(DigitRollComponent);
 
 // Inject digit roll keyframes once (ConnectionBadge pattern)
 const DIGIT_ROLL_STYLE_ID = 'digit-roll-animations';

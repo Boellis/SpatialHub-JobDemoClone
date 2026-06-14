@@ -3,7 +3,7 @@
 // Red alerts persist until the sensor recovers to green.
 // Deduplication: 10s cooldown per alert key (sensorId-level) to prevent spam.
 
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useHabitatStore } from '../../store/habitatStore';
 import { ZONE_CONFIGS, ZONE_MAP, SENSOR_MAP } from '../../simulation/constants';
 import { ZONE_ACCENT_COLORS } from './HabitatStructure';
@@ -53,7 +53,7 @@ function getDirection(sensorId: string, value: number): 'HIGH' | 'LOW' {
 // Max alerts visible at any one time
 const MAX_VISIBLE_ALERTS = 5;
 
-export const AlertBanner = () => {
+const AlertBannerComponent = () => {
   useEffect(() => {
     ensureAnimationsInjected();
   }, []);
@@ -188,6 +188,24 @@ export const AlertBanner = () => {
     };
   }, []);
 
+  // Derive each alert's presentation model once per alerts change, so the 2s tick
+  // (which re-renders this component via the zones/tickCount subscriptions) doesn't
+  // recompute accent/border/formatting for every visible alert.
+  const alertModels = useMemo(
+    () =>
+      alerts.map((alert) => ({
+        alert,
+        accentColor: ZONE_ACCENT_COLORS[alert.zoneId] ?? '#ffffff',
+        borderColor: alert.level === 'red' ? '#ff2200' : '#ffaa00',
+        isRed: alert.level === 'red',
+        // Format value — integers for co2/power/tds, 1dp for everything else
+        formattedValue: Number.isInteger(alert.value)
+          ? String(alert.value)
+          : alert.value.toFixed(1),
+      })),
+    [alerts],
+  );
+
   if (alerts.length === 0) return null;
 
   return (
@@ -206,16 +224,7 @@ export const AlertBanner = () => {
         pointerEvents: 'none',
       }}
     >
-      {alerts.map((alert) => {
-        const accentColor = ZONE_ACCENT_COLORS[alert.zoneId] ?? '#ffffff';
-        const borderColor = alert.level === 'red' ? '#ff2200' : '#ffaa00';
-        const isRed = alert.level === 'red';
-
-        // Format value — integers for co2/power/tds, 1dp for everything else
-        const formattedValue = Number.isInteger(alert.value)
-          ? String(alert.value)
-          : alert.value.toFixed(1);
-
+      {alertModels.map(({ alert, accentColor, borderColor, isRed, formattedValue }) => {
         return (
           <div
             key={alert.id}
@@ -290,3 +299,5 @@ export const AlertBanner = () => {
     </div>
   );
 };
+
+export const AlertBanner = memo(AlertBannerComponent);

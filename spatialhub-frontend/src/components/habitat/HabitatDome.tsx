@@ -30,13 +30,6 @@ interface HabitatDomeProps {
   onSelect: (zoneId: string) => void;
 }
 
-// Lerp two hex colors at a given factor — used to shift emissive toward red on alert
-function lerpHexColor(colorA: string, colorB: string, t: number): THREE.Color {
-  const a = new THREE.Color(colorA);
-  const b = new THREE.Color(colorB);
-  return a.lerp(b, t);
-}
-
 export const HabitatDome = ({
   zoneId,
   name,
@@ -48,6 +41,12 @@ export const HabitatDome = ({
   const rimRef = useRef<THREE.Mesh>(null);
   const accentRef = useRef<THREE.Mesh>(null);
   const domeRef = useRef<THREE.Mesh>(null);
+
+  // Cached THREE.Color instances so the per-frame loop mutates in place via .set()/.lerpColors()
+  // instead of allocating fresh Color objects (and garbage) on every animation frame.
+  const emissiveColorRef = useRef(new THREE.Color());
+  const accentColorRef = useRef(new THREE.Color(accentColor));
+  const redColorRef = useRef(new THREE.Color('#ff2200'));
 
   const [hovered, setHovered] = useState(false);
 
@@ -64,20 +63,23 @@ export const HabitatDome = ({
 
     const material = rimRef.current.material as THREE.MeshStandardMaterial;
 
+    // Keep cached accent Color in sync with the prop (no allocation; mutates in place)
+    accentColorRef.current.set(accentColor);
+
     let intensity: number;
-    let emissiveColor: THREE.Color;
+    const emissiveColor = emissiveColorRef.current;
 
     if (status === 'green') {
       intensity = 1.5;
-      emissiveColor = new THREE.Color(accentColor);
+      emissiveColor.copy(accentColorRef.current);
     } else if (status === 'yellow') {
       intensity = 3.0;
-      emissiveColor = new THREE.Color(accentColor);
+      emissiveColor.copy(accentColorRef.current);
     } else {
       // Red: pulsing at ~2Hz between 2.0 and 5.0
       intensity = 2.0 + 3.0 * Math.abs(Math.sin(clock.elapsedTime * 4));
-      // Lerp accent color toward red at 0.7 factor
-      emissiveColor = lerpHexColor(accentColor, '#ff2200', 0.7);
+      // Lerp accent color toward red at 0.7 factor (in place — no per-frame Color alloc)
+      emissiveColor.lerpColors(accentColorRef.current, redColorRef.current, 0.7);
     }
 
     // Boost rim emissive when hovered or selected

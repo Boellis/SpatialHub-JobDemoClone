@@ -2,7 +2,7 @@
 // Renders a gradient-filled area with a status-reactive stroke line.
 // Uses CSS transitions on path/polyline `d` attribute recalculation for smooth append animation.
 
-import { useId } from 'react';
+import { memo, useId, useMemo } from 'react';
 
 interface AreaChartProps {
   data: number[];      // sensor.history (up to 60 points)
@@ -11,13 +11,53 @@ interface AreaChartProps {
   height?: number | string;     // viewBox height (default 160) or "100%" for flex fill
 }
 
-export const AreaChart = ({ data, color, width = 400, height = 160 }: AreaChartProps) => {
+const AreaChartComponent = ({ data, color, width = 400, height = 160 }: AreaChartProps) => {
   const viewBoxHeight = typeof height === 'string' ? 160 : height;
   const uid = useId();
   const gradId = `area-grad-${uid.replace(/:/g, '')}`;
 
+  // Precompute the area + polyline path strings only when the data or dims change,
+  // so the 2s sim tick doesn't force a full O(n) remap on unrelated re-renders.
+  // Returns null when there isn't enough data to draw (flat-line fallback below).
+  const paths = useMemo(() => {
+    if (data.length < 2) return null;
+
+    const padding = 4; // px padding so line doesn't clip edges
+    const rawMin = Math.min(...data);
+    const rawMax = Math.max(...data);
+    const rawRange = rawMax - rawMin;
+    // Minimum visual range: at least 5% of the midpoint value, so small fluctuations
+    // (e.g., pH 7.49-7.51) are visually amplified instead of rendering as a flat line
+    const midpoint = (rawMax + rawMin) / 2 || 1;
+    const minRange = Math.abs(midpoint) * 0.05;
+    const range = Math.max(rawRange, minRange);
+    const min = midpoint - range / 2;
+
+    // Map each data point to (x, y) coordinates within the viewBox
+    const coords = data.map((value, i) => {
+      const x = (i / (data.length - 1)) * width;
+      const y = viewBoxHeight - padding - ((value - min) / range) * (viewBoxHeight - padding * 2);
+      return { x, y };
+    });
+
+    // Polyline points string for the stroke line
+    const polylinePoints = coords.map(({ x, y }) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+
+    // Area path: start at bottom-left, trace points, close at bottom-right
+    const firstX = coords[0].x.toFixed(1);
+    const lastX = coords[coords.length - 1].x.toFixed(1);
+    const areaPath = [
+      `M${firstX},${viewBoxHeight}`,
+      ...coords.map(({ x, y }) => `L${x.toFixed(1)},${y.toFixed(1)}`),
+      `L${lastX},${viewBoxHeight}`,
+      'Z',
+    ].join(' ');
+
+    return { polylinePoints, areaPath };
+  }, [data, width, viewBoxHeight]);
+
   // Flat line fallback: not enough data to draw a meaningful chart
-  if (data.length < 2) {
+  if (!paths) {
     const midY = viewBoxHeight / 2;
     return (
       <svg
@@ -54,37 +94,6 @@ export const AreaChart = ({ data, color, width = 400, height = 160 }: AreaChartP
     );
   }
 
-  const padding = 4; // px padding so line doesn't clip edges
-  const rawMin = Math.min(...data);
-  const rawMax = Math.max(...data);
-  const rawRange = rawMax - rawMin;
-  // Minimum visual range: at least 5% of the midpoint value, so small fluctuations
-  // (e.g., pH 7.49-7.51) are visually amplified instead of rendering as a flat line
-  const midpoint = (rawMax + rawMin) / 2 || 1;
-  const minRange = Math.abs(midpoint) * 0.05;
-  const range = Math.max(rawRange, minRange);
-  const min = midpoint - range / 2;
-
-  // Map each data point to (x, y) coordinates within the viewBox
-  const coords = data.map((value, i) => {
-    const x = (i / (data.length - 1)) * width;
-    const y = viewBoxHeight - padding - ((value - min) / range) * (viewBoxHeight - padding * 2);
-    return { x, y };
-  });
-
-  // Polyline points string for the stroke line
-  const polylinePoints = coords.map(({ x, y }) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
-
-  // Area path: start at bottom-left, trace points, close at bottom-right
-  const firstX = coords[0].x.toFixed(1);
-  const lastX = coords[coords.length - 1].x.toFixed(1);
-  const areaPath = [
-    `M${firstX},${viewBoxHeight}`,
-    ...coords.map(({ x, y }) => `L${x.toFixed(1)},${y.toFixed(1)}`),
-    `L${lastX},${viewBoxHeight}`,
-    'Z',
-  ].join(' ');
-
   return (
     <svg
       viewBox={`0 0 ${width} ${viewBoxHeight}`}
@@ -102,14 +111,14 @@ export const AreaChart = ({ data, color, width = 400, height = 160 }: AreaChartP
 
       {/* Gradient fill — area below the data line */}
       <path
-        d={areaPath}
+        d={paths.areaPath}
         fill={`url(#${gradId})`}
         style={{ transition: 'all 0.4s ease-out' }}
       />
 
       {/* Stroke line — the actual data trace */}
       <polyline
-        points={polylinePoints}
+        points={paths.polylinePoints}
         fill="none"
         stroke={color}
         strokeWidth="2"
@@ -120,3 +129,5 @@ export const AreaChart = ({ data, color, width = 400, height = 160 }: AreaChartP
     </svg>
   );
 };
+
+export const AreaChart = memo(AreaChartComponent);

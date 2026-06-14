@@ -2,40 +2,48 @@
 // Shows worst-zone alert message, sol counter, and connection badge.
 // No animation, no interaction. TV ambient display only.
 
+import { memo, useMemo } from 'react';
 import type { ZoneStatus } from '../../types/habitat';
 import { useHabitatStore, selectSimSource } from '../../store/habitatStore';
 import { STATUS_COLORS, STATUS_LABELS, BADGE_CONFIG } from './constants';
 import { ZONE_MAP, SOL_CYCLE_PERIOD } from '../../simulation/constants';
 
-export const StatusBar = () => {
+const StatusBarComponent = () => {
   const zones = useHabitatStore((s) => s.zones);
   const solElapsed = useHabitatStore((s) => s.solElapsed);
   const simSource = useHabitatStore(selectSimSource);
 
-  // Derive worst zone — iterate all zones, track worst status and the zone responsible
-  let worstStatus: ZoneStatus = 'green';
-  let worstZoneId: string | null = null;
-  for (const [id, zone] of Object.entries(zones)) {
-    if (zone.status === 'red' && worstStatus !== 'red') {
-      worstStatus = 'red';
-      worstZoneId = id;
-    } else if (zone.status === 'yellow' && worstStatus === 'green') {
-      worstStatus = 'yellow';
-      worstZoneId = id;
+  // Derive worst zone + alert message — only recompute when zone statuses change,
+  // not on every 2s tick (solElapsed) that also re-renders this bar.
+  const { worstStatus, statusColor, isNominal, alertMessage } = useMemo(() => {
+    let worst: ZoneStatus = 'green';
+    let worstZoneId: string | null = null;
+    for (const [id, zone] of Object.entries(zones)) {
+      if (zone.status === 'red' && worst !== 'red') {
+        worst = 'red';
+        worstZoneId = id;
+      } else if (zone.status === 'yellow' && worst === 'green') {
+        worst = 'yellow';
+        worstZoneId = id;
+      }
     }
-  }
 
-  const isNominal = worstStatus === 'green';
-  const statusColor = STATUS_COLORS[worstStatus];
+    const nominal = worst === 'green';
+    let message: string;
+    if (nominal) {
+      message = 'ALL SYSTEMS NOMINAL';
+    } else {
+      const zoneName = worstZoneId ? ZONE_MAP[worstZoneId]?.name.toUpperCase() ?? worstZoneId.toUpperCase() : '';
+      message = `${zoneName}: ${STATUS_LABELS[worst]}`;
+    }
 
-  // Alert message
-  let alertMessage: string;
-  if (isNominal) {
-    alertMessage = 'ALL SYSTEMS NOMINAL';
-  } else {
-    const zoneName = worstZoneId ? ZONE_MAP[worstZoneId]?.name.toUpperCase() ?? worstZoneId.toUpperCase() : '';
-    alertMessage = `${zoneName}: ${STATUS_LABELS[worstStatus]}`;
-  }
+    return {
+      worstStatus: worst,
+      statusColor: STATUS_COLORS[worst],
+      isNominal: nominal,
+      alertMessage: message,
+    };
+  }, [zones]);
 
   // Sol counter: floor(solElapsed / SOL_CYCLE_PERIOD), zero-padded to 3 digits
   const solNumber = Math.floor(solElapsed / SOL_CYCLE_PERIOD);
@@ -59,6 +67,8 @@ export const StatusBar = () => {
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10 }}>
         <div
           data-testid="status-dot"
+          role="img"
+          aria-label={`Status: ${STATUS_LABELS[worstStatus]}`}
           style={{
             width: 8,
             height: 8,
@@ -101,6 +111,8 @@ export const StatusBar = () => {
         }}
       >
         <div
+          role="img"
+          aria-label={`Status: ${badge.label}`}
           style={{
             width: 6,
             height: 6,
@@ -123,3 +135,5 @@ export const StatusBar = () => {
     </div>
   );
 };
+
+export const StatusBar = memo(StatusBarComponent);

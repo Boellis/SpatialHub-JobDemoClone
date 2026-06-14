@@ -4,9 +4,20 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Resource hints: speed up first paint by warming the font + API origins early.
+         preconnect opens the TCP+TLS handshake ahead of time; dns-prefetch is the
+         cheaper fallback for browsers that cap concurrent preconnects. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Outfit:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <!-- Route chunks (TvDashboardView / SurvivalView) are React.lazy()'d and emitted
+         with content-hashed filenames by Vite, so we do NOT hardcode <link rel="modulepreload">
+         for them here (the hash changes every build → brittle 404s). Vite already injects
+         modulepreload tags for the entry's static imports at build time; lazy chunks are
+         intentionally deferred. If we ever want to eagerly warm a specific route, do it the
+         Vite-idiomatic way via build.rollupOptions / the modulepreload plugin, not raw paths. -->
     <title>SpatialHub</title>
   </head>
   <body>

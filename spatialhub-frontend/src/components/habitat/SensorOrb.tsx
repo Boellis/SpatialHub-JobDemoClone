@@ -5,7 +5,7 @@
 // Orbs gently bob up and down using Math.sin — phase offset per sensor so they
 // don't move in sync and the scene feels organic.
 
-import { useRef, useState } from 'react';
+import { memo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
@@ -27,7 +27,7 @@ interface SensorOrbProps {
   position: [number, number, number]; // relative to dome center (the parent group)
 }
 
-export const SensorOrb = ({ sensorId, zoneId, sensorName, unit, position }: SensorOrbProps) => {
+const SensorOrbComponent = ({ sensorId, zoneId, sensorName, unit, position }: SensorOrbProps) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
 
@@ -142,3 +142,5 @@ export const SensorOrb = ({ sensorId, zoneId, sensorName, unit, position }: Sens
     </mesh>
   );
 };
+
+export const SensorOrb = memo(SensorOrbComponent);
