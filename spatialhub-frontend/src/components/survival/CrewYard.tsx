@@ -31,15 +31,25 @@ type CrewMember = {
 };
 
 const rand = (min: number, max: number) => min + Math.random() * (max - min);
-const spotAt = (s: Station) => ({ x: s.x + rand(-7, 7), y: s.y + rand(2, 11) });
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+// Spread crew around a station (clamped to the deck) so they don't stack.
+const spotAt = (s: Station) => ({
+  x: clamp(s.x + rand(-13, 13), 5, 95),
+  y: clamp(s.y + rand(-3, 14), 12, 88),
+});
+const STATION_CAP = 3; // max crew working one station at once -> no dogpiles
 
-function pickStation(hot: Set<number>): number {
-  // Faulty systems pull crew in hard — that's where the work is.
-  if (hot.size && Math.random() < 0.7) {
-    const arr = [...hot];
-    return arr[Math.floor(Math.random() * arr.length)];
+// Pick a station that isn't already full. Faults still attract crew, but only up
+// to the cap, so the rest fan out across the deck instead of piling onto one fault.
+function pickStation(hot: Set<number>, occ: number[]): number {
+  const all = STATIONS.map((_, i) => i);
+  const open = all.filter((i) => occ[i] < STATION_CAP);
+  const pool = open.length ? open : all;
+  const hotPool = pool.filter((i) => hot.has(i));
+  if (hotPool.length && Math.random() < 0.55) {
+    return hotPool[Math.floor(Math.random() * hotPool.length)];
   }
-  return Math.floor(Math.random() * STATIONS.length);
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 function spawn(count: number, now: number): CrewMember[] {
@@ -142,23 +152,29 @@ export function CrewYard({
     if (!alive) return;
     const iv = window.setInterval(() => {
       const now = Date.now();
-      setCrew((prev) =>
-        prev.map((c) => {
+      setCrew((prev) => {
+        // Occupancy of crew that are staying put this tick (so the cap holds).
+        const occ = new Array(STATIONS.length).fill(0);
+        prev.forEach((c) => {
+          if (!(c.phase === 'work' && now - c.since >= c.dur)) occ[c.station] += 1;
+        });
+        return prev.map((c) => {
           if (now - c.since < c.dur) return c;
           if (c.phase === 'walk') {
             // Arrived — work longer when repairing a fault.
             const repairing = hotRef.current.has(c.station);
             return { ...c, phase: 'work', since: now, dur: repairing ? rand(4000, 7000) : rand(2600, 5200) };
           }
-          const station = pickStation(hotRef.current);
+          const station = pickStation(hotRef.current, occ);
+          occ[station] += 1;
           const p = spotAt(STATIONS[station]);
           const dist = Math.hypot(p.x - c.x, p.y - c.y);
           return {
             ...c, station, x: p.x, y: p.y, facing: p.x >= c.x ? 1 : -1,
             phase: 'walk', since: now, dur: Math.max(1500, dist * 70),
           };
-        }),
-      );
+        });
+      });
     }, 450);
     return () => window.clearInterval(iv);
   }, [alive]);
