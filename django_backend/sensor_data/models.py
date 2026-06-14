@@ -29,11 +29,11 @@ class HubConfig(models.Model):
     
 
 class EnrichedSensorData(models.Model):
-    hub_id = models.CharField(max_length=100)
+    hub_id = models.CharField(max_length=100, db_index=True)
     sensor_name = models.CharField(max_length=100)
     device_addr = models.CharField(max_length=100)
     sensor_val = models.FloatField()
-    datetime = models.DateTimeField()
+    datetime = models.DateTimeField(db_index=True)
     sensor_id = models.CharField(max_length=100)
     location = models.CharField(max_length=100)
     owner = models.CharField(max_length=100)

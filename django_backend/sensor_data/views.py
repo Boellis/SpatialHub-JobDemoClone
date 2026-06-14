@@ -9,6 +9,7 @@ except ImportError:  # pragma: no cover
 import json
 
 from django.conf import settings
+from django.db.models import Count
 from django.http import JsonResponse, StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 
@@ -451,7 +452,7 @@ def _run_summary(run):
         "ended_reason": run.ended_reason,
         "started_at": run.started_at.isoformat() if run.started_at else None,
         "ended_at": run.ended_at.isoformat() if run.ended_at else None,
-        "decision_count": run.decisions.count(),
+        "decision_count": run.decision_count,
         "in_progress": run.ended_at is None,
     }
 
@@ -468,8 +469,10 @@ def survival_history(request):
         limit = min(max(int(request.GET.get("limit", 50)), 1), 200)
     except (TypeError, ValueError):
         limit = 50
-    runs = SurvivalRun.objects.all()[:limit]
-    return JsonResponse({"runs": [_run_summary(r) for r in runs]})
+    runs = SurvivalRun.objects.annotate(decision_count=Count('decisions'))[:limit]
+    response = JsonResponse({"runs": [_run_summary(r) for r in runs]})
+    response["Cache-Control"] = "public, max-age=300"
+    return response
 
 
 def survival_run_detail(request, run_id):
@@ -489,7 +492,11 @@ def survival_run_detail(request, run_id):
         }
         for d in run.decisions.all()
     ]
-    return JsonResponse({"run": _run_summary(run), "decisions": decisions})
+    # Reuse the already-loaded decisions instead of a separate COUNT query.
+    run.decision_count = len(decisions)
+    response = JsonResponse({"run": _run_summary(run), "decisions": decisions})
+    response["Cache-Control"] = "public, max-age=3600"
+    return response
 
 
 def survival_plans(request):
