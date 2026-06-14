@@ -1,4 +1,5 @@
 from django.urls import path
+from . import views
 from .views import (
     RawSensorListView,
     EnrichedSensorListView,
@@ -17,4 +18,6 @@ urlpatterns = [
     path('send-command/', SendHubCommand.as_view(), name='send-command'),
     path('habitat/zones/', HabitatZoneListView.as_view(), name='habitat-zone-list'),
     path('sensor-ingest/', SensorIngestView.as_view(), name='sensor-ingest'),
+    path('survival/stream', views.survival_stream, name='survival-stream'),
+    path('survival/stop', views.survival_stop, name='survival-stop'),
 ]

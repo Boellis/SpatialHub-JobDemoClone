@@ -8,8 +8,17 @@ except ImportError:  # pragma: no cover
     pubsub_v1 = None
 import json
 
+from django.conf import settings
+from django.http import JsonResponse, StreamingHttpResponse
+from django.views.decorators.csrf import csrf_exempt
+
 from .models import RawSensorData, EnrichedSensorData, HubConfig, HabitatZone
 from .serializers import RawSensorSerializer, EnrichedSensorSerializer, HubConfigSerializer, HabitatZoneSerializer
+from .survival import run_registry
+from .survival.biosim_control import BiosimControl
+from .survival.bot_brain import BotBrain
+from .survival.config import build_survival_config
+from .survival.loop import run_survival
 
 import secrets
 import string
@@ -168,3 +177,62 @@ class SensorIngestView(APIView):
         except Exception as e:
             traceback.print_exc()
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _sse_frame(event):
+    """Serialize a loop event dict into an SSE frame."""
+    return f"event: {event['type']}\ndata: {json.dumps(event['data'])}\n\n"
+
+
+@csrf_exempt
+def survival_stream(request):
+    """SSE endpoint: streams an autonomous Claude-driven BioSim survival run.
+
+    Each loop event is framed as `event: {type}\\ndata: {json}\\n\\n`. The
+    `anthropic` SDK is imported lazily so the test suite (and any env without
+    the package) can import this module.
+    """
+    difficulty = request.GET.get("difficulty", "off")
+    run_id = run_registry.new_run_id()
+
+    def stream():
+        try:
+            import anthropic  # lazy: keep module import-safe without the SDK
+
+            client = BiosimControl(settings.SURVIVAL_BIOSIM_URL)
+            anthropic_client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+            brain = BotBrain(anthropic_client, settings.ANTHROPIC_MODEL)
+            config_xml = build_survival_config(settings.SURVIVAL_CREW_SIZE)
+
+            yield f"event: run\ndata: {json.dumps({'run_id': run_id})}\n\n"
+
+            for event in run_survival(
+                client, brain, config_xml,
+                max_sols=settings.SURVIVAL_MAX_SOLS,
+                token_budget=settings.SURVIVAL_TOKEN_BUDGET,
+                difficulty=difficulty,
+                cancel=lambda: run_registry.is_cancelled(run_id),
+            ):
+                yield _sse_frame(event)
+        except Exception as e:  # pragma: no cover - defensive streaming guard
+            traceback.print_exc()
+            yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+        finally:
+            run_registry.clear(run_id)
+
+    response = StreamingHttpResponse(stream(), content_type="text/event-stream")
+    response["Cache-Control"] = "no-cache"
+    response["X-Accel-Buffering"] = "no"
+    return response
+
+
+@csrf_exempt
+def survival_stop(request):
+    """Cooperatively cancel an in-flight survival run."""
+    try:
+        body = json.loads(request.body or b"{}")
+    except (ValueError, TypeError):
+        body = {}
+    run_id = body.get("run_id")
+    stopped = run_registry.request_stop(run_id) if run_id else False
+    return JsonResponse({"stopped": stopped})
