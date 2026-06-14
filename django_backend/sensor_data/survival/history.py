@@ -40,6 +40,8 @@ def record(event_type, data):
             _record_sol(data)
         elif event_type == "end":
             _record_end(data)
+        elif event_type == "plan":
+            _record_plan(data)
     except Exception:  # pragma: no cover - defensive: persistence must never break the live run
         logger.exception("survival history persistence failed (%s)", event_type)
 
@@ -90,6 +92,29 @@ def _record_sol(data):
     if sol > run.sols_survived:
         run.sols_survived = sol
         run.save(update_fields=["sols_survived"])
+
+
+def _record_plan(data):
+    """Persist one generated habitat plan (farm layout + food plan). Skips empties and
+    exact consecutive duplicates so re-published identical plans don't pile up. Tags the
+    open run (if any) for context, but plans are browsed independently of runs."""
+    from sensor_data.models import SurvivalPlan
+
+    farm = data.get("farm_layout")
+    food = data.get("food_plan")
+    if not farm and not food:
+        return  # nothing generated yet
+    last = SurvivalPlan.objects.order_by("-id").first()
+    if last is not None and last.farm_layout == farm and last.food_plan == food:
+        return  # identical to the most recent — don't duplicate
+    run = _current_run()
+    SurvivalPlan.objects.create(
+        run_id=run.run_id if run is not None else "",
+        sol=int(data.get("sol", 0) or 0),
+        farm_layout=farm,
+        food_plan=food,
+        note=(data.get("note") or "").strip(),
+    )
 
 
 def _record_end(data):

@@ -75,6 +75,24 @@ export type SurvivalDecision = {
   created_at: string | null;
 };
 
+// One archived habitat plan (durable, browsable independently of runs).
+export type SurvivalPlanRecord = {
+  id: number;
+  run_id: string;
+  sol: number;
+  farm_layout: FarmLayout | null;
+  food_plan: FoodPlan | null;
+  note: string;
+  created_at: string | null;
+};
+
+export async function fetchSurvivalPlans(limit = 50): Promise<SurvivalPlanRecord[]> {
+  const res = await fetch(`${SURVIVAL_API}/plans?limit=${limit}`);
+  if (!res.ok) throw new Error(`plans ${res.status}`);
+  const body = (await res.json()) as { plans: SurvivalPlanRecord[] };
+  return body.plans ?? [];
+}
+
 export async function fetchSurvivalRuns(limit = 50): Promise<SurvivalRunSummary[]> {
   const res = await fetch(`${SURVIVAL_API}/history?limit=${limit}`);
   if (!res.ok) throw new Error(`history ${res.status}`);

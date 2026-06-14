@@ -9,8 +9,12 @@ Run on macOS:
 from django.test import TestCase
 from django.urls import reverse
 
-from sensor_data.models import SurvivalDecision, SurvivalRun
+from sensor_data.models import SurvivalDecision, SurvivalPlan, SurvivalRun
 from sensor_data.survival import relay
+
+
+FARM = {"crops": [{"crop": "Potato", "area_m2": 90}], "total_kcal_per_day": 46400, "feeds_crew": True}
+FOOD = {"meals": [{"meal": "Dinner", "items": ["Mash"], "kcal": 2800}], "total_kcal_per_day": 2850}
 
 
 def _sol(sol, reasoning, actions=None):
@@ -126,3 +130,53 @@ class HistoryEndpointTests(TestCase):
         self.assertEqual(
             self.client.get(reverse("survival-run-detail", args=["nope"])).status_code, 404
         )
+
+
+class PlanPersistenceTests(TestCase):
+    def setUp(self):
+        relay.reset()
+
+    def test_plan_event_creates_row(self):
+        relay.publish("plan", {"farm_layout": FARM, "food_plan": None, "note": "layout", "sol": 50})
+        self.assertEqual(SurvivalPlan.objects.count(), 1)
+        p = SurvivalPlan.objects.first()
+        self.assertEqual(p.farm_layout["total_kcal_per_day"], 46400)
+        self.assertIsNone(p.food_plan)
+        self.assertEqual(p.sol, 50)
+
+    def test_empty_plan_is_skipped(self):
+        relay.publish("plan", {"farm_layout": None, "food_plan": None, "note": "", "sol": 0})
+        self.assertEqual(SurvivalPlan.objects.count(), 0)
+
+    def test_identical_consecutive_plan_is_deduped(self):
+        relay.publish("plan", {"farm_layout": FARM, "food_plan": FOOD, "sol": 50})
+        relay.publish("plan", {"farm_layout": FARM, "food_plan": FOOD, "sol": 51})  # identical content
+        self.assertEqual(SurvivalPlan.objects.count(), 1)
+
+    def test_farm_then_food_keeps_both_generations(self):
+        relay.publish("plan", {"farm_layout": FARM, "food_plan": None, "sol": 50})
+        relay.publish("plan", {"farm_layout": FARM, "food_plan": FOOD, "sol": 50})  # food added -> new row
+        self.assertEqual(SurvivalPlan.objects.count(), 2)
+
+    def test_plan_tags_open_run_for_context(self):
+        relay.publish("run", {"run_id": "run-x", "difficulty": "off", "crew_size": 15})
+        relay.publish("plan", {"farm_layout": FARM, "food_plan": FOOD, "sol": 12})
+        self.assertEqual(SurvivalPlan.objects.first().run_id, "run-x")
+
+
+class PlansEndpointTests(TestCase):
+    def setUp(self):
+        relay.reset()
+
+    def test_plans_listed_newest_first(self):
+        relay.publish("plan", {"farm_layout": FARM, "food_plan": None, "sol": 10})
+        relay.publish("plan", {"farm_layout": FARM, "food_plan": FOOD, "sol": 20})
+        resp = self.client.get(reverse("survival-plans"))
+        self.assertEqual(resp.status_code, 200)
+        plans = resp.json()["plans"]
+        self.assertEqual(len(plans), 2)
+        self.assertEqual(plans[0]["sol"], 20)            # newest first
+        self.assertEqual(plans[0]["food_plan"]["total_kcal_per_day"], 2850)
+
+    def test_plans_post_not_allowed(self):
+        self.assertEqual(self.client.post(reverse("survival-plans")).status_code, 405)

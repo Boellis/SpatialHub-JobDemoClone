@@ -26,4 +26,5 @@ urlpatterns = [
     path('survival/command', views.survival_command, name='survival-command'),
     path('survival/history', views.survival_history, name='survival-history'),
     path('survival/history/<str:run_id>', views.survival_run_detail, name='survival-run-detail'),
+    path('survival/plans', views.survival_plans, name='survival-plans'),
 ]

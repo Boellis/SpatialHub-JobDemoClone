@@ -79,6 +79,26 @@ class SurvivalDecision(models.Model):
         indexes = [models.Index(fields=['run', 'sol'])]
 
 
+class SurvivalPlan(models.Model):
+    """A Claude-generated habitat plan (farm layout + crew food plan), persisted so the
+    full history of generated plans is browsable. Written best-effort from
+    ``survival.history`` on each relay ``plan`` event. Independent of runs — ``run_id``
+    is an optional context tag (the open run at generation time), not a FK."""
+    run_id = models.CharField(max_length=64, blank=True, default='', db_index=True)
+    sol = models.IntegerField(default=0)
+    farm_layout = models.JSONField(null=True, blank=True)
+    food_plan = models.JSONField(null=True, blank=True)
+    note = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'survival_plan'
+        ordering = ['-created_at', '-id']
+
+    def __str__(self):
+        return f"plan @ sol {self.sol} ({self.created_at:%Y-%m-%d %H:%M})"
+
+
 class HabitatZone(models.Model):
     zone_id = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=100)

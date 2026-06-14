@@ -12,7 +12,7 @@ from django.conf import settings
 from django.http import JsonResponse, StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 
-from .models import RawSensorData, EnrichedSensorData, HubConfig, HabitatZone, SurvivalRun
+from .models import RawSensorData, EnrichedSensorData, HubConfig, HabitatZone, SurvivalRun, SurvivalPlan
 from .serializers import RawSensorSerializer, EnrichedSensorSerializer, HubConfigSerializer, HabitatZoneSerializer
 from .survival import run_registry
 from .survival import relay
@@ -490,3 +490,30 @@ def survival_run_detail(request, run_id):
         for d in run.decisions.all()
     ]
     return JsonResponse({"run": _run_summary(run), "decisions": decisions})
+
+
+def survival_plans(request):
+    """Public read: the full history of generated habitat plans (newest first).
+
+    Each entry is a Claude-generated farm layout + crew food plan with its timestamp
+    and the sol it was generated at. Browsed independently of runs.
+    """
+    if request.method != "GET":
+        return JsonResponse({"error": "GET only"}, status=405)
+    try:
+        limit = min(max(int(request.GET.get("limit", 50)), 1), 200)
+    except (TypeError, ValueError):
+        limit = 50
+    plans = [
+        {
+            "id": p.id,
+            "run_id": p.run_id,
+            "sol": p.sol,
+            "farm_layout": p.farm_layout,
+            "food_plan": p.food_plan,
+            "note": p.note,
+            "created_at": p.created_at.isoformat() if p.created_at else None,
+        }
+        for p in SurvivalPlan.objects.all()[:limit]
+    ]
+    return JsonResponse({"plans": plans})
