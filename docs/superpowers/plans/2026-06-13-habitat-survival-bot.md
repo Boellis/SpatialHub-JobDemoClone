@@ -9,7 +9,44 @@
 **Tech Stack:** Django 5.2 + DRF, `requests` (already in stack — matches `control_loop.py`), `anthropic` SDK, React 19 + TS + Vite + Vitest, native `EventSource`, Zustand. BioSim VM `34.66.244.62:8009`.
 
 **Spec:** `docs/superpowers/specs/2026-06-13-habitat-survival-bot-design.md`
-**Branch:** `feat/survival-bot` (off `v3.0`).
+**Branch:** `feat/survival-bot` (off `v3.0`) — superseded; see Implementation Outcome.
+
+---
+
+## Implementation Outcome (2026-06-14)
+
+**Status: built, verified, shipped on branch `feat/survival-v4`** (pushed to origin). The
+work was grafted off the `v3.0` plan onto the real **v4.0** codebase (branch
+`feature/mars-habitat-demo`, commit `02edb97`) — building on the stale `v3.0` tag would
+have regressed the live demo by ~69 commits (hero charts etc.). The original
+`feat/survival-bot` branch is abandoned.
+
+**Tests:** 161 frontend (Vitest) + 34 backend (pytest) green; `npm run build` clean.
+
+**Demo mode chosen: live pilot via the BioSim MCP server, NOT the deployed autonomous
+tab.** Nick pilots the habitat from Claude Code on his Claude subscription in front of
+judges — so **no `ANTHROPIC_API_KEY` and no Cloud Run survival deploy are required.** The
+autonomous SSE tab (Tasks 1–13) is fully built and remains available if a judges-click-a-URL
+deploy is ever wanted; only that path needs the key + `deploy/deploy.sh` (now survival-aware).
+
+**Beyond the plan, this session also delivered:**
+- **`mcp_biosim/`** — an MCP server (`start_run`/`get_status`/`set_flows`/`advance`/
+  `inject_malfunction` + a `survival_doctrine` prompt) that lets a Claude Code session BE
+  the survival operator on the subscription (zero API tokens). Reuses
+  `sensor_data.survival.{biosim_control,state,config}` as a single source of truth. Compact
+  telemetry by default to conserve context. 11 tests, verified live.
+- **Smarter bot brain** — telemetry upgraded from blind %-only to per-resource flow
+  balances + `runway_sols` + per-store trend, with a life-support domain-expert prompt.
+  Caps raised to the "Balanced" posture (Sonnet 4.6, 500 sols, 750k token budget).
+- **Two latent deploy bugs fixed** — `anthropic` must go in the INNER
+  `django_backend/requirements.txt` (Dockerfile installs that one); Gunicorn needs
+  `gthread` + `--timeout 0` for SSE.
+- **BioSim config bug fixed** — `build_survival_config` must emit a whitespace-formatted
+  `<schedule>` (collapsed one-liner → BioSim NPE on every sim-start); activity names must
+  match BioSim's set (`excercise`, not `work`).
+- **P0 (BioSim VM disk-full) resolved** — root cause was `--writeTicks` in
+  `docker-compose.vm.yml` dumping per-tick logs forever; removed at the source, disk
+  resized 20→30G, VM live again.
 
 ---
 
