@@ -56,9 +56,9 @@ VM `http://34.66.244.62:8009`; point it at a local BioSim for offline play).
 | Tool | What it does |
 |------|--------------|
 | `start_run(crew_size=15, difficulty="off")` | Start a fresh `runTillCrewDeath` sim; returns initial telemetry. `difficulty`: `off` or `malfunctions`. |
-| `get_status()` | Your dashboard: sols survived, alive flag, every store (pct/level/capacity/`runway_sols`/`trend`), per-resource flow `balances` (produced/consumed/net), warnings, and controllable surfaces with current rates + max ceilings. |
+| `get_status(detail="normal")` | Your dashboard, **compact by default** to conserve context: each store as `{pct, delta, runway_sols?}`, per-resource `{resource, net}` balances, warnings, and controllable surfaces with current `desired` rates. `detail="full"` restores absolute level/capacity, full `trend` arrays, produced/consumed, and max ceilings. |
 | `set_flows(actions)` | Apply flow changes. Each action `{module, kind, type, rates}` is clamped to `[0, max]`; unknown surfaces are rejected. Does not advance time. |
-| `advance(sols=1)` | Step forward N Mars days (24 ticks each), one sol at a time, stopping at crew death. Returns telemetry + `sols_advanced_this_call`. |
+| `advance(sols=1, detail="normal")` | Step forward N Mars days (24 ticks each), one sol at a time, stopping at crew death. **Advance in chunks** (e.g. `advance(10)` once stable) to cut round-trips. Returns telemetry + `sols_advanced_this_call`. |
 | `inject_malfunction(module, intensity, length)` | Manually stress-test a module. |
 
 Prompt: **`survival_doctrine`** — load it first; it's the life-support operating
