@@ -199,7 +199,7 @@ def test_start_run_publishes_run_then_sol():
         server.start_run(crew_size=15, note="boot")
     assert [t for t, _ in cap.events] == ["run", "sol"]
     run_data = cap.events[0][1]
-    assert set(run_data) == {"run_id", "difficulty", "crew_size"}
+    assert set(run_data) == {"run_id", "difficulty", "crew_size", "pilot"}
     assert run_data["run_id"] and run_data["difficulty"] == "off"
     assert run_data["crew_size"] == 15
     sol_data = cap.events[1][1]
@@ -312,3 +312,33 @@ def test_resume_run_reattaches_to_saved_sim(tmp_path):
         assert out["sols_survived"] == 12
     finally:
         server._STATE_FILE = orig
+
+
+# ---------------------------------------------------------------------------
+# Pilot-context gauge
+
+def test_pilot_context_tracks_and_resets():
+    _fresh()
+    server._reset_session()
+    server.RUN.sim_id = 42
+    # each tool call bumps tool_calls and est_tokens
+    server.get_status()
+    server.advance(2)
+    s = server._pilot_stat()
+    assert s["tool_calls"] >= 2
+    assert s["est_tokens"] > 0
+    assert s["budget"] == server._CONTEXT_BUDGET
+    # resume_run resets the gauge (post-compaction boundary)
+    server.resume_run()
+    assert server._SESSION["tool_calls"] <= 1   # only resume_run's own call counted
+    # start_run also resets it
+    server.start_run(crew_size=15)
+    assert server._SESSION["tool_calls"] <= 1
+
+
+def test_sol_event_carries_pilot_stat():
+    client = _fresh()
+    server.RUN.sim_id = 42
+    raw = client.get_state(42)
+    ev = server._sol_event(raw, "note")
+    assert "pilot" in ev and "est_tokens" in ev["pilot"] and "budget" in ev["pilot"]

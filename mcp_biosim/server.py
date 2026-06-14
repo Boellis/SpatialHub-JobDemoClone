@@ -44,6 +44,15 @@ TREND_LEN = 12  # sols of per-store % history exposed in telemetry
 DIFFICULTIES = {"off", "malfunctions"}
 DIFFICULTY_MALF_MODULE = "Grey_Water_Store"
 
+# Pilot-context gauge. The web app can't read Claude Code's true context window, but
+# the MCP CAN tally what it feeds the pilot — that's the dominant driver of context
+# growth during a run. We estimate tokens from the size of each tool RETURN value
+# (what actually enters the pilot's context) and count tool calls. Both reset at the
+# post-compaction boundary (start_run / resume_run), so the gauge drops after a
+# /compact + resume, making "compact recommended" actionable.
+_CONTEXT_BUDGET = int(os.environ.get("SURVIVAL_CONTEXT_BUDGET", "120000"))
+_SESSION = {"tool_calls": 0, "est_tokens": 0}
+
 # Optional live-telemetry relay: when both are set, every survival event is
 # POSTed to the Django relay so the web app renders the run in real time. This
 # is a pure server-side side-effect — it never enters any tool's return payload
@@ -273,6 +282,27 @@ def _status_payload(detail="normal"):
     return payload
 
 
+def _track_call(payload):
+    """Tally pilot-context pressure: +1 tool call and a rough token estimate of the
+    telemetry returned to the pilot (≈ chars/4). Reset at start_run / resume_run."""
+    _SESSION["tool_calls"] += 1
+    try:
+        _SESSION["est_tokens"] += max(1, len(json.dumps(payload)) // 4)
+    except Exception:
+        pass
+
+
+def _pilot_stat():
+    return {"tool_calls": _SESSION["tool_calls"],
+            "est_tokens": _SESSION["est_tokens"],
+            "budget": _CONTEXT_BUDGET}
+
+
+def _reset_session():
+    _SESSION["tool_calls"] = 0
+    _SESSION["est_tokens"] = 0
+
+
 def _sol_event(raw, reasoning):
     """Build the relay `sol` event data from a raw BioSim state dict.
 
@@ -298,6 +328,7 @@ def _sol_event(raw, reasoning):
         ],
         "balances": [{"resource": b["resource"], "net": b["net"]}
                      for b in snap["balances"]],
+        "pilot": _pilot_stat(),
     }
 
 
@@ -317,18 +348,20 @@ def start_run(crew_size: int = 15, difficulty: str = "off", note: str = "") -> d
     """
     difficulty = difficulty if difficulty in DIFFICULTIES else "off"
     RUN.reset(difficulty)
+    _reset_session()  # fresh run = fresh context baseline
     config = build_survival_config(crew_size)
     RUN.sim_id = RUN.client.start_sim(config)
     RUN.run_id = secrets.token_hex(8)
     _save_state()
     payload = _status_payload()
     _publish("run", {"run_id": RUN.run_id, "difficulty": RUN.difficulty,
-                     "crew_size": crew_size})
+                     "crew_size": crew_size, "pilot": _pilot_stat()})
     try:
         raw = RUN.client.get_state(RUN.sim_id)
         _publish("sol", _sol_event(raw, note))
     except Exception:
         pass
+    _track_call(payload)
     return payload
 
 
@@ -346,7 +379,9 @@ def get_status(detail: str = "normal") -> dict:
     arrays, produced/consumed per balance, and the max ceiling per surface. Use it
     occasionally when you need the raw physics; prefer 'normal' to conserve context.
     """
-    return _status_payload("full" if detail == "full" else "normal")
+    payload = _status_payload("full" if detail == "full" else "normal")
+    _track_call(payload)
+    return payload
 
 
 @mcp.tool()
@@ -360,6 +395,7 @@ def resume_run() -> dict:
     hints to call start_run. Idempotent and safe to call any time you're unsure of
     the run state (e.g. right after a compaction summary).
     """
+    _reset_session()  # post-compaction boundary — the gauge restarts from here
     if RUN.sim_id is None:
         _load_state_into(RUN)
     if RUN.sim_id is None:
@@ -376,6 +412,7 @@ def resume_run() -> dict:
     payload = _status_payload()
     payload["resumed"] = True
     payload["sim_id"] = RUN.sim_id
+    _track_call(payload)
     return payload
 
 
@@ -403,7 +440,9 @@ def set_flows(actions: list[dict], note: str = "") -> dict:
         _publish("sol", _sol_event(raw, note))
     except Exception:
         pass
-    return {"applied": applied, "rejected": rejected}
+    result = {"applied": applied, "rejected": rejected}
+    _track_call(result)
+    return result
 
 
 @mcp.tool()
@@ -448,6 +487,7 @@ def advance(sols: int = 1, detail: str = "normal", note: str = "") -> dict:
     _save_state()
     payload = _status_payload("full" if detail == "full" else "normal")
     payload["sols_advanced_this_call"] = advanced
+    _track_call(payload)
     return payload
 
 
@@ -465,8 +505,10 @@ def inject_malfunction(
     if RUN.sim_id is None:
         raise ValueError("No active run. Call start_run first.")
     mid = RUN.client.add_malfunction(RUN.sim_id, module, intensity, length)
-    return {"malfunction_id": mid, "module": module,
-            "intensity": intensity, "length": length}
+    result = {"malfunction_id": mid, "module": module,
+              "intensity": intensity, "length": length}
+    _track_call(result)
+    return result
 
 
 # ---------------------------------------------------------------------------

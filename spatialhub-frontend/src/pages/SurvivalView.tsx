@@ -19,13 +19,14 @@ import {
   type SurvivalSolEvent,
   type SurvivalEndEvent,
   type SurvivalStore,
+  type PilotStat,
 } from '../api/survival';
 import { CrewYard } from '../components/survival/CrewYard';
 import { ControlPanel } from '../components/survival/ControlPanel';
 import { ResourceCard, healthOf, type Health } from '../components/survival/ResourceCard';
 
 type Difficulty = 'off' | 'malfunctions';
-interface RunEvent { run_id: string; difficulty: Difficulty; crew_size: number }
+interface RunEvent { run_id: string; difficulty: Difficulty; crew_size: number; pilot?: PilotStat }
 interface ReasoningEntry { sol: number; reasoning: string }
 interface SurvivalResult { sols_survived: number; ended_reason: string }
 type SolAction = { module: string; kind: string; type: string; desired_rates: number[] };
@@ -103,6 +104,7 @@ const SurvivalView = () => {
   const [result, setResult] = useState<SurvivalResult | null>(null);
   const [best, setBestState] = useState(0);
   const [isRecord, setIsRecord] = useState(false);
+  const [pilot, setPilot] = useState<PilotStat | null>(null);
 
   const esRef = useRef<EventSource | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -140,6 +142,7 @@ const SurvivalView = () => {
     setStores(view);
     setSol(d.sol);
     setAlive(d.alive);
+    if (d.pilot) setPilot(d.pilot);
     // Track the all-time high sol.
     if (d.sol > bestRef.current) {
       setBest(d.sol);
@@ -179,6 +182,7 @@ const SurvivalView = () => {
         if (d.crew_size) setCrewSize(d.crew_size);
         recordStartRef.current = bestRef.current; // snapshot the record to beat
         setIsRecord(false);
+        if (d.pilot) setPilot(d.pilot);
       });
       es.addEventListener('sol', (ev) => {
         setConnected(true);
@@ -330,6 +334,7 @@ const SurvivalView = () => {
               </span>
             )}
           </div>
+          <ContextGauge pilot={pilot} />
         </div>
       </header>
 
@@ -510,6 +515,53 @@ function alertChip(crit: boolean): React.CSSProperties {
     display: 'flex',
     alignItems: 'center',
   };
+}
+
+// Pilot-context gauge — estimated telemetry the MCP has fed the Claude pilot since
+// the last resume/start. Not Claude Code's true window (the web app can't read that),
+// but the dominant driver of context growth during a run — so it's a usable
+// "when to /compact" signal. Resets when the pilot calls resume_run after a compact.
+function ContextGauge({ pilot }: { pilot: PilotStat | null }) {
+  if (!pilot) {
+    return (
+      <div style={{
+        fontFamily: '"Space Mono", monospace', fontSize: 9.5, letterSpacing: '0.1em',
+        color: 'rgba(150,162,178,0.55)', textAlign: 'right', maxWidth: 200,
+      }}>
+        PILOT CONTEXT · awaiting pilot
+      </div>
+    );
+  }
+  const pct = Math.min(100, (pilot.est_tokens / Math.max(1, pilot.budget)) * 100);
+  const color = pct >= 85 ? '#ff3b30' : pct >= 60 ? '#ffb000' : '#00ff9c';
+  const status = pct >= 85 ? 'COMPACT RECOMMENDED' : pct >= 60 ? 'GETTING LONG' : 'NOMINAL';
+  const k = (n: number) => `${Math.round(n / 1000)}k`;
+  return (
+    <div style={{ width: 200, textAlign: 'right' }} title="Estimated telemetry fed to the Claude pilot since its last resume. The web app can't read Claude Code's true context window; this is the main driver of context growth during a run. /compact + resume_run resets it.">
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+        fontFamily: '"Space Mono", monospace', fontSize: 9.5, letterSpacing: '0.12em',
+        color: 'rgba(150,162,178,0.85)', marginBottom: 3,
+      }}>
+        <span>PILOT CONTEXT</span>
+        <span style={{ color }}>{k(pilot.est_tokens)}/{k(pilot.budget)}</span>
+      </div>
+      <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+        <div style={{
+          width: `${pct}%`, height: '100%', borderRadius: 3,
+          background: `linear-gradient(90deg, ${color}aa, ${color})`,
+          transition: 'width 0.5s ease, background 0.4s ease',
+        }} />
+      </div>
+      <div style={{
+        fontFamily: '"Space Mono", monospace', fontSize: 9, letterSpacing: '0.1em',
+        color, marginTop: 3,
+        animation: pct >= 85 ? 'survPulse 1.1s ease-in-out infinite' : 'none',
+      }}>
+        {status} · {pilot.tool_calls} calls
+      </div>
+    </div>
+  );
 }
 
 function LivePill({ connected }: { connected: boolean }) {

@@ -11,7 +11,9 @@ export type SurvivalSolEvent = {
   warnings: { sensor: string; status: string }[];
   stores?: SurvivalStore[];                    // compact per-store telemetry (preferred)
   balances?: SurvivalBalance[];                // per-resource net flow (negative = draining)
+  pilot?: PilotStat;                           // pilot-context gauge (est. telemetry load)
 };
+export type PilotStat = { tool_calls: number; est_tokens: number; budget: number };
 export type SurvivalEndEvent = { sols_survived: number; ended_reason: string };
 
 export function survivalStreamUrl(difficulty: "off" | "malfunctions"): string {
