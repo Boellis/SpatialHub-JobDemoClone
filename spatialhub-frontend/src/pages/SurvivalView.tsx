@@ -117,6 +117,7 @@ const SurvivalView = () => {
   const [archiveLog, setArchiveLog] = useState<SurvivalDecision[]>([]);
   const [historyErr, setHistoryErr] = useState<string | null>(null);
   const [historyBusy, setHistoryBusy] = useState(false);
+  const [seeAllOpen, setSeeAllOpen] = useState(false); // full current-session decision log
 
   const esRef = useRef<EventSource | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -221,6 +222,7 @@ const SurvivalView = () => {
         setStores([]);
         setLastActions([]);
         setReasoningLog([]);
+        setSeeAllOpen(false);
         lastPctRef.current = new Map();
         setDifficulty(d.difficulty);
         if (d.crew_size) setCrewSize(d.crew_size);
@@ -434,7 +436,12 @@ const SurvivalView = () => {
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
             <span><span style={{ color: GREEN }}>◆</span> Claude · Decision Log</span>
-            <div style={{ display: 'flex', gap: 4 }}>
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              {!showHistory && reasoningLog.length > 0 && (
+                <button type="button" onClick={() => setSeeAllOpen(true)} style={logTabStyle(false)}>
+                  See all ({reasoningLog.length})
+                </button>
+              )}
               <button type="button" onClick={() => setShowHistory(false)} style={logTabStyle(!showHistory)}>
                 Live
               </button>
@@ -553,6 +560,47 @@ const SurvivalView = () => {
           </div>
         </div>
       </footer>
+
+      {/* ── SEE ALL: full current-session decision log ───────── */}
+      {seeAllOpen && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(2,4,7,0.78)', backdropFilter: 'blur(6px)', zIndex: 50, padding: 24,
+          }}
+          onClick={() => setSeeAllOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'rgba(12,16,22,0.97)', border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: 16, boxShadow: '0 12px 60px rgba(0,0,0,0.7)',
+              width: 'min(720px, 96vw)', maxHeight: '86vh', display: 'flex', flexDirection: 'column',
+            }}
+          >
+            <div style={{
+              ...labelStyle, padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <span><span style={{ color: GREEN }}>◆</span> Claude · Decision Log — {reasoningLog.length} decisions · this session</span>
+              <button type="button" onClick={() => setSeeAllOpen(false)} style={logTabStyle(false)}>✕ Close</button>
+            </div>
+            <div style={{ overflowY: 'auto', padding: '14px 20px' }}>
+              {[...reasoningLog].reverse().map((e, i) => (
+                <div key={`all-${e.sol}-${i}`} style={{
+                  marginBottom: 14, paddingBottom: 14,
+                  borderBottom: i === reasoningLog.length - 1 ? 'none' : '1px solid rgba(255,255,255,0.05)',
+                }}>
+                  <span style={{ fontFamily: '"Space Mono", monospace', fontSize: 11, color: GREEN, fontWeight: 700 }}>
+                    SOL {String(e.sol).padStart(3, '0')}
+                  </span>
+                  <div style={{ fontSize: 13.5, lineHeight: 1.5, color: '#dbe2ea', marginTop: 3 }}>{e.reasoning}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── END-OF-RUN CLIMAX ────────────────────────────────── */}
       {result && (
