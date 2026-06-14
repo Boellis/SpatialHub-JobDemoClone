@@ -34,3 +34,25 @@ def test_drops_unknown_and_negatives():
 def test_tokens_summed():
     b = BotBrain(_Client({"reasoning": "x", "actions": []}), "m"); b.decide(SNAP)
     assert b.tokens_used == 10
+
+
+class _CapClient:
+    """Captures the kwargs passed to messages.create."""
+    def __init__(self, p): self._p = p; self.messages = self; self.captured = {}
+    def create(self, **k): self.captured = k; return _Msg(self._p)
+
+
+def test_forwards_balances_to_model():
+    snap = dict(SNAP, balances=[
+        {"resource": "O2", "produced": 800.0, "consumed": 900.0, "net": -100.0}])
+    client = _CapClient({"reasoning": "x", "actions": []})
+    BotBrain(client, "m").decide(snap)
+    user_content = client.captured["messages"][0]["content"]
+    assert '"balances"' in user_content and "O2" in user_content
+
+
+def test_works_without_balances_key():
+    # Snapshots lacking balances must not raise (tolerant forwarding).
+    client = _CapClient({"reasoning": "x", "actions": []})
+    BotBrain(client, "m").decide(SNAP)
+    assert '"balances"' not in client.captured["messages"][0]["content"]

@@ -195,3 +195,66 @@ def test_summarize_state_stores_pct():
     snap = summarize_state(raw)
     o2 = next(s for s in snap["stores"] if s["name"] == "O2_Store")
     assert o2["pct"] == 30.0
+
+
+# ---------------------------------------------------------------------------
+# telemetry: balances, absolute levels, runway, trend
+# ---------------------------------------------------------------------------
+
+def test_balances_net_from_actual_flow():
+    raw = {"modules": {
+        "OGS": {"producers": [{"type": "O2", "rates": {"actualFlowRates": [800.0]}}]},
+        "Crew_Quarters_Group": {
+            "consumers": [{"type": "O2", "rates": {"actualFlowRates": [900.0]}}]},
+    }}
+    o2 = next(b for b in summarize_state(raw)["balances"] if b["resource"] == "O2")
+    assert o2["produced"] == 800.0
+    assert o2["consumed"] == 900.0
+    assert o2["net"] == -100.0  # deficit -> O2 draining
+
+
+def test_stores_include_level_and_capacity():
+    raw = {"modules": {
+        "O2_Store": {"properties": {"currentLevel": 30.0, "currentCapacity": 120.0}}}}
+    o2 = next(s for s in summarize_state(raw)["stores"] if s["name"] == "O2_Store")
+    assert o2["level"] == 30.0
+    assert o2["capacity"] == 120.0
+
+
+def test_runway_sols_when_draining():
+    # O2 store 240 units, net -10/tick -> 24 ticks -> 1.0 sol of runway.
+    raw = {"modules": {
+        "O2_Store": {"properties": {"currentLevel": 240.0, "currentCapacity": 1000.0}},
+        "OGS": {"producers": [{"type": "O2", "rates": {"actualFlowRates": [0.0]}}]},
+        "Crew_Quarters_Group": {
+            "consumers": [{"type": "O2", "rates": {"actualFlowRates": [10.0]}}]},
+    }}
+    o2 = next(s for s in summarize_state(raw)["stores"] if s["name"] == "O2_Store")
+    assert o2["runway_sols"] == 1.0
+
+
+def test_no_runway_when_not_draining():
+    raw = {"modules": {
+        "O2_Store": {"properties": {"currentLevel": 240.0, "currentCapacity": 1000.0}},
+        "OGS": {"producers": [{"type": "O2", "rates": {"actualFlowRates": [50.0]}}]},
+        "Crew_Quarters_Group": {
+            "consumers": [{"type": "O2", "rates": {"actualFlowRates": [10.0]}}]},
+    }}
+    o2 = next(s for s in summarize_state(raw)["stores"] if s["name"] == "O2_Store")
+    assert "runway_sols" not in o2  # surplus -> filling, not draining
+
+
+def test_loop_attaches_growing_trend_to_stores():
+    seen = []
+
+    class RecBrain(FakeBrain):
+        def decide(self, snapshot):
+            # capture the per-store trend the bot actually sees this sol
+            o2 = next(s for s in snapshot["stores"] if s["name"] == "O2_Store")
+            seen.append(list(o2["trend"]))
+            return super().decide(snapshot)
+
+    client = FakeClient(die_after=4)
+    list(run_survival(client, RecBrain(), "<x/>", max_sols=200))
+    assert seen[0] == [50.0]                     # first sol: one sample
+    assert seen[-1] == [50.0] * len(seen)        # grows one sample per sol

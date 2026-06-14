@@ -4,7 +4,8 @@ brain + survival loop consume.
 `summarize_state(raw)` returns:
     {
       "ended":  bool,                       # crew dead / sim stopped
-      "stores": [{"name", "pct"}],          # store fill %
+      "stores": [{"name", "pct", "level", "capacity", "runway_sols"?}],
+      "balances": [{"resource", "produced", "consumed", "net"}],
       "warnings": [{"sensor", "status"}],   # derived warning surfaces
       "controllable": [{"module", "kind", "type", "max", "desired"}],
     }
@@ -12,7 +13,15 @@ brain + survival loop consume.
 CONTROLLABLE is the server-side clamp map for the surfaces the bot may drive.
 Each entry's `max` is the per-rate ceiling; `desired` is read live from the
 module's current desiredFlowRates (falling back to actualFlowRates).
+
+`balances` and per-store `runway_sols` are the telemetry that let the bot steer
+proactively: a resource whose net flow is negative is draining, and a store's
+runway is how many sols of life it has left at the current drain. The bot is far
+better at keeping the crew alive when it can see the physics, not just the gauge.
 """
+
+# One sol = 24 ticks; flow rates are per-tick, so runway in ticks / 24 = sols.
+TICKS_PER_SOL = 24
 
 # Controllable surfaces: (module, kind, flow_type) -> max ceiling.
 CONTROLLABLE = {
@@ -46,7 +55,7 @@ def _is_ended(raw):
     return False
 
 
-def _flow(surface):
+def _desired(surface):
     """Read the current desired (fallback actual) flow rates off a surface."""
     rates = surface.get("rates", {}) or {}
     desired = rates.get("desiredFlowRates")
@@ -55,8 +64,61 @@ def _flow(surface):
     return list(desired) if desired is not None else []
 
 
-def _stores(modules):
-    """Every module exposing currentLevel/currentCapacity becomes a store %."""
+def _actual_sum(surface):
+    """Sum the actual (fallback desired) throughput of a surface — real physics."""
+    rates = surface.get("rates", {}) or {}
+    actual = rates.get("actualFlowRates")
+    if actual is None:
+        actual = rates.get("desiredFlowRates")
+    return sum(actual) if actual else 0.0
+
+
+def _balances(modules):
+    """Net per-resource flow (produced - consumed) across every module.
+
+    Positive net = surplus (reservoir filling); negative = deficit (draining).
+    This is the single most important thing the bot needs to see: whether each
+    life-support resource is being made faster than the crew burns it.
+    """
+    produced, consumed = {}, {}
+    for mod in modules.values():
+        if not mod:
+            continue
+        for s in mod.get("producers", []) or []:
+            t = s.get("type")
+            if t:
+                produced[t] = produced.get(t, 0.0) + _actual_sum(s)
+        for s in mod.get("consumers", []) or []:
+            t = s.get("type")
+            if t:
+                consumed[t] = consumed.get(t, 0.0) + _actual_sum(s)
+    out = []
+    for r in sorted(set(produced) | set(consumed)):
+        p = round(produced.get(r, 0.0), 3)
+        c = round(consumed.get(r, 0.0), 3)
+        out.append({"resource": r, "produced": p, "consumed": c, "net": round(p - c, 3)})
+    return out
+
+
+def _norm(s):
+    return "".join(ch for ch in s.lower() if ch.isalnum())
+
+
+def _store_resource(store_name, resources):
+    """Best-effort map a store name (e.g. 'General_Power_Store') to a flow
+    resource (e.g. 'Power') so we can compute runway from its net balance."""
+    n = _norm(store_name).replace("store", "").replace("general", "")
+    for r in resources:
+        rn = _norm(r)
+        if rn and rn in n:
+            return r
+    return None
+
+
+def _stores(modules, net_by_resource):
+    """Every module exposing currentLevel/currentCapacity becomes a store, with
+    absolute level/capacity and a runway estimate when it is draining."""
+    resources = list(net_by_resource)
     stores = []
     for name, mod in modules.items():
         props = (mod or {}).get("properties", {}) or {}
@@ -64,17 +126,25 @@ def _stores(modules):
         capacity = props.get("currentCapacity")
         if level is None or capacity is None or not capacity:
             continue
-        pct = (level / capacity) * 100.0
-        stores.append({"name": name, "pct": round(pct, 2)})
+        entry = {
+            "name": name,
+            "pct": round((level / capacity) * 100.0, 2),
+            "level": round(level, 3),
+            "capacity": round(capacity, 3),
+        }
+        res = _store_resource(name, resources)
+        if res is not None:
+            net = net_by_resource.get(res, 0.0)
+            if net < 0:
+                entry["runway_sols"] = round((level / -net) / TICKS_PER_SOL, 2)
+        stores.append(entry)
     return stores
 
 
 def _warnings(stores):
     warnings = []
     for s in stores:
-        if s["pct"] <= WARN_LOW:
-            warnings.append({"sensor": s["name"], "status": "warning"})
-        elif s["pct"] >= WARN_HIGH:
+        if s["pct"] <= WARN_LOW or s["pct"] >= WARN_HIGH:
             warnings.append({"sensor": s["name"], "status": "warning"})
     return warnings
 
@@ -89,7 +159,7 @@ def _controllable(modules):
             (s for s in mod.get(kind, []) if s.get("type") == flow_type), None)
         if surface is None:
             continue
-        desired = _flow(surface)
+        desired = _desired(surface)
         out.append({
             "module": module,
             "kind": kind,
@@ -102,10 +172,13 @@ def _controllable(modules):
 
 def summarize_state(raw):
     modules = raw.get("modules", {}) or {}
-    stores = _stores(modules)
+    balances = _balances(modules)
+    net_by_resource = {b["resource"]: b["net"] for b in balances}
+    stores = _stores(modules, net_by_resource)
     return {
         "ended": _is_ended(raw),
         "stores": stores,
+        "balances": balances,
         "warnings": _warnings(stores),
         "controllable": _controllable(modules),
     }

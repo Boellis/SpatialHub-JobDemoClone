@@ -9,10 +9,23 @@ cooperative stop.
 from .state import summarize_state
 
 TICKS_PER_SOL = 24
+TREND_LEN = 6  # sols of per-store % history handed to the bot (oldest -> newest)
 
 
 def _ev(t, d):
     return {"type": t, "data": d}
+
+
+def _attach_trend(stores, history):
+    """Append each store's current pct to a rolling per-store history and expose
+    the recent window as `trend` so the bot can steer on direction, not just the
+    instantaneous gauge. Mutates `history` and the store dicts in place."""
+    for s in stores:
+        h = history.setdefault(s["name"], [])
+        h.append(s["pct"])
+        if len(h) > TREND_LEN:
+            del h[0]
+        s["trend"] = list(h)
 
 
 def run_survival(client, brain, config_xml, max_sols=200, token_budget=None,
@@ -21,6 +34,7 @@ def run_survival(client, brain, config_xml, max_sols=200, token_budget=None,
     sim_id = client.start_sim(config_xml)
     yield _ev("start", {"sim_id": sim_id, "max_sols": max_sols})
     sol, reason = 0, "sol_cap"
+    trend_history = {}
     while sol < max_sols:
         if cancel():
             reason = "stopped"
@@ -30,6 +44,7 @@ def run_survival(client, brain, config_xml, max_sols=200, token_budget=None,
         if snap["ended"]:
             reason = "crew_death"
             break
+        _attach_trend(snap["stores"], trend_history)
         decision = brain.decide(snap)
         for a in decision["actions"]:
             client.set_flows(sim_id, a["module"], a["kind"], a["type"], a["desired_rates"])

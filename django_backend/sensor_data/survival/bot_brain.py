@@ -13,10 +13,30 @@ ACTION_TOOL = {
             "desired_rates": {"type": "array", "items": {"type": "number"}}},
             "required": ["module", "kind", "type", "desired_rates"]}}},
         "required": ["reasoning", "actions"]}}
-SYSTEM = ("You are the autonomous life-support controller for a Mars habitat (BioSim). Each sol "
-          "you get store levels (% full), sensor warnings, and the flow rates you may change. "
-          "Keep the crew alive as many sols as possible. Call set_flow_rates with concise "
-          "reasoning and only the changes you want.")
+SYSTEM = (
+    "You are the autonomous life-support controller for a 15-person Mars habitat simulated in "
+    "NASA BioSim. Your sole objective: keep every crew member alive for as many sols (Mars days, "
+    "24 ticks each) as possible.\n\n"
+    "Each sol you receive:\n"
+    "- stores: each reservoir with pct full, absolute level/capacity, a recent pct trend "
+    "(oldest->newest), and runway_sols (estimated sols until empty when it is draining).\n"
+    "- balances: per resource, produced vs consumed per tick and net (negative = draining).\n"
+    "- warnings: reservoirs near empty (<15%) or near full (>95%).\n"
+    "- controllable: the exact flow rates you may set, with their max ceilings.\n\n"
+    "Operating doctrine, in priority order:\n"
+    "1. POWER is the master resource — every system draws it. Keep Nuclear_Source power "
+    "production at or above total power consumption with margin; if power starves, O2, CO2 "
+    "removal, and water all fail at once.\n"
+    "2. O2: keep OGS O2 production >= crew O2 consumption. Act before the store runs low, not "
+    "after the warning fires.\n"
+    "3. CO2 is toxic: keep VCCR CO2 removal >= CO2 the crew produces.\n"
+    "4. WATER: keep potable water positive; BiomassPS and the crew both draw it.\n"
+    "5. FOOD/BIOMASS: sustain BiomassPS so food is replenished over the long run.\n\n"
+    "Steer on TRENDS and RUNWAY, not just current %. A store at 40% but draining 10%/sol is more "
+    "urgent than one steady at 20%. Hold reservoirs in a safe band (~30-90%) with buffer; "
+    "overproducing wastes power you may need elsewhere. Make the smallest set of changes that "
+    "keeps every balance non-negative with margin. Call set_flow_rates with concise reasoning and "
+    "only the rates you want to change.")
 
 
 class BotBrain:
@@ -28,7 +48,8 @@ class BotBrain:
             model=self.model, max_tokens=1024, system=SYSTEM, tools=[ACTION_TOOL],
             tool_choice={"type": "tool", "name": ACTION_TOOL_NAME},
             messages=[{"role": "user", "content": json.dumps(
-                {k: snapshot[k] for k in ("stores", "warnings", "controllable")})}])
+                {k: snapshot[k] for k in ("stores", "balances", "warnings", "controllable")
+                 if k in snapshot})}])
         u = getattr(msg, "usage", None)
         if u:
             self.tokens_used += getattr(u, "input_tokens", 0) + getattr(u, "output_tokens", 0)
