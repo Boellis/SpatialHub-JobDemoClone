@@ -22,3 +22,7 @@ __pycache__/
 # pip install garbage (unquoted >= in shell)
 =*
 django_backend/=*
+
+# biosim MCP server venv
+mcp_biosim/.venv/
+mcp_biosim/**/__pycache__/

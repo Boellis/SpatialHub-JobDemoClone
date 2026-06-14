@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "biosim": {
+      "command": "mcp_biosim/.venv/bin/python",
+      "args": ["mcp_biosim/server.py"],
+      "env": {
+        "BIOSIM_URL": "http://34.66.244.62:8009"
+      }
+    }
+  }
+}
