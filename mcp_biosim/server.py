@@ -15,6 +15,7 @@ Env:  BIOSIM_URL  — BioSim REST base (default the competition VM).
 """
 
 import json
+import logging
 import os
 import queue
 import secrets
@@ -113,7 +114,12 @@ def _publish(event_type: str, data: dict) -> None:
     try:
         _PUBLISH_QUEUE.put_nowait({"type": event_type, "data": data})
     except queue.Full:
-        pass
+        # Still non-blocking: we drop the event rather than stall the tool call,
+        # but surface WHICH event type was lost so a backed-up relay is diagnosable.
+        logging.warning(
+            "survival relay queue full (maxsize=%d) — dropped event type=%s",
+            _PUBLISH_QUEUE.maxsize, event_type,
+        )
 
 
 class Run:
@@ -307,18 +313,42 @@ def _reset_session():
     _SESSION["est_tokens"] = 0
 
 
+def _store_modules_only(raw):
+    """Trim the raw BioSim module tree to ONLY what the web app's `deriveStores`
+    fallback reads: each ``*_Store`` module's ``properties.{currentLevel,
+    currentCapacity}``. The full tree (sensors, environment, crew group, every
+    producer/consumer) is ~tens of KB per sol and is never consumed off the `sol`
+    event — the live 3D view reads the full tree from BioSim's own WebSocket, a
+    separate path. Shipping only the store levels keeps the fallback working while
+    dropping the bulk of the payload."""
+    out = {}
+    for name, mod in (raw.get("modules") or {}).items():
+        if not name.endswith("_Store") or not isinstance(mod, dict):
+            continue
+        props = mod.get("properties")
+        if not isinstance(props, dict):
+            continue
+        trimmed = {k: props[k] for k in ("currentLevel", "currentCapacity") if k in props}
+        if trimmed:
+            out[name] = {"properties": trimmed}
+    return out
+
+
 def _sol_event(raw, reasoning):
     """Build the relay `sol` event data from a raw BioSim state dict.
 
     Carries the canonical loop fields (sol/alive/modules/reasoning/actions/warnings)
     PLUS the compact `stores` and `balances` telemetry so the web app renders clean
     resource cards without re-parsing raw BioSim modules. The frontend computes its
-    own per-store delta across successive events."""
+    own per-store delta across successive events.
+
+    `modules` is TRIMMED to just the per-store levels the web app's `deriveStores`
+    fallback consumes (see _store_modules_only) — never the whole BioSim module tree."""
     snap = summarize_state(raw)
     return {
         "sol": RUN.sols,
         "alive": RUN.alive,
-        "modules": raw.get("modules", {}),
+        "modules": _store_modules_only(raw),
         "reasoning": reasoning,
         "actions": [
             {"module": a["module"], "kind": a["kind"], "type": a["type"],
