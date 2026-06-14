@@ -120,14 +120,39 @@ def test_advance_stops_at_crew_death():
     assert out["sols_survived"] == 2
 
 
-def test_trend_grows_across_advances():
+def test_compact_status_is_lean_by_default():
+    _fresh()
+    server.RUN.sim_id = 42
+    out = server.get_status()
+    assert out["detail"] == "normal"
+    # stores carry pct + delta (+runway when draining), NOT level/capacity/trend
+    o2 = next(s for s in out["stores"] if s["name"] == "O2_Store")
+    assert "delta" in o2 and "pct" in o2
+    assert "level" not in o2 and "capacity" not in o2 and "trend" not in o2
+    # balances carry net only; controllable carries desired but not max
+    assert all(set(b) == {"resource", "net"} for b in out["balances"])
+    assert all("max" not in c for c in out["controllable"])
+
+
+def test_delta_tracks_pct_change_across_readings():
+    _fresh()
+    server.RUN.sim_id = 42
+    server.advance(1)             # first reading: delta 0 (no prior)
+    out = server.advance(1)       # pct is constant in the fake -> delta 0
+    o2 = next(s for s in out["stores"] if s["name"] == "O2_Store")
+    assert o2["delta"] == 0.0     # 50% -> 50%, no change
+
+
+def test_full_detail_restores_raw_physics():
     _fresh()
     server.RUN.sim_id = 42
     server.advance(1)
-    server.advance(1)
-    out = server.get_status()
+    out = server.get_status(detail="full")
+    assert "detail" not in out
     o2 = next(s for s in out["stores"] if s["name"] == "O2_Store")
-    assert len(o2["trend"]) >= 2
+    assert "level" in o2 and "capacity" in o2 and "trend" in o2
+    assert all({"produced", "consumed", "net"} <= set(b) for b in out["balances"])
+    assert all("max" in c for c in out["controllable"])
 
 
 def test_malfunction_difficulty_injects_at_sol_10():

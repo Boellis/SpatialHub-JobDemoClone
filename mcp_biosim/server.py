@@ -97,39 +97,78 @@ def _clamp(actions):
     return applied, rejected
 
 
-def _attach_trend(stores):
-    """Append each store's current pct to a rolling history and expose the
-    recent window as `trend` (oldest -> newest)."""
+def _record_trend(stores):
+    """Append each store's current pct to a rolling history. Returns
+    name -> delta (pct change since the previous reading) for compact telemetry."""
+    deltas = {}
     for s in stores:
         h = RUN.trend.setdefault(s["name"], [])
+        prev = h[-1] if h else s["pct"]
         h.append(s["pct"])
         if len(h) > TREND_LEN:
             del h[0]
-        s["trend"] = list(h)
+        deltas[s["name"]] = round(s["pct"] - prev, 2)
+    return deltas
 
 
-def _status_payload():
+def _compact_stores(stores, deltas):
+    """Decision-essential store view: pct, per-reading delta, and runway when
+    draining. Drops absolute level/capacity and the full trend array."""
+    out = []
+    for s in stores:
+        e = {"name": s["name"], "pct": s["pct"], "delta": deltas.get(s["name"], 0.0)}
+        if "runway_sols" in s:
+            e["runway_sols"] = s["runway_sols"]
+        out.append(e)
+    return out
+
+
+def _compact_balances(balances):
+    """Net flow per resource — the actionable signal (negative = draining).
+    Drops produced/consumed (recoverable via detail='full')."""
+    return [{"resource": b["resource"], "net": b["net"]} for b in balances]
+
+
+def _compact_controllable(controllable):
+    """Current set rates per surface. Drops the static max ceilings — those live
+    once in the survival_doctrine prompt, not in every payload."""
+    return [{"module": c["module"], "kind": c["kind"], "type": c["type"],
+             "desired": c["desired"]} for c in controllable]
+
+
+def _status_payload(detail="normal"):
     if RUN.sim_id is None:
         return {"started": False, "hint": "Call start_run to begin a survival run."}
     raw = RUN.client.get_state(RUN.sim_id)
     snap = summarize_state(raw)
-    _attach_trend(snap["stores"])
+    deltas = _record_trend(snap["stores"])
     RUN.alive = not snap["ended"]
     if not RUN.alive and RUN.ended_reason is None:
         RUN.ended_reason = "crew_death"
-    return {
+
+    payload = {
         "started": True,
         "sim_id": RUN.sim_id,
         "sols_survived": RUN.sols,
         "alive": RUN.alive,
         "ended_reason": RUN.ended_reason,
         "difficulty": RUN.difficulty,
-        "stores": snap["stores"],
-        "balances": snap["balances"],
         "warnings": snap["warnings"],
-        "controllable": snap["controllable"],
         "last_actions": RUN.last_actions,
     }
+    if detail == "full":
+        # Full physics: absolute levels, trend arrays, produced/consumed, ceilings.
+        for s in snap["stores"]:
+            s["trend"] = list(RUN.trend.get(s["name"], [s["pct"]]))
+        payload["stores"] = snap["stores"]
+        payload["balances"] = snap["balances"]
+        payload["controllable"] = snap["controllable"]
+    else:
+        payload["detail"] = "normal"
+        payload["stores"] = _compact_stores(snap["stores"], deltas)
+        payload["balances"] = _compact_balances(snap["balances"])
+        payload["controllable"] = _compact_controllable(snap["controllable"])
+    return payload
 
 
 # ---------------------------------------------------------------------------
@@ -152,15 +191,20 @@ def start_run(crew_size: int = 15, difficulty: str = "off") -> dict:
 
 
 @mcp.tool()
-def get_status() -> dict:
+def get_status(detail: str = "normal") -> dict:
     """Return current survival telemetry — your dashboard.
 
-    Includes: sols survived, alive flag, every store (pct, absolute level/capacity,
-    runway_sols when draining, and a recent pct trend), per-resource flow balances
-    (produced/consumed/net per tick; negative net = draining), active warnings, and
-    the controllable flow surfaces with their current desired rates and max ceilings.
+    detail='normal' (default, compact, token-lean) returns: sols survived, alive
+    flag, each store (pct, `delta` = pct change since last reading, runway_sols when
+    draining), per-resource net flow balances (negative = draining), warnings, and
+    the controllable surfaces with their current `desired` rates. Max ceilings are in
+    the survival_doctrine prompt, not repeated here.
+
+    detail='full' additionally returns absolute store level/capacity, full pct trend
+    arrays, produced/consumed per balance, and the max ceiling per surface. Use it
+    occasionally when you need the raw physics; prefer 'normal' to conserve context.
     """
-    return _status_payload()
+    return _status_payload("full" if detail == "full" else "normal")
 
 
 @mcp.tool()
@@ -183,12 +227,15 @@ def set_flows(actions: list[dict]) -> dict:
 
 
 @mcp.tool()
-def advance(sols: int = 1) -> dict:
+def advance(sols: int = 1, detail: str = "normal") -> dict:
     """Advance the simulation by `sols` Mars days (24 ticks each), one sol at a time.
 
-    Stops early if the crew dies. When difficulty='malfunctions', injects a
-    malfunction every 10th sol. Returns telemetry after advancing, plus
-    `sols_advanced_this_call` and the alive flag. Score = sols_survived.
+    Advance in CHUNKS to conserve context — e.g. advance(3) while learning the
+    dynamics, advance(10) or more once the balances are stable. It is safe: each sol
+    is checked and the run stops the moment the crew dies (so you never overshoot a
+    crisis). When difficulty='malfunctions', injects a malfunction every 10th sol.
+    Returns telemetry after advancing (compact by default; detail='full' for raw
+    physics) plus `sols_advanced_this_call` and the alive flag. Score = sols_survived.
     """
     if RUN.sim_id is None:
         raise ValueError("No active run. Call start_run first.")
@@ -208,7 +255,7 @@ def advance(sols: int = 1) -> dict:
             RUN.alive = False
             RUN.ended_reason = "crew_death"
             break
-    payload = _status_payload()
+    payload = _status_payload("full" if detail == "full" else "normal")
     payload["sols_advanced_this_call"] = advanced
     return payload
 
@@ -242,12 +289,22 @@ def survival_doctrine() -> str:
         "You are the life-support controller for a 15-person Mars habitat (NASA "
         "BioSim). Goal: keep every crew member alive for as many sols (Mars days, "
         "24 ticks) as possible. Score = sols survived.\n\n"
-        "Loop: call start_run, then repeatedly get_status -> reason -> set_flows -> "
-        "advance. Read the telemetry, not your assumptions:\n"
-        "- balances: produced vs consumed per tick, net (negative = draining).\n"
-        "- stores: pct, level/capacity, runway_sols (sols until empty if draining), "
-        "and trend (recent pct, oldest->newest).\n\n"
-        "Operating doctrine, in priority order:\n"
+        "LOOP: call start_run, then repeatedly get_status -> reason -> set_flows -> "
+        "advance(chunk). Telemetry is COMPACT by default to save context:\n"
+        "- balances: [{resource, net}] — net per tick, NEGATIVE means draining.\n"
+        "- stores: [{pct, delta, runway_sols?}] — delta = pct change since your last "
+        "reading (negative = falling); runway_sols = sols until empty when draining.\n"
+        "- controllable: [{module, kind, type, desired}] — the rates you have set.\n"
+        "Call get_status(detail='full') ONLY when you need raw physics (absolute "
+        "level/capacity, full trend arrays, produced/consumed). Default to compact.\n\n"
+        "CONTROLLABLE SURFACES and their max ceilings (set within [0, max]):\n"
+        "  Nuclear_Source producers/Power <= 3000\n"
+        "  OGS consumers/Power <= 1000, producers/O2 <= 1000\n"
+        "  VCCR consumers/Power <= 1000, producers/CO2 <= 1000\n"
+        "  BiomassPS consumers/Power <= 400, consumers/PotableWater <= 100, "
+        "producers/Biomass <= 100\n"
+        "  Crew_Quarters_Group consumers/Food <= 5, consumers/PotableWater <= 3\n\n"
+        "DOCTRINE, in priority order:\n"
         "1. POWER is the master resource — every system draws it. Keep Nuclear_Source "
         "power production >= total power consumption with margin; if power starves, "
         "O2, CO2 removal, and water all fail at once.\n"
@@ -256,11 +313,12 @@ def survival_doctrine() -> str:
         "3. CO2 is toxic: keep VCCR CO2 removal >= CO2 the crew produces.\n"
         "4. WATER: keep potable water positive; BiomassPS and the crew both draw it.\n"
         "5. FOOD/BIOMASS: sustain BiomassPS so food is replenished long-term.\n\n"
-        "Steer on TRENDS and RUNWAY, not just current %. Hold reservoirs in a safe "
-        "band (~30-90%) with buffer; overproducing wastes power you may need "
-        "elsewhere. Advance a few sols at a time early to learn the dynamics, then "
-        "longer once the balances are stable. Make the smallest set of changes that "
-        "keeps every balance non-negative with margin."
+        "Steer on DELTA and RUNWAY, not just current %. Hold reservoirs in a safe band "
+        "(~30-90%) with buffer; overproducing wastes power you may need elsewhere. "
+        "ADVANCE IN CHUNKS to conserve context: advance(3) while learning, advance(10) "
+        "or more once balances are stable — advance stops automatically at crew death, "
+        "so larger chunks never overshoot a crisis. Make the smallest set of changes "
+        "that keeps every balance non-negative with margin."
     )
 
 
