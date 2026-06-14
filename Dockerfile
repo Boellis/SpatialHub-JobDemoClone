@@ -23,5 +23,13 @@ ENV USE_SQLITE=0
 # Expose port 8080 (Cloud Run default)
 EXPOSE 8080
 
-# Run Django with Gunicorn
-CMD ["gunicorn", "spatialhub_backend.wsgi:application", "--bind", "0.0.0.0:8080"]
+# Run Django with Gunicorn.
+# Threaded workers (gthread) + no request timeout are required for the survival
+# SSE endpoint: a sync worker would buffer/block and the default 30s timeout
+# would kill a long-running stream mid-run.
+CMD ["gunicorn", "spatialhub_backend.wsgi:application", \
+     "--bind", "0.0.0.0:8080", \
+     "--worker-class", "gthread", \
+     "--workers", "2", \
+     "--threads", "8", \
+     "--timeout", "0"]

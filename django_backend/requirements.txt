@@ -6,6 +6,7 @@ django-cors-headers
 whitenoise>=6.0
 google-cloud-pubsub>=2.20.0
 requests>=2.31.0
+anthropic
 pytest>=7.0
 pytest-django>=4.0
 pytest-asyncio>=0.23
