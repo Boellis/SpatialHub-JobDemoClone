@@ -576,7 +576,7 @@ def inject_malfunction(
     return result
 
 
-DAILY_KCAL_PER_PERSON = 2700  # NASA planning figure for an active Mars crew member
+DAILY_KCAL_PER_PERSON = 3035  # STD-3001 / Mars-to-Table rules: 12,698 kJ (3,035 kcal)/crew/day (+200 kcal per EVA hour)
 
 
 def _publish_plan(note: str) -> dict:

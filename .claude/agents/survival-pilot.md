@@ -27,8 +27,9 @@ dashboard and the sol counter.
 ## Habitat plan: author it early (farm + food)
 Right after the run is live (resumed or freshly started), publish a habitat plan so the
 dashboard's plan panel isn't empty — judges look for it:
-1. **Design** a crop/grow-bay layout that feeds the 15-person crew (need = 15 × 2700 =
-   40,500 kcal/day) — a realistic NASA mix (white/sweet potato, soybean, dwarf wheat,
+1. **Design** a crop/grow-bay layout that feeds the 15-person crew (need = 15 × 3035 =
+   45,525 kcal/day, per STD-3001 / Mars-to-Table rules; add ~200 kcal per EVA-hour of
+   headroom) — a realistic NASA mix (white/sweet potato, soybean, dwarf wheat,
    lettuce/greens) across a few grow bays. Call `generate_farm_layout(crops=[...],
    crew_size=15)`. Aim for `feeds_crew: true`.
 2. **Design** the crew's daily meals from that harvest and call
