@@ -40,7 +40,7 @@ services:
     working_dir: /app
     command: >
       sh -c "
-        ./bin/start-biosim-server --writeTicks &
+        ./bin/start-biosim-server &
         SERVER_PID=$$!;
         echo 'Waiting for BioSim HTTP server to be ready...';
         until curl -sf http://localhost:8009/api/simulation >/dev/null 2>&1; do sleep 2; done;

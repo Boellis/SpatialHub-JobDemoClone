@@ -61,6 +61,26 @@ if [[ -z "${SECRET_KEY:-}" ]]; then
   echo ""
 fi
 
+# ---------------------------------------------------------------------------
+# Survival bot config (the Anthropic-powered Habitat Survival tab).
+# ANTHROPIC_API_KEY is optional for the core deploy, but the /survival tab will
+# return an error until it is set. The other survival vars have sane defaults
+# (Balanced posture: Sonnet, 500 sols, 750k token budget per run).
+# ---------------------------------------------------------------------------
+ANTHROPIC_MODEL="${ANTHROPIC_MODEL:-claude-sonnet-4-6}"
+BIOSIM_URL="${BIOSIM_URL:-http://34.66.244.62:8009}"
+BIOSIM_MAX_SOLS="${BIOSIM_MAX_SOLS:-500}"
+BIOSIM_TOKEN_BUDGET="${BIOSIM_TOKEN_BUDGET:-750000}"
+BIOSIM_CREW_SIZE="${BIOSIM_CREW_SIZE:-15}"
+
+if [[ -z "${ANTHROPIC_API_KEY:-}" ]]; then
+  echo ""
+  echo "WARNING: ANTHROPIC_API_KEY not set. Deploy proceeds, but the Habitat"
+  echo "  Survival tab stays disabled until you set it. To enable the bot:"
+  echo "    DB_PASS='...' ANTHROPIC_API_KEY='sk-ant-...' ./deploy/deploy.sh"
+  echo ""
+fi
+
 echo "Prerequisites OK."
 
 # ---------------------------------------------------------------------------
@@ -148,13 +168,17 @@ echo "Cloud SQL IP: $DB_HOST"
 echo ""
 echo "=== Deploying Django to Cloud Run ==="
 cd "$REPO_ROOT"
+# --timeout=3600 keeps the survival SSE stream alive for long runs (default 300s
+# would cut a run off mid-stream). Survival env vars enable the autonomous bot;
+# note --set-env-vars REPLACES the env, so all survival vars must be listed here.
 gcloud run deploy "$SERVICE_NAME" \
   --source . \
   --region "$REGION" \
   --project "$PROJECT" \
   --platform managed \
   --allow-unauthenticated \
-  --set-env-vars "DB_HOST=${DB_HOST},DB_NAME=${DB_NAME},DB_USER=${DB_USER},DB_PASS=${DB_PASS},SECRET_KEY=${SECRET_KEY},DEBUG=False,ALLOWED_HOSTS=*"
+  --timeout=3600 \
+  --set-env-vars "DB_HOST=${DB_HOST},DB_NAME=${DB_NAME},DB_USER=${DB_USER},DB_PASS=${DB_PASS},SECRET_KEY=${SECRET_KEY},DEBUG=False,ALLOWED_HOSTS=*,ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-},ANTHROPIC_MODEL=${ANTHROPIC_MODEL},BIOSIM_URL=${BIOSIM_URL},BIOSIM_MAX_SOLS=${BIOSIM_MAX_SOLS},BIOSIM_TOKEN_BUDGET=${BIOSIM_TOKEN_BUDGET},BIOSIM_CREW_SIZE=${BIOSIM_CREW_SIZE}"
 
 # ---------------------------------------------------------------------------
 # Section 5: Get Cloud Run URL
@@ -192,7 +216,7 @@ USE_SQLITE=0 \
   DB_USER="$DB_USER" \
   DB_PASS="$DB_PASS" \
   SECRET_KEY="$SECRET_KEY" \
-  python manage.py migrate --no-input
+  python3 manage.py migrate --no-input
 
 echo "Seeding habitat zones ..."
 USE_SQLITE=0 \
@@ -201,7 +225,7 @@ USE_SQLITE=0 \
   DB_USER="$DB_USER" \
   DB_PASS="$DB_PASS" \
   SECRET_KEY="$SECRET_KEY" \
-  python manage.py seed_habitat_zones
+  python3 manage.py seed_habitat_zones
 
 # ---------------------------------------------------------------------------
 # Section 7: Build frontend and deploy to Firebase Hosting
