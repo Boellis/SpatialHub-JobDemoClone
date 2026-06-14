@@ -146,6 +146,38 @@ async def test_write_rows_swallows_exception():
 
 
 # ---------------------------------------------------------------------------
+# Test 6b/6c: write_rows closes the thread-local connection (leak fix)
+# ---------------------------------------------------------------------------
+
+def test_bulk_create_and_close_closes_connection():
+    """The DB write helper must close its thread-local connection after each write, or
+    the long-running bridge leaks one connection per executor thread (no request cycle
+    auto-closes them) until Cloud SQL's pool is exhausted."""
+    from sensor_data.management.commands.biosim_bridge import _bulk_create_and_close
+    rows = [MagicMock(spec=EnrichedSensorData)]
+    with patch(
+        'sensor_data.management.commands.biosim_bridge.EnrichedSensorData'
+    ) as mock_model, patch('django.db.connection') as mock_conn:
+        mock_model.objects.bulk_create = MagicMock(return_value=rows)
+        _bulk_create_and_close(rows)
+        mock_model.objects.bulk_create.assert_called_once_with(rows)
+        mock_conn.close.assert_called_once()
+
+
+def test_bulk_create_and_close_closes_connection_even_on_error():
+    """The connection must be closed even when bulk_create raises (finally block)."""
+    from sensor_data.management.commands.biosim_bridge import _bulk_create_and_close
+    rows = [MagicMock(spec=EnrichedSensorData)]
+    with patch(
+        'sensor_data.management.commands.biosim_bridge.EnrichedSensorData'
+    ) as mock_model, patch('django.db.connection') as mock_conn:
+        mock_model.objects.bulk_create = MagicMock(side_effect=Exception("DB blip"))
+        with pytest.raises(Exception):
+            _bulk_create_and_close(rows)  # helper re-raises; write_rows swallows
+        mock_conn.close.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
 # Test 7: process_tick calls biosim_tick_to_rows with modules dict
 # ---------------------------------------------------------------------------
 

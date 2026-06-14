@@ -49,13 +49,31 @@ async def probe_sim_id(session, biosim_url):
     return sims[0] if sims else None
 
 
+def _bulk_create_and_close(rows):
+    """Insert rows, then ALWAYS close this thread's DB connection.
+
+    biosim_bridge is a long-running management command, and these writes run inside
+    ``asyncio.to_thread`` worker threads. There is no request/response cycle here, so
+    Django never auto-closes the thread-local connections those worker threads open —
+    without this explicit close they accumulate (one leaked connection per executor
+    thread) until Cloud SQL's connection pool is exhausted and EVERY DB endpoint
+    starts failing. Closing per write keeps the bridge to one short-lived connection
+    at a time. ``connection.close()`` is a safe no-op when nothing is open.
+    """
+    from django.db import connection
+    try:
+        EnrichedSensorData.objects.bulk_create(rows)
+    finally:
+        connection.close()
+
+
 async def write_rows(rows):
     """
     Write rows to enriched_sensor_data via asyncio.to_thread bulk_create.
     Swallows all exceptions so a single DB blip never kills the bridge.
     """
     try:
-        await asyncio.to_thread(EnrichedSensorData.objects.bulk_create, rows)
+        await asyncio.to_thread(_bulk_create_and_close, rows)
     except Exception as e:
         print(f"bulk_create failed: {e} -- skipping tick")
 
