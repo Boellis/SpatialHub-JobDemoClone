@@ -33,6 +33,17 @@ function Badge({ ok, okText, badText }: { ok: boolean; okText: string; badText: 
 
 const k = (n: number) => `${Math.round(n / 1000)}k`;
 
+// Credits the crew member responsible for this plan half (config.py crew[0]/[1]).
+function Author({ icon, name }: { icon: string; name: string }) {
+  return (
+    <div style={{
+      fontSize: 10, color: 'rgba(160,170,185,0.85)', letterSpacing: '0.04em', marginBottom: 10,
+    }}>
+      {icon} authored by <span style={{ color: '#dbe2ea', fontWeight: 700 }}>{name}</span>
+    </div>
+  );
+}
+
 export function PlanPanel({ plan }: { plan: SurvivalPlanEvent | null }) {
   if (!plan || (!plan.farm_layout && !plan.food_plan)) return null;
   const farm = plan.farm_layout;
@@ -52,10 +63,11 @@ export function PlanPanel({ plan }: { plan: SurvivalPlanEvent | null }) {
         {/* ── FARM LAYOUT ── */}
         {farm && (
           <div style={cardStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
               <span style={{ ...label, color: GREEN }}>Farm Layout</span>
               <Badge ok={farm.feeds_crew} okText="FEEDS CREW" badText="SHORT ON KCAL" />
             </div>
+            <Author icon="🌱" name="Food Systems Engineer" />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {farm.crops.map((c, i) => (
                 <div key={`${c.crop}-${i}`} style={{
@@ -86,10 +98,11 @@ export function PlanPanel({ plan }: { plan: SurvivalPlanEvent | null }) {
         {/* ── FOOD PLAN ── */}
         {food && (
           <div style={cardStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
               <span style={{ ...label, color: GREEN }}>Crew Food Plan</span>
               <Badge ok={food.meets_target} okText="MEETS TARGET" badText="UNDER TARGET" />
             </div>
+            <Author icon="🍽" name="Nutrition Specialist" />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {food.meals.map((m, i) => (
                 <div key={`${m.meal}-${i}`}>

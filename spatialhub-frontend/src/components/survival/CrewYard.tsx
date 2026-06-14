@@ -23,6 +23,17 @@ const STATIONS: Station[] = [
   { key: 'water', label: 'WATER RECLAIM', task: 'RECYCLING', store: 'Potable_Water_Store', x: 83, y: 74 },
 ];
 
+// Two named crew OWN the habitat plan (matching config.py crew[0]/[1]): the Food
+// Systems Engineer authors the farm layout (anchored at the Grow Bays) and the
+// Nutrition Specialist authors the food plan (anchored at the Galley). They get a
+// fixed accent, stay at their post instead of wandering, and wear a role badge.
+type Planner = { role: string; short: string; icon: string; stationKey: string; accent: string };
+const PLANNERS: Record<number, Planner> = {
+  0: { role: 'Food Systems Engineer', short: 'FARM LEAD', icon: '🌱', stationKey: 'grow', accent: '#b5ff5d' },
+  1: { role: 'Nutrition Specialist', short: 'NUTRITION', icon: '🍽', stationKey: 'galley', accent: '#ffd166' },
+};
+const stationIdxOf = (key: string) => STATIONS.findIndex((s) => s.key === key);
+
 type Phase = 'walk' | 'work';
 type CrewMember = {
   id: number; accent: string; station: number;
@@ -54,10 +65,12 @@ function pickStation(hot: Set<number>, occ: number[]): number {
 
 function spawn(count: number, now: number): CrewMember[] {
   return Array.from({ length: count }, (_, i) => {
-    const station = Math.floor(Math.random() * STATIONS.length);
+    const planner = PLANNERS[i];
+    // Planners start at (and stay near) their owned station; everyone else random.
+    const station = planner ? stationIdxOf(planner.stationKey) : Math.floor(Math.random() * STATIONS.length);
     const p = spotAt(STATIONS[station]);
     return {
-      id: i, accent: ACCENTS[i % ACCENTS.length], station,
+      id: i, accent: planner ? planner.accent : ACCENTS[i % ACCENTS.length], station,
       x: p.x, y: p.y, facing: Math.random() > 0.5 ? 1 : -1,
       phase: 'work' as Phase, since: now - rand(0, 2000), dur: rand(2500, 5500),
     };
@@ -183,7 +196,9 @@ export function CrewYard({
             const repairing = hotRef.current.has(c.station);
             return { ...c, phase: 'work', since: now, dur: repairing ? rand(4000, 7000) : rand(2600, 5200) };
           }
-          const station = pickStation(hotRef.current, occ);
+          // Planners hold their post (they own that station); others roam.
+          const planner = PLANNERS[c.id];
+          const station = planner ? stationIdxOf(planner.stationKey) : pickStation(hotRef.current, occ);
           occ[station] += 1;
           const p = spotAt(STATIONS[station]);
           const dist = Math.hypot(p.x - c.x, p.y - c.y);
@@ -290,6 +305,9 @@ export function CrewYard({
         const working = alive && !idle && c.phase === 'work';
         const repairing = working && hotRef.current.has(c.station);
         const station = STATIONS[c.station];
+        const planner = PLANNERS[c.id];
+        // Their plan half is "done" once it's been generated (crops/meals present).
+        const planDone = planner ? (planner.stationKey === 'grow' ? crops.length > 0 : meals.length > 0) : false;
         return (
           <div key={c.id} style={{
             position: 'absolute', left: `${c.x}%`, top: `${c.y}%`,
@@ -300,6 +318,19 @@ export function CrewYard({
             filter: alive ? 'none' : 'grayscale(1) brightness(0.6)',
             opacity: alive ? 1 : 0.55, zIndex: Math.round(c.y) + 3, willChange: 'left, top',
           }}>
+            {/* planner role badge — who owns each plan half (always shown while alive) */}
+            {planner && alive && (
+              <div style={{
+                position: 'absolute', bottom: 'calc(100% + 13px)', left: '50%',
+                transform: `translateX(-50%) scaleX(${c.facing})`, whiteSpace: 'nowrap',
+                fontFamily: '"Space Mono", monospace', fontSize: 7.5, fontWeight: 700, letterSpacing: '0.08em',
+                color: planner.accent, textShadow: '0 1px 3px #000', pointerEvents: 'none',
+                border: `1px solid ${planner.accent}66`, borderRadius: 5, padding: '1px 4px',
+                background: 'rgba(6,10,14,0.75)',
+              }}>
+                {planner.icon} {planner.short}{planDone ? ' ✓' : ''}
+              </div>
+            )}
             {working && (
               <div style={{
                 position: 'absolute', bottom: '100%', left: '50%',
