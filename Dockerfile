@@ -27,9 +27,17 @@ EXPOSE 8080
 # Threaded workers (gthread) + no request timeout are required for the survival
 # SSE endpoint: a sync worker would buffer/block and the default 30s timeout
 # would kill a long-running stream mid-run.
+#
+# SINGLE worker (--workers 1) is REQUIRED, not just a single Cloud Run instance:
+# the survival relay (sensor_data/survival/relay.py) keeps the live SSE snapshot,
+# the decision-log buffer, the web->pilot command slot, and the habitat-plan slot
+# in PROCESS memory. With >1 worker those land on different processes, so /ingest
+# writes and /live reads (and poll_command vs new_session) split across workers and
+# silently lose state. The --threads pool gives plenty of concurrency for the demo;
+# the durable decision archive (Postgres) stays correct regardless.
 CMD ["gunicorn", "spatialhub_backend.wsgi:application", \
      "--bind", "0.0.0.0:8080", \
      "--worker-class", "gthread", \
-     "--workers", "2", \
+     "--workers", "1", \
      "--threads", "8", \
      "--timeout", "0"]
