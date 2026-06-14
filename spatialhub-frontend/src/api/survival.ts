@@ -16,6 +16,24 @@ export type SurvivalSolEvent = {
 export type PilotStat = { tool_calls: number; est_tokens: number; budget: number };
 export type SurvivalEndEvent = { sols_survived: number; ended_reason: string };
 
+// Claude-generated habitat plan (farm layout + crew food plan), pushed via the MCP
+// generate_farm_layout / generate_food_plan tools and merged into one relay slot.
+export type FarmCrop = {
+  crop: string; area_m2: number; yield_kcal_per_day: number; zone: string; purpose: string;
+};
+export type FarmLayout = {
+  crew_size: number; crops: FarmCrop[]; total_area_m2: number; total_kcal_per_day: number;
+  kcal_per_person_per_day: number; crew_kcal_need_per_day: number; feeds_crew: boolean;
+};
+export type FoodMeal = { meal: string; items: string[]; kcal: number; protein_g: number };
+export type FoodPlan = {
+  crew_size: number; meals: FoodMeal[]; total_kcal_per_day: number; total_protein_g: number;
+  target_kcal_per_person: number; meets_target: boolean;
+};
+export type SurvivalPlanEvent = {
+  farm_layout: FarmLayout | null; food_plan: FoodPlan | null; note: string; sol: number;
+};
+
 export function survivalStreamUrl(difficulty: "off" | "malfunctions"): string {
   return `${SURVIVAL_API}/stream?difficulty=${difficulty}`;
 }

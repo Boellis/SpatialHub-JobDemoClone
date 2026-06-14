@@ -24,9 +24,11 @@ import {
   type PilotStat,
   type SurvivalRunSummary,
   type SurvivalDecision,
+  type SurvivalPlanEvent,
 } from '../api/survival';
 import { CrewYard } from '../components/survival/CrewYard';
 import { ControlPanel } from '../components/survival/ControlPanel';
+import { PlanPanel } from '../components/survival/PlanPanel';
 import { ResourceCard, healthOf, type Health } from '../components/survival/ResourceCard';
 
 type Difficulty = 'off' | 'malfunctions';
@@ -109,6 +111,7 @@ const SurvivalView = () => {
   const [best, setBestState] = useState(0);
   const [isRecord, setIsRecord] = useState(false);
   const [pilot, setPilot] = useState<PilotStat | null>(null);
+  const [plan, setPlan] = useState<SurvivalPlanEvent | null>(null); // Claude habitat plan
 
   // Durable decision-log archive (persisted across restarts/runs).
   const [showHistory, setShowHistory] = useState(false);
@@ -222,6 +225,7 @@ const SurvivalView = () => {
         setStores([]);
         setLastActions([]);
         setReasoningLog([]);
+        setPlan(null);
         setSeeAllOpen(false);
         lastPctRef.current = new Map();
         setDifficulty(d.difficulty);
@@ -233,6 +237,10 @@ const SurvivalView = () => {
       es.addEventListener('sol', (ev) => {
         setConnected(true);
         handleSol(JSON.parse((ev as MessageEvent).data) as SurvivalSolEvent);
+      });
+      es.addEventListener('plan', (ev) => {
+        setConnected(true);
+        setPlan(JSON.parse((ev as MessageEvent).data) as SurvivalPlanEvent);
       });
       es.addEventListener('end', (ev) => {
         setConnected(true);
@@ -410,12 +418,21 @@ const SurvivalView = () => {
       </section>
 
       {/* ── MISSION CONTROL (token-gated) ────────────────────── */}
-      <ControlPanel />
+      {/* A run is "live" once telemetry exists, the crew is alive, and it hasn't
+          ended — gates Start and enables New-Pilot-Session in the panel. */}
+      <ControlPanel running={hasRun && alive && !result} />
+
+      {/* ── HABITAT PLAN (Claude-generated farm layout + food plan) ── */}
+      <PlanPanel plan={plan} />
 
       {/* ── DECK + DECISION LOG ──────────────────────────────── */}
       <section style={{ flex: 1, minHeight: 300, display: 'flex', gap: 12 }}>
         <div style={{ flex: 1.7, minWidth: 0 }}>
-          <CrewYard crewSize={crewSize} alive={alive} sol={sol} hot={hotStores} />
+          <CrewYard
+            crewSize={crewSize} alive={alive} sol={sol} hot={hotStores} waiting={!connected}
+            crops={plan?.farm_layout?.crops.map((c) => c.crop)}
+            meals={plan?.food_plan?.meals.map((m) => m.meal)}
+          />
         </div>
 
         <div

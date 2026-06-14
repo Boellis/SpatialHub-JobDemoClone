@@ -112,11 +112,28 @@ function Wrench() {
   );
 }
 
+// Goofy idle one-liners shown while the stream is reconnecting — picked per crew by
+// id so the deck reads as a bunch of bored astronauts milling about, not a freeze.
+const IDLE_QUIPS = ['…', '?', 'hm?', 'zzz', '🎵', 'huh', '*taps foot*', '👀'];
+
 export function CrewYard({
-  crewSize, alive, sol, hot = [],
+  crewSize, alive, sol, hot = [], waiting = false, crops = [], meals = [],
 }: {
-  crewSize: number; alive: boolean; sol: number; hot?: string[];
+  crewSize: number; alive: boolean; sol: number; hot?: string[]; waiting?: boolean;
+  crops?: string[]; meals?: string[];
 }) {
+  // Crew are "idle" when the run's alive but the telemetry stream dropped — they
+  // stop their shift and stand around waiting for the signal to come back.
+  const idle = waiting && alive;
+
+  // The crew "use" the Claude-generated habitat plan: grow-bay crew tend the actual
+  // crops from the farm layout, galley crew prep the meals from the food plan. Falls
+  // back to the generic station task when no plan has been generated yet.
+  const taskLabel = (s: Station, id: number) => {
+    if (s.key === 'grow' && crops.length) return `TENDING ${crops[id % crops.length]}`.toUpperCase();
+    if (s.key === 'galley' && meals.length) return `PREP ${meals[id % meals.length]}`.toUpperCase();
+    return s.task;
+  };
   const now0 = useRef(Date.now()).current;
   const [crew, setCrew] = useState<CrewMember[]>(() => spawn(crewSize, now0));
   const sizeRef = useRef(crewSize);
@@ -149,7 +166,8 @@ export function CrewYard({
   }, [crewSize]);
 
   useEffect(() => {
-    if (!alive) return;
+    // Freeze the shift while reconnecting (idle) or after crew loss — no new walks.
+    if (!alive || idle) return;
     const iv = window.setInterval(() => {
       const now = Date.now();
       setCrew((prev) => {
@@ -177,7 +195,7 @@ export function CrewYard({
       });
     }, 450);
     return () => window.clearInterval(iv);
-  }, [alive]);
+  }, [alive, idle]);
 
   const styleTag = useMemo(() => `
     @keyframes crewHop { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
@@ -188,6 +206,8 @@ export function CrewYard({
     @keyframes faultPulse { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
     @keyframes wrenchSwing { 0% { transform: rotate(-18deg); } 100% { transform: rotate(20deg); } }
     @keyframes repairFill { 0% { width: 10%; } 100% { width: 92%; } }
+    @keyframes crewIdle { 0%,100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-1px) rotate(4deg); } }
+    @keyframes bubbleBob { 0%,100% { transform: translateX(-50%) translateY(0); opacity: 0.55; } 50% { transform: translateX(-50%) translateY(-2px); opacity: 1; } }
   `, []);
 
   const now = Date.now();
@@ -215,7 +235,7 @@ export function CrewYard({
         position: 'absolute', top: 12, left: 14, fontFamily: '"Space Mono", monospace', fontSize: 11,
         letterSpacing: '0.22em', color: 'rgba(120,230,200,0.75)', textTransform: 'uppercase', zIndex: 2,
       }}>
-        Habitat Deck · {alive ? `${crewSize} Crew On Shift` : 'Crew Lost'}
+        Habitat Deck · {!alive ? 'Crew Lost' : idle ? 'Signal Lost · Crew Standing By' : `${crewSize} Crew On Shift`}
       </div>
 
       {/* STATIONS */}
@@ -266,7 +286,8 @@ export function CrewYard({
 
       {/* CREW */}
       {crew.map((c) => {
-        const working = alive && c.phase === 'work';
+        // While idle (stream reconnecting) nobody is "working" — they mill about.
+        const working = alive && !idle && c.phase === 'work';
         const repairing = working && hotRef.current.has(c.station);
         const station = STATIONS[c.station];
         return (
@@ -287,7 +308,18 @@ export function CrewYard({
                 color: repairing ? '#ff8a8a' : c.accent, textShadow: '0 1px 3px #000',
                 pointerEvents: 'none', fontWeight: repairing ? 700 : 400,
               }}>
-                {repairing ? 'REPAIRING' : station.task}
+                {repairing ? 'REPAIRING' : taskLabel(station, c.id)}
+              </div>
+            )}
+            {/* idle thought-bubble — the crew loiter while the signal's out */}
+            {idle && (
+              <div style={{
+                position: 'absolute', bottom: '100%', left: '50%', marginBottom: 4, whiteSpace: 'nowrap',
+                fontFamily: '"Space Mono", monospace', fontSize: 8, letterSpacing: '0.08em',
+                color: 'rgba(220,230,240,0.9)', textShadow: '0 1px 3px #000', pointerEvents: 'none',
+                animation: 'bubbleBob 2.4s ease-in-out infinite', animationDelay: `${(c.id % 8) * 0.18}s`,
+              }}>
+                {IDLE_QUIPS[c.id % IDLE_QUIPS.length]}
               </div>
             )}
             {/* repair progress bar */}
@@ -316,9 +348,11 @@ export function CrewYard({
               width: 18, height: 5, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', filter: 'blur(1px)',
             }} />
             <div style={{
-              animation: alive
-                ? `${working ? 'crewWork 0.5s' : 'crewHop 0.6s steps(2,end)'} infinite`
-                : 'none',
+              animation: !alive
+                ? 'none'
+                : idle
+                  ? 'crewIdle 2.2s ease-in-out infinite'
+                  : `${working ? 'crewWork 0.5s' : 'crewHop 0.6s steps(2,end)'} infinite`,
               animationDelay: `${(c.id % 6) * 0.1}s`,
             }}>
               <PixelAstronaut accent={c.accent} dead={!alive} working={working} />

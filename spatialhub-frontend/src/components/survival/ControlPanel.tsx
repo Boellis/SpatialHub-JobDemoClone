@@ -15,7 +15,10 @@ const RED = '#ff3b30';
 
 type Difficulty = 'off' | 'malfunctions';
 
-export function ControlPanel() {
+// `running` reflects the live relay run (any driver). Start is disabled while a run
+// is active so a server-side run can't stomp the live MCP-piloted one (single relay
+// slot), and 'New Pilot Session' only makes sense when there's a run to compact.
+export function ControlPanel({ running = false }: { running?: boolean }) {
   const [token, setToken] = useState<string>(() => {
     try { return localStorage.getItem(TOKEN_KEY) ?? ''; } catch { return ''; }
   });
@@ -136,7 +139,16 @@ export function ControlPanel() {
                 </button>
               ))}
             </div>
-            <button type="button" disabled={!!busy} onClick={() => send('Start', { action: 'start', crew_size: crew, difficulty })} style={btn(GREEN)}>▶ Start</button>
+            <button
+              type="button"
+              disabled={!!busy || running}
+              title={running ? 'A run is already live — Stop it first' : undefined}
+              onClick={() => send('Start', { action: 'start', crew_size: crew, difficulty })}
+              style={btnState(GREEN, !!busy || running)}
+            >▶ Start</button>
+            {running && (
+              <span style={{ fontSize: 10, color: 'rgba(150,162,178,0.7)' }}>run live — Start locked</span>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -151,6 +163,24 @@ export function ControlPanel() {
               style={btn(AMBER)}>⚠ Inject Fault</button>
             <button type="button" disabled={!!busy} onClick={() => send('Stop', { action: 'stop' })} style={btn(RED)}>■ Stop</button>
             <button type="button" onClick={lock} style={{ ...miniBtn, marginLeft: 'auto' }}>🔒 Lock</button>
+          </div>
+
+          {/* Reverse channel: ask the supervisor to respawn the pilot subagent with a
+              fresh context (resume_run continues the same run, key intact). */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 8 }}>
+            <span style={{ fontSize: 11, color: 'rgba(180,190,205,0.85)' }}>Pilot</span>
+            <button
+              type="button"
+              disabled={!!busy || !running}
+              title={running
+                ? 'Tell the supervisor to compact: respawn a fresh pilot subagent that resumes this run'
+                : 'No live run to compact'}
+              onClick={() => send('New pilot session', { action: 'new_session' })}
+              style={btnState('#b388ff', !!busy || !running)}
+            >⟳ New Pilot Session (compact)</button>
+            <span style={{ fontSize: 10, color: 'rgba(150,162,178,0.6)' }}>
+              clears the pilot's context — run &amp; key preserved
+            </span>
           </div>
 
           {(busy || msg) && (
@@ -172,6 +202,15 @@ function btn(accent: string): React.CSSProperties {
     padding: '6px 12px', borderRadius: 8, cursor: 'pointer',
     border: `1px solid ${accent}`, background: `${accent}14`, color: accent,
     fontFamily: '"Space Mono", monospace', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em',
+  };
+}
+// Same as btn() but dims + blocks the pointer when disabled, so a locked Start /
+// New-Session button reads as inert rather than just non-responsive.
+function btnState(accent: string, disabled: boolean): React.CSSProperties {
+  return {
+    ...btn(accent),
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.4 : 1,
   };
 }
 const miniBtn: React.CSSProperties = {
