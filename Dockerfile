@@ -33,11 +33,16 @@ EXPOSE 8080
 # the decision-log buffer, the web->pilot command slot, and the habitat-plan slot
 # in PROCESS memory. With >1 worker those land on different processes, so /ingest
 # writes and /live reads (and poll_command vs new_session) split across workers and
-# silently lose state. The --threads pool gives plenty of concurrency for the demo;
-# the durable decision archive (Postgres) stays correct regardless.
+# silently lose state. The --threads pool must comfortably exceed the number of
+# concurrent /live SSE viewers: each open browser pins one thread for the life of
+# the connection. At only 8 threads, >8 tabs/reconnects exhaust the pool, requests
+# pile up against Cloud Run's concurrency cap, and the instance 429s EVERYTHING
+# (ingest + reads), freezing the dashboard. 64 leaves ample headroom; idle SSE
+# threads block on a Condition and cost almost nothing.
+# The durable decision archive (Postgres) stays correct regardless.
 CMD ["gunicorn", "spatialhub_backend.wsgi:application", \
      "--bind", "0.0.0.0:8080", \
      "--worker-class", "gthread", \
      "--workers", "1", \
-     "--threads", "8", \
+     "--threads", "64", \
      "--timeout", "0"]
