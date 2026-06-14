@@ -1,9 +1,9 @@
 /** @vitest-environment jsdom */
 /**
- * SurvivalView page tests.
+ * SurvivalView page tests — SPECTATOR mode.
  *
- * Tests verify the SSE-driven survival run:
- *  - Clicking Run opens an EventSource at the survival stream URL.
+ * Tests verify the read-only SSE spectator view:
+ *  - On render the page AUTO-CONNECTS an EventSource to the `/live` URL (no Run click).
  *  - A `sol` event drives the habitat store (zone state updates via solEventToReadings),
  *    bumps the big SOL counter, and surfaces the bot's reasoning.
  *  - An `end` event renders the "Survived N sols" result card.
@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { MemoryRouter } from 'react-router-dom';
 import SurvivalView from '../pages/SurvivalView';
@@ -72,17 +72,16 @@ function renderView() {
 }
 
 describe('SurvivalView', () => {
-  it('opens an EventSource and drives store + SOL counter + reasoning on a sol event', () => {
+  it('auto-connects an EventSource and drives store + SOL counter + reasoning on a sol event', () => {
     renderView();
 
-    fireEvent.click(screen.getByRole('button', { name: /run/i }));
-
+    // Spectator mode: auto-connects on render, no Run click.
     expect(MockEventSource.instances).toHaveLength(1);
     const es = MockEventSource.instances[0];
-    expect(es.url).toContain('/stream');
+    expect(es.url).toContain('/live');
 
     act(() => {
-      es.emit('run', { run_id: 'run-123' });
+      es.emit('run', { run_id: 'run-123', difficulty: 'malfunctions', crew_size: 4 });
       es.emit('sol', {
         sol: 5,
         alive: true,
@@ -109,7 +108,6 @@ describe('SurvivalView', () => {
 
   it('renders a "Survived N sols" result card on an end event', () => {
     renderView();
-    fireEvent.click(screen.getByRole('button', { name: /run/i }));
     const es = MockEventSource.instances[0];
 
     act(() => {

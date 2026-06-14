@@ -170,3 +170,90 @@ def test_inject_malfunction_tool():
     out = server.inject_malfunction("OGS", "MEDIUM_MALF", "PERMANENT_MALF")
     assert out["malfunction_id"] == 7
     assert client.malfunctions[0] == ("OGS", "MEDIUM_MALF", "PERMANENT_MALF")
+
+
+# ---------------------------------------------------------------------------
+# Live-telemetry relay: capture published events WITHOUT touching the network.
+# ---------------------------------------------------------------------------
+
+class _Capture:
+    """Context manager that swaps server._publish for a recorder and restores it."""
+
+    def __init__(self):
+        self.events = []
+        self._orig = None
+
+    def __enter__(self):
+        self._orig = server._publish
+        server._publish = lambda t, d: self.events.append((t, d))
+        return self
+
+    def __exit__(self, *exc):
+        server._publish = self._orig
+        return False
+
+
+def test_start_run_publishes_run_then_sol():
+    _fresh()
+    with _Capture() as cap:
+        server.start_run(crew_size=15, note="boot")
+    assert [t for t, _ in cap.events] == ["run", "sol"]
+    run_data = cap.events[0][1]
+    assert set(run_data) == {"run_id", "difficulty", "crew_size"}
+    assert run_data["run_id"] and run_data["difficulty"] == "off"
+    assert run_data["crew_size"] == 15
+    sol_data = cap.events[1][1]
+    assert sol_data["reasoning"] == "boot"
+    assert sol_data["sol"] == 0 and sol_data["alive"] is True
+
+
+def test_advance_publishes_one_sol_event_per_sol():
+    _fresh()
+    server.RUN.sim_id = 42
+    with _Capture() as cap:
+        server.advance(3, note="steady")
+    sols = [d for t, d in cap.events if t == "sol"]
+    assert len(sols) == 3
+    assert [d["reasoning"] for d in sols] == ["steady", "", ""]
+    assert [d["sol"] for d in sols] == [1, 2, 3]
+
+
+def test_advance_to_death_publishes_end_event():
+    _fresh(death_tick=48)  # dead after 2 sols
+    server.RUN.sim_id = 42
+    with _Capture() as cap:
+        server.advance(10, note="hold")
+    types = [t for t, _ in cap.events]
+    assert types == ["sol", "sol", "end"]
+    end_data = cap.events[-1][1]
+    assert end_data["sols_survived"] == 2
+    assert end_data["ended_reason"] == "crew_death"
+
+
+def test_set_flows_publishes_sol_with_actions():
+    _fresh()
+    server.RUN.sim_id = 42
+    with _Capture() as cap:
+        server.set_flows(
+            [{"module": "OGS", "kind": "producers", "type": "O2", "rates": [123.0]}],
+            note="raise O2")
+    sols = [d for t, d in cap.events if t == "sol"]
+    assert len(sols) == 1
+    sol = sols[0]
+    assert sol["reasoning"] == "raise O2"
+    assert sol["actions"][0]["desired_rates"] == [123.0]
+    assert "rates" not in sol["actions"][0]
+
+
+def test_publish_is_noop_when_relay_unset(monkeypatch):
+    # Relay disabled (env unset by default) -> _publish must never POST.
+    monkeypatch.setattr(server, "SURVIVAL_RELAY_URL", "")
+    monkeypatch.setattr(server, "SURVIVAL_RELAY_TOKEN", "")
+
+    def _boom(*a, **k):
+        raise AssertionError("requests.post must not be called when relay is unset")
+
+    monkeypatch.setattr(server.requests, "post", _boom)
+    # Should not raise and should not enqueue / post anything.
+    server._publish("sol", {"sol": 1})
+    server._publish("run", {"run_id": "x", "difficulty": "off", "crew_size": 15})

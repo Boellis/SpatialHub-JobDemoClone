@@ -1,0 +1,140 @@
+"""Tests for the survival relay: the in-memory bridge + the /ingest (authenticated
+write) and /live (read-only SSE replay) endpoints. No live BioSim, no Anthropic key.
+
+Run on macOS:
+    USE_SQLITE=1 /tmp/shub_venv/bin/python -m pytest \
+        sensor_data/tests/test_survival_relay.py -q
+"""
+
+import json
+
+from django.test import TestCase, override_settings
+from django.urls import reverse
+
+from sensor_data.survival import relay
+
+
+TOKEN = "test-relay-secret-0123456789"
+
+SOL_DATA = {
+    "sol": 5, "alive": True, "modules": {"O2_Store": {"properties": {}}},
+    "reasoning": "raising OGS O2 to cover the -100 deficit",
+    "actions": [{"module": "OGS", "kind": "producers", "type": "O2",
+                 "desired_rates": [900.0]}],
+    "warnings": [],
+}
+
+
+class RelayStoreTests(TestCase):
+    def setUp(self):
+        relay.reset()
+
+    def test_publish_bumps_version_and_snapshots(self):
+        v1 = relay.publish("run", {"run_id": "r1", "difficulty": "off"})
+        v2 = relay.publish("sol", SOL_DATA)
+        self.assertEqual((v1, v2), (1, 2))
+        slots, version = relay.snapshot()
+        self.assertEqual(version, 2)
+        self.assertEqual(slots["run"][0]["run_id"], "r1")
+        self.assertEqual(slots["sol"][0]["sol"], 5)
+        self.assertIsNone(slots["end"][0])
+
+    def test_run_event_clears_prior_sol_and_end(self):
+        relay.publish("sol", SOL_DATA)
+        relay.publish("end", {"sols_survived": 5, "ended_reason": "crew_death"})
+        relay.publish("run", {"run_id": "r2", "difficulty": "malfunctions"})
+        slots, _ = relay.snapshot()
+        self.assertIsNone(slots["sol"][0])   # stale sol gone
+        self.assertIsNone(slots["end"][0])   # stale result card gone
+        self.assertEqual(slots["run"][0]["run_id"], "r2")
+
+    def test_publish_rejects_unknown_event_type(self):
+        with self.assertRaises(ValueError):
+            relay.publish("explode", {})
+
+    def test_wait_times_out_without_change(self):
+        relay.publish("sol", SOL_DATA)
+        _, version = relay.snapshot()
+        slots, v = relay.wait(version, timeout=0.05)   # no new publish -> times out
+        self.assertEqual(v, version)
+
+
+@override_settings(SURVIVAL_RELAY_TOKEN=TOKEN)
+class IngestEndpointTests(TestCase):
+    def setUp(self):
+        relay.reset()
+        self.url = reverse("survival-ingest")
+
+    def _post(self, body, token=TOKEN, content_type="application/json"):
+        headers = {}
+        if token is not None:
+            headers["HTTP_AUTHORIZATION"] = f"Bearer {token}"
+        return self.client.post(self.url, data=body, content_type=content_type, **headers)
+
+    def test_valid_event_is_published(self):
+        resp = self._post(json.dumps({"type": "sol", "data": SOL_DATA}))
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()["ok"])
+        slots, _ = relay.snapshot()
+        self.assertEqual(slots["sol"][0]["sol"], 5)
+
+    def test_missing_token_is_unauthorized(self):
+        resp = self._post(json.dumps({"type": "sol", "data": SOL_DATA}), token=None)
+        self.assertEqual(resp.status_code, 401)
+        self.assertIsNone(relay.snapshot()[0]["sol"][0])
+
+    def test_wrong_token_is_unauthorized(self):
+        resp = self._post(json.dumps({"type": "sol", "data": SOL_DATA}), token="nope")
+        self.assertEqual(resp.status_code, 401)
+
+    def test_bad_shape_is_rejected(self):
+        # 'data' must be a dict, 'type' must be known
+        self.assertEqual(self._post(json.dumps({"type": "sol", "data": []})).status_code, 400)
+        self.assertEqual(self._post(json.dumps({"type": "x", "data": {}})).status_code, 400)
+
+    def test_invalid_json_is_rejected(self):
+        self.assertEqual(self._post("not json{").status_code, 400)
+
+    def test_oversize_payload_is_rejected(self):
+        big = {"type": "sol", "data": {"blob": "x" * (300 * 1024)}}
+        self.assertEqual(self._post(json.dumps(big)).status_code, 413)
+
+    def test_get_is_method_not_allowed(self):
+        self.assertEqual(self.client.get(self.url).status_code, 405)
+
+
+@override_settings(SURVIVAL_RELAY_TOKEN="")
+class IngestDisabledTests(TestCase):
+    def setUp(self):
+        relay.reset()
+
+    def test_ingest_fails_closed_without_token(self):
+        resp = self.client.post(
+            reverse("survival-ingest"),
+            data=json.dumps({"type": "sol", "data": SOL_DATA}),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer anything",
+        )
+        self.assertEqual(resp.status_code, 503)
+
+
+class LiveStreamTests(TestCase):
+    def setUp(self):
+        relay.reset()
+
+    def test_live_replays_current_state_on_connect(self):
+        relay.publish("run", {"run_id": "r1", "difficulty": "off"})
+        relay.publish("sol", SOL_DATA)
+
+        resp = self.client.get(reverse("survival-live"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "text/event-stream")
+
+        # Pull only the two replay frames; don't drain into the infinite wait loop.
+        gen = iter(resp.streaming_content)
+        first = next(gen).decode()
+        second = next(gen).decode()
+
+        self.assertIn("event: run", first)
+        self.assertIn("event: sol", second)
+        self.assertIn('"sol": 5', second)

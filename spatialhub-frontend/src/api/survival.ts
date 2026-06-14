@@ -12,6 +12,9 @@ export type SurvivalEndEvent = { sols_survived: number; ended_reason: string };
 export function survivalStreamUrl(difficulty: "off" | "malfunctions"): string {
   return `${SURVIVAL_API}/stream?difficulty=${difficulty}`;
 }
+export function survivalLiveUrl(): string {
+  return `${SURVIVAL_API}/live`;
+}
 export async function stopSurvival(runId: string): Promise<void> {
   await fetch(`${SURVIVAL_API}/stop`, {
     method: "POST", headers: { "Content-Type": "application/json" },

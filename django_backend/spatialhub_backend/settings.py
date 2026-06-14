@@ -108,3 +108,7 @@ SURVIVAL_BIOSIM_URL = os.environ.get("BIOSIM_URL", "http://34.66.244.62:8009")
 SURVIVAL_MAX_SOLS = int(os.environ.get("BIOSIM_MAX_SOLS", "500"))
 SURVIVAL_TOKEN_BUDGET = int(os.environ.get("BIOSIM_TOKEN_BUDGET", "750000"))
 SURVIVAL_CREW_SIZE = int(os.environ.get("BIOSIM_CREW_SIZE", "15"))
+# Shared secret that authenticates the external survival pilot (mcp_biosim) posting
+# live run/sol/end events to /api/survival/ingest. No value => ingest is disabled
+# (fails closed). This is NOT an Anthropic key; the relay path uses no API key.
+SURVIVAL_RELAY_TOKEN = os.environ.get("SURVIVAL_RELAY_TOKEN", "")

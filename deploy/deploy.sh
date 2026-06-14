@@ -62,10 +62,20 @@ if [[ -z "${SECRET_KEY:-}" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Survival bot config (the Anthropic-powered Habitat Survival tab).
-# ANTHROPIC_API_KEY is optional for the core deploy, but the /survival tab will
-# return an error until it is set. The other survival vars have sane defaults
-# (Balanced posture: Sonnet, 500 sols, 750k token budget per run).
+# Survival bot config.
+#
+# Two paths are supported, and they are independent:
+#   1. RELAY path (default, NO Anthropic key): an external pilot — the mcp_biosim
+#      server driven by a Claude subscription session — POSTs live run/sol/end
+#      events to /api/survival/ingest (authenticated by SURVIVAL_RELAY_TOKEN) and
+#      the web app's Survival tab renders them over /api/survival/live (SSE). This
+#      is the demo path. Costs $0 in API tokens.
+#   2. AUTONOMOUS path (optional, needs ANTHROPIC_API_KEY): the legacy server-side
+#      bot at /api/survival/stream. Only enabled if you pass ANTHROPIC_API_KEY.
+#
+# SURVIVAL_RELAY_TOKEN authenticates the pilot -> relay write. If you don't pass
+# one, a strong random token is generated and printed so you can drop it into the
+# MCP's .mcp.json. Keep it secret (it gates who can push to your live web app).
 # ---------------------------------------------------------------------------
 ANTHROPIC_MODEL="${ANTHROPIC_MODEL:-claude-sonnet-4-6}"
 BIOSIM_URL="${BIOSIM_URL:-http://34.66.244.62:8009}"
@@ -73,12 +83,19 @@ BIOSIM_MAX_SOLS="${BIOSIM_MAX_SOLS:-500}"
 BIOSIM_TOKEN_BUDGET="${BIOSIM_TOKEN_BUDGET:-750000}"
 BIOSIM_CREW_SIZE="${BIOSIM_CREW_SIZE:-15}"
 
+if [[ -z "${SURVIVAL_RELAY_TOKEN:-}" ]]; then
+  SURVIVAL_RELAY_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+  echo ""
+  echo "Generated SURVIVAL_RELAY_TOKEN (the pilot needs this to push to the web app):"
+  echo "    ${SURVIVAL_RELAY_TOKEN}"
+  echo "  The full .mcp.json snippet (with the Cloud Run URL) is printed at the end."
+  echo ""
+fi
+
 if [[ -z "${ANTHROPIC_API_KEY:-}" ]]; then
-  echo ""
-  echo "WARNING: ANTHROPIC_API_KEY not set. Deploy proceeds, but the Habitat"
-  echo "  Survival tab stays disabled until you set it. To enable the bot:"
-  echo "    DB_PASS='...' ANTHROPIC_API_KEY='sk-ant-...' ./deploy/deploy.sh"
-  echo ""
+  echo "Note: ANTHROPIC_API_KEY not set — deploying the RELAY path only (no API key"
+  echo "  needed). The MCP pilot drives the bot on your subscription; the legacy"
+  echo "  server-side /survival/stream tab stays dormant. This is the intended demo."
 fi
 
 echo "Prerequisites OK."
@@ -171,6 +188,12 @@ cd "$REPO_ROOT"
 # --timeout=3600 keeps the survival SSE stream alive for long runs (default 300s
 # would cut a run off mid-stream). Survival env vars enable the autonomous bot;
 # note --set-env-vars REPLACES the env, so all survival vars must be listed here.
+#
+# --min-instances=1 --max-instances=1 PIN the service to a single warm instance.
+# This is REQUIRED for the relay path: the live SSE state lives in process memory
+# (sensor_data/survival/relay.py), so the pilot's /ingest writes and the browsers'
+# /live reads must land on the same instance. It also avoids a cold start cutting
+# the SSE stream. (For a judge demo the single instance is plenty.)
 gcloud run deploy "$SERVICE_NAME" \
   --source . \
   --region "$REGION" \
@@ -178,7 +201,9 @@ gcloud run deploy "$SERVICE_NAME" \
   --platform managed \
   --allow-unauthenticated \
   --timeout=3600 \
-  --set-env-vars "DB_HOST=${DB_HOST},DB_NAME=${DB_NAME},DB_USER=${DB_USER},DB_PASS=${DB_PASS},SECRET_KEY=${SECRET_KEY},DEBUG=False,ALLOWED_HOSTS=*,ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-},ANTHROPIC_MODEL=${ANTHROPIC_MODEL},BIOSIM_URL=${BIOSIM_URL},BIOSIM_MAX_SOLS=${BIOSIM_MAX_SOLS},BIOSIM_TOKEN_BUDGET=${BIOSIM_TOKEN_BUDGET},BIOSIM_CREW_SIZE=${BIOSIM_CREW_SIZE}"
+  --min-instances=1 \
+  --max-instances=1 \
+  --set-env-vars "DB_HOST=${DB_HOST},DB_NAME=${DB_NAME},DB_USER=${DB_USER},DB_PASS=${DB_PASS},SECRET_KEY=${SECRET_KEY},DEBUG=False,ALLOWED_HOSTS=*,ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-},ANTHROPIC_MODEL=${ANTHROPIC_MODEL},BIOSIM_URL=${BIOSIM_URL},BIOSIM_MAX_SOLS=${BIOSIM_MAX_SOLS},BIOSIM_TOKEN_BUDGET=${BIOSIM_TOKEN_BUDGET},BIOSIM_CREW_SIZE=${BIOSIM_CREW_SIZE},SURVIVAL_RELAY_TOKEN=${SURVIVAL_RELAY_TOKEN}"
 
 # ---------------------------------------------------------------------------
 # Section 5: Get Cloud Run URL
@@ -234,7 +259,12 @@ echo ""
 echo "=== Building and Deploying Frontend to Firebase Hosting ==="
 cd "$REPO_ROOT/spatialhub-frontend"
 echo "Building frontend with VITE_API_URL=${CLOUD_RUN_URL}/api"
-VITE_API_URL="${CLOUD_RUN_URL}/api" npm run build
+# VITE_SURVIVAL_API points the Survival tab at the Cloud Run relay (/live SSE +
+# spectator render). Without it the tab falls back to the same-origin /api/survival,
+# which is wrong since the frontend is on Firebase, not Cloud Run.
+VITE_API_URL="${CLOUD_RUN_URL}/api" \
+  VITE_SURVIVAL_API="${CLOUD_RUN_URL}/api/survival" \
+  npm run build
 firebase deploy --only hosting --project "$PROJECT"
 
 # ---------------------------------------------------------------------------
@@ -544,6 +574,7 @@ cd "$REPO_ROOT/spatialhub-frontend"
 # BIOSIM_DOMAIN already computed in Section 13 when writing .env
 echo "Building frontend with VITE_BIOSIM_URL=https://${BIOSIM_DOMAIN} VITE_OPENMCT_URL=http://${VM_IP}:9091"
 VITE_API_URL="${CLOUD_RUN_URL}/api" \
+  VITE_SURVIVAL_API="${CLOUD_RUN_URL}/api/survival" \
   VITE_BIOSIM_URL="https://${BIOSIM_DOMAIN}" \
   VITE_OPENMCT_URL="http://${VM_IP}:9091" \
   npm run build
@@ -596,3 +627,25 @@ echo ""
 echo "IMPORTANT: Store these values for future redeploys:"
 echo "  export SECRET_KEY='${SECRET_KEY}'"
 echo "  export DB_PASS='${DB_PASS}'"
+echo "  export SURVIVAL_RELAY_TOKEN='${SURVIVAL_RELAY_TOKEN}'"
+echo ""
+echo "=== Pilot the Survival tab from Claude Code (no API key) ==="
+echo "Put this in .mcp.json (gitignored), then restart Claude Code:"
+cat <<EOF
+  {
+    "mcpServers": {
+      "biosim": {
+        "command": "mcp_biosim/.venv/bin/python",
+        "args": ["mcp_biosim/server.py"],
+        "env": {
+          "BIOSIM_URL": "${BIOSIM_URL}",
+          "SURVIVAL_RELAY_URL": "${CLOUD_RUN_URL}",
+          "SURVIVAL_RELAY_TOKEN": "${SURVIVAL_RELAY_TOKEN}"
+        }
+      }
+    }
+  }
+EOF
+echo ""
+echo "Then: load the survival_doctrine prompt, start_run, set_flows, advance —"
+echo "and watch it live at https://nasa-comp-demo.web.app/survival"

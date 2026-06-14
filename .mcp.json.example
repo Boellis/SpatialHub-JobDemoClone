@@ -4,7 +4,9 @@
       "command": "mcp_biosim/.venv/bin/python",
       "args": ["mcp_biosim/server.py"],
       "env": {
-        "BIOSIM_URL": "http://34.66.244.62:8009"
+        "BIOSIM_URL": "http://34.66.244.62:8009",
+        "SURVIVAL_RELAY_URL": "https://spatialhub-backend-4vovlomqfa-uc.a.run.app",
+        "SURVIVAL_RELAY_TOKEN": "REPLACE_WITH_SURVIVAL_RELAY_TOKEN_FROM_DEPLOY"
       }
     }
   }

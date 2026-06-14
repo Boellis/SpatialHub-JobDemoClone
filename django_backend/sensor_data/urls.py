@@ -20,4 +20,6 @@ urlpatterns = [
     path('sensor-ingest/', SensorIngestView.as_view(), name='sensor-ingest'),
     path('survival/stream', views.survival_stream, name='survival-stream'),
     path('survival/stop', views.survival_stop, name='survival-stop'),
+    path('survival/ingest', views.survival_ingest, name='survival-ingest'),
+    path('survival/live', views.survival_live, name='survival-live'),
 ]

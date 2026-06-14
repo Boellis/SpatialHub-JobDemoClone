@@ -1,17 +1,19 @@
-// SurvivalView — "Can the autonomous Claude bot keep the habitat alive?" page.
+// SurvivalView — SPECTATOR view for "Can the autonomous Claude bot keep the habitat alive?"
 //
-// Drives the SHARED useHabitatStore from a server-sent-events survival stream and
-// renders the REUSED ZonePanel / HabitatHUD / AlertBanner habitat components, plus a
-// big SOL counter, a live bot-reasoning overlay, Run/Stop controls, a difficulty toggle,
-// and an end-of-run result card.
+// The bot is now driven EXTERNALLY (by a Claude subscription session via an MCP server).
+// This page only WATCHES: it auto-connects to a read-only SSE stream and renders whatever
+// the external pilot pushes. No Run/Stop — the spectator can't start the pilot's run.
+//
+// Drives the SHARED useHabitatStore and renders the REUSED ZonePanel / HabitatHUD /
+// AlertBanner habitat components, plus a big SOL counter, a live bot-reasoning overlay,
+// a read-only LIVE/RECONNECTING status pill, and an end-of-run result card.
 //
 // Data flow (per spec):
-//   Run  -> new EventSource(survivalStreamUrl(difficulty))
-//   run  -> capture run_id (for Stop)
-//   sol  -> useHabitatStore.getState().tick(solEventToReadings(modules, history))
-//           + bump local sol counter, append reasoning, track warnings
-//   end  -> show "Survived N sols" result card
-//   Stop -> stopSurvival(run_id) + es.close()
+//   mount -> new EventSource(survivalLiveUrl())  (auto-connect, auto-reconnect on error)
+//   run   -> reset local state for the new run + capture difficulty for display
+//   sol   -> useHabitatStore.getState().tick(solEventToReadings(modules, history))
+//            + bump local sol counter, append reasoning, track warnings
+//   end   -> show "Survived N sols" result card
 //
 // Lazy-loaded via React.lazy in App.tsx — needs a default export.
 
@@ -22,13 +24,18 @@ import { HabitatHUD } from '../components/habitat/HabitatHUD';
 import { AlertBanner } from '../components/habitat/AlertBanner';
 import { solEventToReadings } from '../simulation/survivalZone';
 import {
-  survivalStreamUrl,
-  stopSurvival,
+  survivalLiveUrl,
   type SurvivalSolEvent,
   type SurvivalEndEvent,
 } from '../api/survival';
 
 type Difficulty = 'off' | 'malfunctions';
+
+interface RunEvent {
+  run_id: string;
+  difficulty: Difficulty;
+  crew_size: number;
+}
 
 interface ReasoningEntry {
   sol: number;
@@ -44,31 +51,25 @@ interface SurvivalResult {
 type SensorHistory = Record<string, Record<string, number[]>>;
 
 const SURVIVAL_GREEN = '#00ff88';
-const SURVIVAL_RED = '#ff2200';
+const RECONNECT_DELAY_MS = 3000;
 
 const SurvivalView = () => {
   const selectedZoneId = useHabitatStore((s) => s.selectedZoneId);
   const setSelectedZoneId = useHabitatStore((s) => s.setSelectedZoneId);
 
-  const [running, setRunning] = useState(false);
-  const [difficulty, setDifficulty] = useState<Difficulty>('malfunctions');
+  const [connected, setConnected] = useState(false);
+  const [difficulty, setDifficulty] = useState<Difficulty | null>(null);
   const [sol, setSol] = useState(0);
   const [reasoningLog, setReasoningLog] = useState<ReasoningEntry[]>([]);
   const [warnings, setWarnings] = useState<{ sensor: string; status: string }[]>([]);
   const [result, setResult] = useState<SurvivalResult | null>(null);
 
-  // Non-reactive refs — the EventSource, the active run id, and the rolling sensor history.
+  // Non-reactive refs — the EventSource, the rolling sensor history, the reconnect timer,
+  // and a mounted flag so the reconnect loop stops cleanly on unmount.
   const esRef = useRef<EventSource | null>(null);
-  const runIdRef = useRef<string | null>(null);
   const historyRef = useRef<SensorHistory>({});
-
-  // Tear down the stream on unmount.
-  useEffect(() => {
-    return () => {
-      esRef.current?.close();
-      esRef.current = null;
-    };
-  }, []);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
 
   const handleSol = useCallback((d: SurvivalSolEvent) => {
     // Feed the shared habitat store — the reused zone components subscribe to it directly.
@@ -80,57 +81,70 @@ const SurvivalView = () => {
     }
   }, []);
 
-  const stop = useCallback(() => {
-    const runId = runIdRef.current;
-    esRef.current?.close();
-    esRef.current = null;
-    runIdRef.current = null;
-    setRunning(false);
-    if (runId) {
-      void stopSurvival(runId);
-    }
-  }, []);
+  // Auto-connect on mount, with a simple reconnect loop on error.
+  useEffect(() => {
+    mountedRef.current = true;
 
-  const run = useCallback(() => {
-    if (esRef.current) return; // already streaming
+    const connect = () => {
+      if (!mountedRef.current) return;
 
-    // Fresh run — reset local state.
-    setResult(null);
-    setSol(0);
-    setReasoningLog([]);
-    setWarnings([]);
-    historyRef.current = {};
-    runIdRef.current = null;
+      const es = new EventSource(survivalLiveUrl());
+      esRef.current = es;
 
-    const es = new EventSource(survivalStreamUrl(difficulty));
-    esRef.current = es;
-    setRunning(true);
+      es.onopen = () => {
+        setConnected(true);
+      };
 
-    es.addEventListener('run', (ev) => {
-      const d = JSON.parse((ev as MessageEvent).data) as { run_id: string };
-      runIdRef.current = d.run_id;
-    });
+      es.addEventListener('run', (ev) => {
+        setConnected(true);
+        const d = JSON.parse((ev as MessageEvent).data) as RunEvent;
+        // Fresh run — reset local state for the new run.
+        setResult(null);
+        setSol(0);
+        setReasoningLog([]);
+        setWarnings([]);
+        historyRef.current = {};
+        setDifficulty(d.difficulty);
+      });
 
-    es.addEventListener('sol', (ev) => {
-      handleSol(JSON.parse((ev as MessageEvent).data) as SurvivalSolEvent);
-    });
+      es.addEventListener('sol', (ev) => {
+        setConnected(true);
+        handleSol(JSON.parse((ev as MessageEvent).data) as SurvivalSolEvent);
+      });
 
-    es.addEventListener('end', (ev) => {
-      const d = JSON.parse((ev as MessageEvent).data) as SurvivalEndEvent;
-      setResult({ sols_survived: d.sols_survived, ended_reason: d.ended_reason });
-      es.close();
+      es.addEventListener('end', (ev) => {
+        setConnected(true);
+        const d = JSON.parse((ev as MessageEvent).data) as SurvivalEndEvent;
+        setResult({ sols_survived: d.sols_survived, ended_reason: d.ended_reason });
+      });
+
+      es.addEventListener('error', () => {
+        // EventSource auto-reconnects, but we drive an explicit reconnect so the status
+        // pill reflects reality. Close, mark disconnected, and re-create after a delay.
+        setConnected(false);
+        es.close();
+        esRef.current = null;
+        if (mountedRef.current && reconnectTimerRef.current === null) {
+          reconnectTimerRef.current = setTimeout(() => {
+            reconnectTimerRef.current = null;
+            connect();
+          }, RECONNECT_DELAY_MS);
+        }
+      });
+    };
+
+    connect();
+
+    return () => {
+      mountedRef.current = false;
+      if (reconnectTimerRef.current !== null) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      esRef.current?.close();
       esRef.current = null;
-      runIdRef.current = null;
-      setRunning(false);
-    });
-
-    es.addEventListener('error', () => {
-      // Network/stream error — release the connection but keep whatever we rendered.
-      es.close();
-      esRef.current = null;
-      setRunning(false);
-    });
-  }, [difficulty, handleSol]);
+    };
+  }, [handleSol]);
 
   return (
     <div
@@ -220,7 +234,7 @@ const SurvivalView = () => {
         </div>
         {reasoningLog.length === 0 ? (
           <div style={{ fontSize: '0.8rem', color: 'rgba(156,163,175,0.7)' }}>
-            {running ? 'Awaiting first decision…' : 'Press Run to start the autonomous run.'}
+            {sol > 0 ? 'Standing by…' : 'Waiting for the pilot to start a run…'}
           </div>
         ) : (
           reasoningLog.map((entry, i) => (
@@ -242,7 +256,7 @@ const SurvivalView = () => {
         )}
       </div>
 
-      {/* Controls — bottom-center */}
+      {/* Read-only status pill — bottom-center */}
       <div
         style={{
           position: 'fixed',
@@ -255,55 +269,41 @@ const SurvivalView = () => {
           zIndex: 20,
         }}
       >
-        {!running ? (
-          <button
-            type="button"
-            onClick={run}
-            style={controlButtonStyle(SURVIVAL_GREEN)}
-          >
-            ▶ Run
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={stop}
-            style={controlButtonStyle(SURVIVAL_RED)}
-          >
-            ■ Stop
-          </button>
-        )}
-
-        {/* Difficulty toggle — disabled mid-run */}
         <div
           style={{
             display: 'flex',
-            border: '1px solid rgba(255,255,255,0.12)',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.5rem 1rem',
+            fontFamily: 'monospace',
+            fontSize: '0.8rem',
+            fontWeight: 700,
+            letterSpacing: '0.08em',
+            border: `1px solid ${connected ? SURVIVAL_GREEN : 'rgba(255,170,0,0.6)'}`,
             borderRadius: '8px',
-            overflow: 'hidden',
-            opacity: running ? 0.5 : 1,
+            background: 'rgba(10,12,18,0.8)',
+            color: connected ? SURVIVAL_GREEN : '#ffaa00',
+            boxShadow: connected ? `0 0 16px ${SURVIVAL_GREEN}33` : 'none',
           }}
         >
-          {(['off', 'malfunctions'] as Difficulty[]).map((d) => (
-            <button
-              key={d}
-              type="button"
-              disabled={running}
-              onClick={() => setDifficulty(d)}
-              style={{
-                padding: '0.5rem 0.9rem',
-                fontFamily: 'monospace',
-                fontSize: '0.75rem',
-                letterSpacing: '0.05em',
-                border: 'none',
-                cursor: running ? 'not-allowed' : 'pointer',
-                background: difficulty === d ? 'rgba(0,255,136,0.18)' : 'transparent',
-                color: difficulty === d ? SURVIVAL_GREEN : 'rgba(156,163,175,1)',
-              }}
-            >
-              {d === 'off' ? 'No Malfunctions' : 'Malfunctions'}
-            </button>
-          ))}
+          {connected ? '● LIVE' : '○ RECONNECTING…'}
         </div>
+
+        {difficulty && (
+          <div
+            style={{
+              padding: '0.5rem 0.9rem',
+              fontFamily: 'monospace',
+              fontSize: '0.75rem',
+              letterSpacing: '0.05em',
+              border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: '8px',
+              color: 'rgba(156,163,175,1)',
+            }}
+          >
+            {difficulty === 'off' ? 'NO MALFUNCTIONS' : 'MALFUNCTIONS'}
+          </div>
+        )}
       </div>
 
       {/* Result card — shown when the run ends */}
@@ -360,12 +360,21 @@ const SurvivalView = () => {
             >
               Ended: {result.ended_reason.replace(/_/g, ' ')}
             </div>
+            <div
+              style={{
+                fontSize: '0.8rem',
+                color: 'rgba(156,163,175,0.9)',
+                marginBottom: '1rem',
+              }}
+            >
+              Waiting for next run…
+            </div>
             <button
               type="button"
-              onClick={run}
+              onClick={() => setResult(null)}
               style={controlButtonStyle(SURVIVAL_GREEN)}
             >
-              ▶ Run Again
+              Dismiss
             </button>
           </div>
         </div>

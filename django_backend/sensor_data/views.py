@@ -15,11 +15,13 @@ from django.views.decorators.csrf import csrf_exempt
 from .models import RawSensorData, EnrichedSensorData, HubConfig, HabitatZone
 from .serializers import RawSensorSerializer, EnrichedSensorSerializer, HubConfigSerializer, HabitatZoneSerializer
 from .survival import run_registry
+from .survival import relay
 from .survival.biosim_control import BiosimControl
 from .survival.bot_brain import BotBrain
 from .survival.config import build_survival_config
 from .survival.loop import run_survival
 
+import hmac
 import secrets
 import string
 import traceback
@@ -236,3 +238,90 @@ def survival_stop(request):
     run_id = body.get("run_id")
     stopped = run_registry.request_stop(run_id) if run_id else False
     return JsonResponse({"stopped": stopped})
+
+
+# ---------------------------------------------------------------------------
+# Relay: external pilot (mcp_biosim on a Claude subscription) -> web app.
+# The pilot POSTs run/sol/end events; browsers watch them over read-only SSE.
+# No ANTHROPIC_API_KEY path — the brain is the external pilot. See survival/relay.py.
+# ---------------------------------------------------------------------------
+
+# Cap the ingest body so a bad/hostile POST can't exhaust memory. A full raw-modules
+# `sol` payload is a few KB; 256 KB is generous headroom.
+_MAX_INGEST_BYTES = 256 * 1024
+# SSE heartbeat cadence (seconds) — keeps proxies from killing an idle connection.
+_LIVE_HEARTBEAT_SECS = 15
+
+
+@csrf_exempt
+def survival_ingest(request):
+    """Authenticated write endpoint for the external survival pilot.
+
+    Requires ``Authorization: Bearer <SURVIVAL_RELAY_TOKEN>``. Fails closed when no
+    token is configured. Validates and forwards a ``{"type", "data"}`` event into the
+    in-memory relay, which fans it out to connected ``/live`` subscribers.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only"}, status=405)
+
+    token = getattr(settings, "SURVIVAL_RELAY_TOKEN", "")
+    if not token:
+        return JsonResponse({"error": "ingest disabled (no SURVIVAL_RELAY_TOKEN)"}, status=503)
+
+    auth = request.headers.get("Authorization", "")
+    provided = auth[7:] if auth.startswith("Bearer ") else ""
+    if not hmac.compare_digest(provided, token):
+        return JsonResponse({"error": "unauthorized"}, status=401)
+
+    body = request.body or b""
+    if len(body) > _MAX_INGEST_BYTES:
+        return JsonResponse({"error": "payload too large"}, status=413)
+
+    try:
+        payload = json.loads(body or b"{}")
+    except (ValueError, TypeError):
+        return JsonResponse({"error": "invalid json"}, status=400)
+
+    etype = payload.get("type")
+    data = payload.get("data")
+    if etype not in relay.EVENT_TYPES or not isinstance(data, dict):
+        return JsonResponse({"error": "bad event"}, status=400)
+
+    version = relay.publish(etype, data)
+    return JsonResponse({"ok": True, "version": version})
+
+
+def survival_live(request):
+    """Read-only SSE stream of the live survival run for the web app.
+
+    On connect it replays the current run/sol/end so a late-joining judge sees the
+    state immediately, then streams subsequent events as the pilot pushes them.
+    Public read — no run is started here and no secrets are exposed.
+    """
+
+    def stream():
+        slots, version = relay.snapshot()
+        sent = {t: 0 for t in relay.EVENT_TYPES}
+        for t in relay.EVENT_TYPES:
+            data, stamp = slots[t]
+            if data is not None and stamp > sent[t]:
+                sent[t] = stamp
+                yield _sse_frame({"type": t, "data": data})
+        last = version
+
+        while True:
+            slots, version = relay.wait(last, _LIVE_HEARTBEAT_SECS)
+            if version == last:
+                yield ": keepalive\n\n"
+                continue
+            for t in relay.EVENT_TYPES:
+                data, stamp = slots[t]
+                if data is not None and stamp > sent[t]:
+                    sent[t] = stamp
+                    yield _sse_frame({"type": t, "data": data})
+            last = version
+
+    response = StreamingHttpResponse(stream(), content_type="text/event-stream")
+    response["Cache-Control"] = "no-cache"
+    response["X-Accel-Buffering"] = "no"
+    return response

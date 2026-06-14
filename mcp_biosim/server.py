@@ -15,8 +15,13 @@ Env:  BIOSIM_URL  — BioSim REST base (default the competition VM).
 """
 
 import os
+import queue
+import secrets
 import sys
+import threading
 from pathlib import Path
+
+import requests
 
 # Self-locating import of the Django-free survival modules. Works regardless of
 # the cwd the MCP client launches us from.
@@ -38,7 +43,67 @@ TREND_LEN = 12  # sols of per-store % history exposed in telemetry
 DIFFICULTIES = {"off", "malfunctions"}
 DIFFICULTY_MALF_MODULE = "Grey_Water_Store"
 
+# Optional live-telemetry relay: when both are set, every survival event is
+# POSTed to the Django relay so the web app renders the run in real time. This
+# is a pure server-side side-effect — it never enters any tool's return payload
+# (zero extra Claude tokens) and never blocks or breaks a tool call.
+SURVIVAL_RELAY_URL = os.environ.get("SURVIVAL_RELAY_URL", "").rstrip("/")
+SURVIVAL_RELAY_TOKEN = os.environ.get("SURVIVAL_RELAY_TOKEN", "")
+
 mcp = FastMCP("biosim-habitat")
+
+
+# ---------------------------------------------------------------------------
+# Non-blocking telemetry relay (background daemon worker)
+# ---------------------------------------------------------------------------
+
+_PUBLISH_QUEUE: "queue.Queue[dict]" = queue.Queue(maxsize=1000)
+_PUBLISH_WORKER = None
+_PUBLISH_LOCK = threading.Lock()
+
+
+def _relay_enabled() -> bool:
+    return bool(SURVIVAL_RELAY_URL and SURVIVAL_RELAY_TOKEN)
+
+
+def _publish_worker():
+    """Daemon loop: drain the queue and POST each event, swallowing everything.
+    Network errors, timeouts, bad responses — none of them must ever surface."""
+    url = f"{SURVIVAL_RELAY_URL}/api/survival/ingest"
+    headers = {"Authorization": f"Bearer {SURVIVAL_RELAY_TOKEN}"}
+    while True:
+        event = _PUBLISH_QUEUE.get()
+        try:
+            requests.post(url, json=event, headers=headers, timeout=3)
+        except Exception:
+            pass
+        finally:
+            _PUBLISH_QUEUE.task_done()
+
+
+def _ensure_worker():
+    """Lazily start the single daemon publisher thread on first publish."""
+    global _PUBLISH_WORKER
+    if _PUBLISH_WORKER is not None:
+        return
+    with _PUBLISH_LOCK:
+        if _PUBLISH_WORKER is None:
+            _PUBLISH_WORKER = threading.Thread(
+                target=_publish_worker, name="survival-relay", daemon=True)
+            _PUBLISH_WORKER.start()
+
+
+def _publish(event_type: str, data: dict) -> None:
+    """Enqueue a survival event for the background relay. No-op (silent, no
+    network) when the relay env vars are unset. Returns instantly; if the queue
+    is full the event is dropped rather than blocking the tool call."""
+    if not _relay_enabled():
+        return
+    _ensure_worker()
+    try:
+        _PUBLISH_QUEUE.put_nowait({"type": event_type, "data": data})
+    except queue.Full:
+        pass
 
 
 class Run:
@@ -47,6 +112,7 @@ class Run:
     def __init__(self):
         self.client = BiosimControl(BIOSIM_URL)
         self.sim_id = None
+        self.run_id = None
         self.sols = 0
         self.difficulty = "off"
         self.alive = True
@@ -56,6 +122,7 @@ class Run:
 
     def reset(self, difficulty):
         self.sim_id = None
+        self.run_id = None
         self.sols = 0
         self.difficulty = difficulty
         self.alive = True
@@ -171,23 +238,51 @@ def _status_payload(detail="normal"):
     return payload
 
 
+def _sol_event(raw, reasoning):
+    """Build the relay `sol` event data from a raw BioSim state dict. Shape must
+    match sensor_data.survival.loop exactly (the frontend already consumes it)."""
+    return {
+        "sol": RUN.sols,
+        "alive": RUN.alive,
+        "modules": raw.get("modules", {}),
+        "reasoning": reasoning,
+        "actions": [
+            {"module": a["module"], "kind": a["kind"], "type": a["type"],
+             "desired_rates": a["rates"]}
+            for a in RUN.last_actions
+        ],
+        "warnings": summarize_state(raw)["warnings"],
+    }
+
+
 # ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
-def start_run(crew_size: int = 15, difficulty: str = "off") -> dict:
+def start_run(crew_size: int = 15, difficulty: str = "off", note: str = "") -> dict:
     """Start a fresh Mars-habitat survival simulation and return initial telemetry.
 
     The sim runs until the crew dies (runTillCrewDeath). crew_size defaults to the
     15-person competition crew. difficulty is 'off' or 'malfunctions' (periodic
     equipment failures every 10 sols). Resets any prior run.
+
+    note: optional one-line reasoning shown live in the web app.
     """
     difficulty = difficulty if difficulty in DIFFICULTIES else "off"
     RUN.reset(difficulty)
     config = build_survival_config(crew_size)
     RUN.sim_id = RUN.client.start_sim(config)
-    return _status_payload()
+    RUN.run_id = secrets.token_hex(8)
+    payload = _status_payload()
+    _publish("run", {"run_id": RUN.run_id, "difficulty": RUN.difficulty,
+                     "crew_size": crew_size})
+    try:
+        raw = RUN.client.get_state(RUN.sim_id)
+        _publish("sol", _sol_event(raw, note))
+    except Exception:
+        pass
+    return payload
 
 
 @mcp.tool()
@@ -208,7 +303,7 @@ def get_status(detail: str = "normal") -> dict:
 
 
 @mcp.tool()
-def set_flows(actions: list[dict]) -> dict:
+def set_flows(actions: list[dict], note: str = "") -> dict:
     """Set life-support flow rates (does NOT advance time — call advance after).
 
     `actions` is a list of:
@@ -216,6 +311,8 @@ def set_flows(actions: list[dict]) -> dict:
     Each rate is clamped to [0, max] for that surface; surfaces not in the
     controllable set are rejected (returned under "rejected"). Returns what was
     actually applied and what was rejected.
+
+    note: optional one-line reasoning shown live in the web app.
     """
     if RUN.sim_id is None:
         raise ValueError("No active run. Call start_run first.")
@@ -223,11 +320,16 @@ def set_flows(actions: list[dict]) -> dict:
     for a in applied:
         RUN.client.set_flows(RUN.sim_id, a["module"], a["kind"], a["type"], a["rates"])
     RUN.last_actions = applied
+    try:
+        raw = RUN.client.get_state(RUN.sim_id)
+        _publish("sol", _sol_event(raw, note))
+    except Exception:
+        pass
     return {"applied": applied, "rejected": rejected}
 
 
 @mcp.tool()
-def advance(sols: int = 1, detail: str = "normal") -> dict:
+def advance(sols: int = 1, detail: str = "normal", note: str = "") -> dict:
     """Advance the simulation by `sols` Mars days (24 ticks each), one sol at a time.
 
     Advance in CHUNKS to conserve context — e.g. advance(3) while learning the
@@ -236,6 +338,9 @@ def advance(sols: int = 1, detail: str = "normal") -> dict:
     crisis). When difficulty='malfunctions', injects a malfunction every 10th sol.
     Returns telemetry after advancing (compact by default; detail='full' for raw
     physics) plus `sols_advanced_this_call` and the alive flag. Score = sols_survived.
+
+    note: optional one-line reasoning shown live in the web app (applied to the
+    first advanced sol only).
     """
     if RUN.sim_id is None:
         raise ValueError("No active run. Call start_run first.")
@@ -251,10 +356,17 @@ def advance(sols: int = 1, detail: str = "normal") -> dict:
         RUN.client.tick(RUN.sim_id, TICKS_PER_SOL)
         RUN.sols += 1
         advanced += 1
-        if summarize_state(RUN.client.get_state(RUN.sim_id))["ended"]:
+        # Reuse this single state read for both the ended-check and the relay
+        # publish — do NOT add extra BioSim calls.
+        raw = RUN.client.get_state(RUN.sim_id)
+        if summarize_state(raw)["ended"]:
             RUN.alive = False
             RUN.ended_reason = "crew_death"
+            _publish("sol", _sol_event(raw, note if advanced == 1 else ""))
+            _publish("end", {"sols_survived": RUN.sols,
+                             "ended_reason": RUN.ended_reason or "crew_death"})
             break
+        _publish("sol", _sol_event(raw, note if advanced == 1 else ""))
     payload = _status_payload("full" if detail == "full" else "normal")
     payload["sols_advanced_this_call"] = advanced
     return payload
