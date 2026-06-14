@@ -22,7 +22,9 @@ Two kinds of state are kept:
 import threading
 
 EVENT_TYPES = ("run", "sol", "end")
-_LOG_CAP = 50
+# Replay buffer for late-joining browsers. The durable, unbounded history lives in
+# Postgres (see history.py); this just keeps the current run replayable from memory.
+_LOG_CAP = 500
 
 _COND = threading.Condition()
 _STATE = {
@@ -61,7 +63,19 @@ def publish(event_type, data):
         else:  # end
             _STATE["end"] = (data, v)
         _COND.notify_all()
-        return v
+    # Durable archive — best-effort, outside the lock so DB I/O never blocks readers.
+    _persist(event_type, data)
+    return v
+
+
+def _persist(event_type, data):
+    """Mirror the event into Postgres. Lazily imported and fully guarded so the relay
+    stays Django-free to import and a DB failure can never break the live run."""
+    try:
+        from . import history
+        history.record(event_type, data)
+    except Exception:  # pragma: no cover - defensive
+        pass
 
 
 def _read():
@@ -98,3 +112,8 @@ def reset():
             _STATE[k] = (None, 0)
         _STATE["log"] = []
         _COND.notify_all()
+    try:
+        from . import history
+        history.reset()
+    except Exception:  # pragma: no cover - defensive
+        pass

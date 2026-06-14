@@ -38,6 +38,40 @@ export async function survivalControl(
   return { ok: res.ok, status: res.status, data };
 }
 
+// ── Durable decision-log archive (persisted in Postgres, survives restarts) ──
+export type SurvivalRunSummary = {
+  run_id: string;
+  difficulty: string;
+  crew_size: number;
+  sols_survived: number;
+  ended_reason: string;
+  started_at: string | null;
+  ended_at: string | null;
+  decision_count: number;
+  in_progress: boolean;
+};
+export type SurvivalDecision = {
+  sol: number;
+  reasoning: string;
+  actions: { module: string; kind: string; type: string; desired_rates: number[] }[];
+  created_at: string | null;
+};
+
+export async function fetchSurvivalRuns(limit = 50): Promise<SurvivalRunSummary[]> {
+  const res = await fetch(`${SURVIVAL_API}/history?limit=${limit}`);
+  if (!res.ok) throw new Error(`history ${res.status}`);
+  const body = (await res.json()) as { runs: SurvivalRunSummary[] };
+  return body.runs ?? [];
+}
+
+export async function fetchSurvivalRunLog(
+  runId: string,
+): Promise<{ run: SurvivalRunSummary; decisions: SurvivalDecision[] }> {
+  const res = await fetch(`${SURVIVAL_API}/history/${encodeURIComponent(runId)}`);
+  if (!res.ok) throw new Error(`run ${res.status}`);
+  return (await res.json()) as { run: SurvivalRunSummary; decisions: SurvivalDecision[] };
+}
+
 export async function stopSurvival(runId: string): Promise<void> {
   await fetch(`${SURVIVAL_API}/stop`, {
     method: "POST", headers: { "Content-Type": "application/json" },

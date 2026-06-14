@@ -12,7 +12,7 @@ from django.conf import settings
 from django.http import JsonResponse, StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 
-from .models import RawSensorData, EnrichedSensorData, HubConfig, HabitatZone
+from .models import RawSensorData, EnrichedSensorData, HubConfig, HabitatZone, SurvivalRun
 from .serializers import RawSensorSerializer, EnrichedSensorSerializer, HubConfigSerializer, HabitatZoneSerializer
 from .survival import run_registry
 from .survival import relay
@@ -406,3 +406,53 @@ def survival_control(request):
         return JsonResponse({"error": str(e)}, status=502)
 
     return JsonResponse(out)
+
+
+def _run_summary(run):
+    return {
+        "run_id": run.run_id,
+        "difficulty": run.difficulty,
+        "crew_size": run.crew_size,
+        "sols_survived": run.sols_survived,
+        "ended_reason": run.ended_reason,
+        "started_at": run.started_at.isoformat() if run.started_at else None,
+        "ended_at": run.ended_at.isoformat() if run.ended_at else None,
+        "decision_count": run.decisions.count(),
+        "in_progress": run.ended_at is None,
+    }
+
+
+def survival_history(request):
+    """Public read: list past survival runs (newest first) with decision counts.
+
+    The durable archive of every run's decision log. No secrets — the live decision
+    log is already public on the dashboard.
+    """
+    if request.method != "GET":
+        return JsonResponse({"error": "GET only"}, status=405)
+    try:
+        limit = min(max(int(request.GET.get("limit", 50)), 1), 200)
+    except (TypeError, ValueError):
+        limit = 50
+    runs = SurvivalRun.objects.all()[:limit]
+    return JsonResponse({"runs": [_run_summary(r) for r in runs]})
+
+
+def survival_run_detail(request, run_id):
+    """Public read: one run plus its complete, ordered decision log."""
+    if request.method != "GET":
+        return JsonResponse({"error": "GET only"}, status=405)
+    try:
+        run = SurvivalRun.objects.get(run_id=run_id)
+    except SurvivalRun.DoesNotExist:
+        return JsonResponse({"error": "run not found"}, status=404)
+    decisions = [
+        {
+            "sol": d.sol,
+            "reasoning": d.reasoning,
+            "actions": d.actions,
+            "created_at": d.created_at.isoformat() if d.created_at else None,
+        }
+        for d in run.decisions.all()
+    ]
+    return JsonResponse({"run": _run_summary(run), "decisions": decisions})

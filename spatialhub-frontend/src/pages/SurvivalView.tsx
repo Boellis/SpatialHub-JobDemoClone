@@ -16,10 +16,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   survivalLiveUrl,
+  fetchSurvivalRuns,
+  fetchSurvivalRunLog,
   type SurvivalSolEvent,
   type SurvivalEndEvent,
   type SurvivalStore,
   type PilotStat,
+  type SurvivalRunSummary,
+  type SurvivalDecision,
 } from '../api/survival';
 import { CrewYard } from '../components/survival/CrewYard';
 import { ControlPanel } from '../components/survival/ControlPanel';
@@ -106,6 +110,14 @@ const SurvivalView = () => {
   const [isRecord, setIsRecord] = useState(false);
   const [pilot, setPilot] = useState<PilotStat | null>(null);
 
+  // Durable decision-log archive (persisted across restarts/runs).
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyRuns, setHistoryRuns] = useState<SurvivalRunSummary[] | null>(null);
+  const [selectedRun, setSelectedRun] = useState<string | null>(null);
+  const [archiveLog, setArchiveLog] = useState<SurvivalDecision[]>([]);
+  const [historyErr, setHistoryErr] = useState<string | null>(null);
+  const [historyBusy, setHistoryBusy] = useState(false);
+
   const esRef = useRef<EventSource | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
@@ -154,8 +166,40 @@ const SurvivalView = () => {
       setReasoningLog((log) => {
         // Guard against a replay frame duplicating the newest live entry.
         if (log[0] && log[0].sol === d.sol && log[0].reasoning === d.reasoning) return log;
-        return [{ sol: d.sol, reasoning: d.reasoning }, ...log].slice(0, 14);
+        // Keep the whole current run (scrollable). The durable cross-run archive
+        // lives in Postgres and is browsable via the History toggle.
+        return [{ sol: d.sol, reasoning: d.reasoning }, ...log].slice(0, 500);
       });
+    }
+  }, []);
+
+  // ── History archive loaders ─────────────────────────────────────────────
+  const openHistory = useCallback(async () => {
+    setShowHistory(true);
+    setSelectedRun(null);
+    setHistoryErr(null);
+    setHistoryBusy(true);
+    try {
+      setHistoryRuns(await fetchSurvivalRuns(50));
+    } catch {
+      setHistoryErr('Could not load run history.');
+    } finally {
+      setHistoryBusy(false);
+    }
+  }, []);
+
+  const openRunLog = useCallback(async (runId: string) => {
+    setSelectedRun(runId);
+    setHistoryErr(null);
+    setHistoryBusy(true);
+    try {
+      const { decisions } = await fetchSurvivalRunLog(runId);
+      setArchiveLog(decisions);
+    } catch {
+      setHistoryErr('Could not load that run’s decision log.');
+      setArchiveLog([]);
+    } finally {
+      setHistoryBusy(false);
     }
   }, []);
 
@@ -385,23 +429,86 @@ const SurvivalView = () => {
             overflow: 'hidden',
           }}
         >
-          <div style={{ ...labelStyle, padding: '12px 16px 8px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-            <span style={{ color: GREEN }}>◆</span> Claude · Decision Log
+          <div style={{
+            ...labelStyle, padding: '12px 16px 8px', borderBottom: '1px solid rgba(255,255,255,0.06)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <span><span style={{ color: GREEN }}>◆</span> Claude · Decision Log</span>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button type="button" onClick={() => setShowHistory(false)} style={logTabStyle(!showHistory)}>
+                Live
+              </button>
+              <button type="button" onClick={openHistory} style={logTabStyle(showHistory)}>
+                History
+              </button>
+            </div>
           </div>
           <div style={{ overflowY: 'auto', padding: '10px 16px', flex: 1 }}>
-            {reasoningLog.length === 0 ? (
-              <div style={{ ...standbyStyle, border: 'none', padding: '8px 0' }}>
-                {hasRun ? 'Standing by for the next decision…' : 'Waiting for the pilot to start a run…'}
-              </div>
-            ) : (
-              reasoningLog.map((e, i) => (
-                <div key={`${e.sol}-${i}`} style={{ marginBottom: 12, opacity: i === 0 ? 1 : 0.6 }}>
-                  <span style={{ fontFamily: '"Space Mono", monospace', fontSize: 11, color: GREEN, fontWeight: 700 }}>
-                    SOL {String(e.sol).padStart(3, '0')}
-                  </span>
-                  <div style={{ fontSize: 13, lineHeight: 1.45, color: '#dbe2ea', marginTop: 2 }}>{e.reasoning}</div>
+            {!showHistory ? (
+              /* ── LIVE: full current-run decision log (scrollable) ── */
+              reasoningLog.length === 0 ? (
+                <div style={{ ...standbyStyle, border: 'none', padding: '8px 0' }}>
+                  {hasRun ? 'Standing by for the next decision…' : 'Waiting for the pilot to start a run…'}
                 </div>
-              ))
+              ) : (
+                reasoningLog.map((e, i) => (
+                  <div key={`${e.sol}-${i}`} style={{ marginBottom: 12, opacity: i === 0 ? 1 : 0.7 }}>
+                    <span style={{ fontFamily: '"Space Mono", monospace', fontSize: 11, color: GREEN, fontWeight: 700 }}>
+                      SOL {String(e.sol).padStart(3, '0')}
+                    </span>
+                    <div style={{ fontSize: 13, lineHeight: 1.45, color: '#dbe2ea', marginTop: 2 }}>{e.reasoning}</div>
+                  </div>
+                ))
+              )
+            ) : selectedRun ? (
+              /* ── ARCHIVE: one past run's complete decision log ── */
+              <>
+                <button type="button" onClick={() => setSelectedRun(null)} style={backLinkStyle}>
+                  ← All runs
+                </button>
+                {historyBusy ? (
+                  <div style={{ ...standbyStyle, border: 'none', padding: '8px 0' }}>Loading decision log…</div>
+                ) : historyErr ? (
+                  <div style={{ ...standbyStyle, border: 'none', padding: '8px 0', color: AMBER }}>{historyErr}</div>
+                ) : archiveLog.length === 0 ? (
+                  <div style={{ ...standbyStyle, border: 'none', padding: '8px 0' }}>No reasoned decisions recorded.</div>
+                ) : (
+                  archiveLog.map((d, i) => (
+                    <div key={`${d.sol}-${i}`} style={{ marginBottom: 12 }}>
+                      <span style={{ fontFamily: '"Space Mono", monospace', fontSize: 11, color: GREEN, fontWeight: 700 }}>
+                        SOL {String(d.sol).padStart(3, '0')}
+                      </span>
+                      <div style={{ fontSize: 13, lineHeight: 1.45, color: '#dbe2ea', marginTop: 2 }}>{d.reasoning}</div>
+                    </div>
+                  ))
+                )}
+              </>
+            ) : (
+              /* ── ARCHIVE: run picker ── */
+              historyBusy ? (
+                <div style={{ ...standbyStyle, border: 'none', padding: '8px 0' }}>Loading runs…</div>
+              ) : historyErr ? (
+                <div style={{ ...standbyStyle, border: 'none', padding: '8px 0', color: AMBER }}>{historyErr}</div>
+              ) : !historyRuns || historyRuns.length === 0 ? (
+                <div style={{ ...standbyStyle, border: 'none', padding: '8px 0' }}>No past runs archived yet.</div>
+              ) : (
+                historyRuns.map((r) => (
+                  <button key={r.run_id} type="button" onClick={() => openRunLog(r.run_id)} style={runRowStyle}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      <span style={{ fontFamily: '"Rajdhani", sans-serif', fontSize: 18, fontWeight: 700, color: GREEN }}>
+                        {r.sols_survived} <span style={{ fontSize: 11, opacity: 0.7 }}>sols</span>
+                      </span>
+                      <span style={{ fontFamily: '"Space Mono", monospace', fontSize: 10, color: 'rgba(150,162,178,0.8)' }}>
+                        {r.in_progress ? 'LIVE' : fmtRunDate(r.started_at)}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'rgba(190,200,212,0.75)', marginTop: 3 }}>
+                      {r.decision_count} decisions · {r.difficulty}
+                      {r.ended_reason ? ` · ${r.ended_reason.replace(/_/g, ' ')}` : ''}
+                    </div>
+                  </button>
+                ))
+              )
             )}
           </div>
         </div>
@@ -500,6 +607,53 @@ const standbyStyle: React.CSSProperties = {
   borderRadius: 10,
   padding: '14px 16px',
 };
+
+// Live / History toggle in the Decision Log header.
+function logTabStyle(active: boolean): React.CSSProperties {
+  return {
+    fontFamily: '"Space Mono", monospace',
+    fontSize: 10,
+    letterSpacing: '0.1em',
+    textTransform: 'uppercase',
+    cursor: 'pointer',
+    padding: '3px 9px',
+    borderRadius: 7,
+    border: `1px solid ${active ? 'rgba(0,255,156,0.4)' : 'rgba(255,255,255,0.12)'}`,
+    background: active ? 'rgba(0,255,156,0.1)' : 'transparent',
+    color: active ? GREEN : 'rgba(150,162,178,0.85)',
+  };
+}
+
+const backLinkStyle: React.CSSProperties = {
+  fontFamily: '"Space Mono", monospace',
+  fontSize: 11,
+  cursor: 'pointer',
+  background: 'transparent',
+  border: 'none',
+  color: GREEN,
+  padding: 0,
+  marginBottom: 12,
+};
+
+const runRowStyle: React.CSSProperties = {
+  display: 'block',
+  width: '100%',
+  textAlign: 'left',
+  cursor: 'pointer',
+  background: 'rgba(255,255,255,0.03)',
+  border: '1px solid rgba(255,255,255,0.07)',
+  borderRadius: 10,
+  padding: '10px 12px',
+  marginBottom: 8,
+};
+
+function fmtRunDate(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
+    ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
 
 function alertChip(crit: boolean): React.CSSProperties {
   const c = crit ? '#ff3b30' : '#ffb000';

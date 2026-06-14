@@ -43,6 +43,42 @@ class EnrichedSensorData(models.Model):
         db_table = 'enriched_sensor_data'  # Tell Django to use the existing DB table
 
 
+class SurvivalRun(models.Model):
+    """One BioSim survival run, persisted so its decision log survives restarts.
+
+    Written best-effort from ``survival.history`` as ``run``/``end`` events flow
+    through the relay. ``run_id`` matches the id the pilot stamps on the live stream.
+    """
+    run_id = models.CharField(max_length=64, unique=True, db_index=True)
+    difficulty = models.CharField(max_length=32, default='off')
+    crew_size = models.IntegerField(default=15)
+    started_at = models.DateTimeField(auto_now_add=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    sols_survived = models.IntegerField(default=0)
+    ended_reason = models.CharField(max_length=64, blank=True, default='')
+
+    class Meta:
+        db_table = 'survival_run'
+        ordering = ['-started_at']
+
+    def __str__(self):
+        return f"{self.run_id} ({self.sols_survived} sols)"
+
+
+class SurvivalDecision(models.Model):
+    """A single reasoned decision (one sol) within a run — the durable decision log."""
+    run = models.ForeignKey(SurvivalRun, related_name='decisions', on_delete=models.CASCADE)
+    sol = models.IntegerField(default=0)
+    reasoning = models.TextField()
+    actions = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'survival_decision'
+        ordering = ['sol', 'id']
+        indexes = [models.Index(fields=['run', 'sol'])]
+
+
 class HabitatZone(models.Model):
     zone_id = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=100)
