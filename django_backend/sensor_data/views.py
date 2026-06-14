@@ -16,6 +16,7 @@ from .models import RawSensorData, EnrichedSensorData, HubConfig, HabitatZone
 from .serializers import RawSensorSerializer, EnrichedSensorSerializer, HubConfigSerializer, HabitatZoneSerializer
 from .survival import run_registry
 from .survival import relay
+from .survival import control as survival_control_mod
 from .survival.biosim_control import BiosimControl
 from .survival.bot_brain import BotBrain
 from .survival.config import build_survival_config
@@ -349,3 +350,57 @@ def survival_live(request):
     response["Cache-Control"] = "no-cache"
     response["X-Accel-Buffering"] = "no"
     return response
+
+
+@csrf_exempt
+def survival_control(request):
+    """Authenticated control endpoint for the web app's control panel.
+
+    Same Bearer-token gate as ingest (SURVIVAL_RELAY_TOKEN) — the page is public but
+    the controls are inert without the secret. Drives a server-side BioSim run and
+    publishes telemetry to the relay so every viewer sees it. No Anthropic key.
+
+    Body: {"action": "start"|"advance"|"set_flow"|"inject"|"stop", ...params}.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only"}, status=405)
+
+    token = getattr(settings, "SURVIVAL_RELAY_TOKEN", "")
+    if not token:
+        return JsonResponse({"error": "control disabled (no SURVIVAL_RELAY_TOKEN)"}, status=503)
+    auth = request.headers.get("Authorization", "")
+    provided = auth[7:] if auth.startswith("Bearer ") else ""
+    if not hmac.compare_digest(provided, token):
+        return JsonResponse({"error": "unauthorized"}, status=401)
+
+    try:
+        body = json.loads(request.body or b"{}")
+    except (ValueError, TypeError):
+        return JsonResponse({"error": "invalid json"}, status=400)
+
+    action = body.get("action")
+    url = settings.SURVIVAL_BIOSIM_URL
+    try:
+        if action == "start":
+            out = survival_control_mod.start(url, body.get("crew_size", 15), body.get("difficulty", "off"))
+        elif action == "advance":
+            out = survival_control_mod.advance(body.get("sols", 1), body.get("note", ""))
+        elif action == "set_flow":
+            out = survival_control_mod.set_flow(body["module"], body["kind"], body["type"], body["rate"])
+        elif action == "inject":
+            out = survival_control_mod.inject(
+                body.get("module", "Grey_Water_Store"),
+                body.get("intensity", "SEVERE_MALF"),
+                body.get("length", "TEMPORARY_MALF"),
+            )
+        elif action == "stop":
+            out = survival_control_mod.stop()
+        else:
+            return JsonResponse({"error": "unknown action"}, status=400)
+    except (KeyError, ValueError) as e:
+        return JsonResponse({"error": str(e)}, status=400)
+    except Exception as e:  # pragma: no cover - BioSim/network guard
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=502)
+
+    return JsonResponse(out)

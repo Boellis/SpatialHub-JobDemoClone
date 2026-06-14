@@ -257,3 +257,58 @@ def test_publish_is_noop_when_relay_unset(monkeypatch):
     # Should not raise and should not enqueue / post anything.
     server._publish("sol", {"sol": 1})
     server._publish("run", {"run_id": "x", "difficulty": "off", "crew_size": 15})
+
+
+# ---------------------------------------------------------------------------
+# Run-state persistence + resume (survive context compaction / MCP restart)
+
+def test_save_and_load_state_roundtrip(tmp_path):
+    orig = server._STATE_FILE
+    server._STATE_FILE = tmp_path / "rs.json"
+    try:
+        _fresh()
+        server.RUN.sim_id = 99
+        server.RUN.run_id = "abc"
+        server.RUN.sols = 7
+        server.RUN.difficulty = "malfunctions"
+        server._save_state()
+        server.RUN.sim_id = None
+        server.RUN.sols = 0
+        server._load_state_into(server.RUN)
+        assert server.RUN.sim_id == 99
+        assert server.RUN.sols == 7
+        assert server.RUN.difficulty == "malfunctions"
+    finally:
+        server._STATE_FILE = orig
+
+
+def test_resume_run_no_saved_state(tmp_path):
+    orig = server._STATE_FILE
+    server._STATE_FILE = tmp_path / "none.json"
+    try:
+        _fresh()
+        server.RUN.sim_id = None
+        out = server.resume_run()
+        assert out["resumed"] is False
+        assert "hint" in out
+    finally:
+        server._STATE_FILE = orig
+
+
+def test_resume_run_reattaches_to_saved_sim(tmp_path):
+    orig = server._STATE_FILE
+    server._STATE_FILE = tmp_path / "rs.json"
+    try:
+        _fresh()
+        server.RUN.sim_id = 42
+        server.RUN.sols = 12
+        server._save_state()
+        # Simulate restart: clear in-memory sim, then reload from disk + resume.
+        server.RUN.sim_id = None
+        server._load_state_into(server.RUN)
+        out = server.resume_run()
+        assert out["resumed"] is True
+        assert out["sim_id"] == 42
+        assert out["sols_survived"] == 12
+    finally:
+        server._STATE_FILE = orig

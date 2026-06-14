@@ -130,6 +130,51 @@ class IngestDisabledTests(TestCase):
         self.assertEqual(resp.status_code, 503)
 
 
+@override_settings(SURVIVAL_RELAY_TOKEN=TOKEN)
+class ControlEndpointTests(TestCase):
+    def setUp(self):
+        relay.reset()
+        self.url = reverse("survival-control")
+
+    def _post(self, body, token=TOKEN):
+        headers = {}
+        if token is not None:
+            headers["HTTP_AUTHORIZATION"] = f"Bearer {token}"
+        return self.client.post(self.url, data=json.dumps(body),
+                                content_type="application/json", **headers)
+
+    def test_requires_token(self):
+        self.assertEqual(self._post({"action": "stop"}, token=None).status_code, 401)
+        self.assertEqual(self._post({"action": "stop"}, token="nope").status_code, 401)
+
+    def test_get_not_allowed(self):
+        self.assertEqual(self.client.get(self.url).status_code, 405)
+
+    def test_unknown_action_rejected(self):
+        self.assertEqual(self._post({"action": "explode"}).status_code, 400)
+
+    def test_stop_is_authorized_and_ok(self):
+        resp = self._post({"action": "stop"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()["ok"])
+
+    def test_advance_without_run_is_400(self):
+        # No active run -> control.advance raises ValueError -> 400 (not a 502).
+        self.assertEqual(self._post({"action": "advance", "sols": 1}).status_code, 400)
+
+
+@override_settings(SURVIVAL_RELAY_TOKEN="")
+class ControlDisabledTests(TestCase):
+    def test_control_fails_closed_without_token(self):
+        resp = self.client.post(
+            reverse("survival-control"),
+            data=json.dumps({"action": "stop"}),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer anything",
+        )
+        self.assertEqual(resp.status_code, 503)
+
+
 class LiveStreamTests(TestCase):
     def setUp(self):
         relay.reset()

@@ -26,3 +26,5 @@ django_backend/=*
 # biosim MCP server venv
 mcp_biosim/.venv/
 mcp_biosim/**/__pycache__/
+# persisted run state (survives restarts; machine-local, not source)
+mcp_biosim/.run_state.json

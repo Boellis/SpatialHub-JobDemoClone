@@ -21,6 +21,7 @@ import {
   type SurvivalStore,
 } from '../api/survival';
 import { CrewYard } from '../components/survival/CrewYard';
+import { ControlPanel } from '../components/survival/ControlPanel';
 import { ResourceCard, healthOf, type Health } from '../components/survival/ResourceCard';
 
 type Difficulty = 'off' | 'malfunctions';
@@ -51,6 +52,27 @@ const META = new Map(RESOURCES.map((r) => [r.name, r]));
 const RECONNECT_DELAY_MS = 3000;
 const GREEN = '#00ff9c';
 const AMBER = '#ffb000';
+const GOLD = '#ffd166';
+
+// Persistent high-sol log — kept in localStorage so the record survives page
+// reloads AND backend redeploys (ideal for a demo machine; no DB needed).
+type RunRecord = { sols: number; reason: string; ts: number };
+const RECORD_KEY = 'survival.record.v1';
+function loadRecord(): { best: number; log: RunRecord[] } {
+  try {
+    const raw = localStorage.getItem(RECORD_KEY);
+    if (raw) {
+      const p = JSON.parse(raw);
+      return { best: Number(p.best) || 0, log: Array.isArray(p.log) ? p.log : [] };
+    }
+  } catch { /* ignore */ }
+  return { best: 0, log: [] };
+}
+function saveRecord(best: number, log: RunRecord[]) {
+  try {
+    localStorage.setItem(RECORD_KEY, JSON.stringify({ best, log: log.slice(0, 10) }));
+  } catch { /* ignore */ }
+}
 
 // Fallback: reconstruct compact stores from raw BioSim modules when the event
 // doesn't carry `stores` (older pilot build). Reads each *_Store level/capacity.
@@ -79,11 +101,26 @@ const SurvivalView = () => {
   const [lastActions, setLastActions] = useState<SolAction[]>([]);
   const [reasoningLog, setReasoningLog] = useState<ReasoningEntry[]>([]);
   const [result, setResult] = useState<SurvivalResult | null>(null);
+  const [best, setBestState] = useState(0);
+  const [isRecord, setIsRecord] = useState(false);
 
   const esRef = useRef<EventSource | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const lastPctRef = useRef<Map<string, number>>(new Map()); // for per-store delta
+  const bestRef = useRef(0);          // record at-large (ref avoids stale closures)
+  const recordStartRef = useRef(0);   // best when the current run began
+  const logRef = useRef<RunRecord[]>([]);
+
+  const setBest = (n: number) => { bestRef.current = n; setBestState(n); };
+
+  // Load the persisted record once.
+  useEffect(() => {
+    const r = loadRecord();
+    setBest(r.best);
+    recordStartRef.current = r.best;
+    logRef.current = r.log;
+  }, []);
 
   const handleSol = useCallback((d: SurvivalSolEvent) => {
     const raw = d.stores && d.stores.length ? d.stores : deriveStores(d.modules);
@@ -103,6 +140,12 @@ const SurvivalView = () => {
     setStores(view);
     setSol(d.sol);
     setAlive(d.alive);
+    // Track the all-time high sol.
+    if (d.sol > bestRef.current) {
+      setBest(d.sol);
+      saveRecord(d.sol, logRef.current);
+      if (recordStartRef.current > 0 && d.sol > recordStartRef.current) setIsRecord(true);
+    }
     if (d.actions) setLastActions(d.actions);
     if (d.reasoning) {
       setReasoningLog((log) => {
@@ -134,6 +177,8 @@ const SurvivalView = () => {
         lastPctRef.current = new Map();
         setDifficulty(d.difficulty);
         if (d.crew_size) setCrewSize(d.crew_size);
+        recordStartRef.current = bestRef.current; // snapshot the record to beat
+        setIsRecord(false);
       });
       es.addEventListener('sol', (ev) => {
         setConnected(true);
@@ -144,6 +189,12 @@ const SurvivalView = () => {
         const d = JSON.parse((ev as MessageEvent).data) as SurvivalEndEvent;
         setAlive(false);
         setResult({ sols_survived: d.sols_survived, ended_reason: d.ended_reason });
+        // Log the completed run + persist any new record.
+        const rec: RunRecord = { sols: d.sols_survived, reason: d.ended_reason, ts: Date.now() };
+        logRef.current = [rec, ...logRef.current].slice(0, 10);
+        const nb = Math.max(bestRef.current, d.sols_survived);
+        setBest(nb);
+        saveRecord(nb, logRef.current);
       });
       es.addEventListener('error', () => {
         setConnected(false);
@@ -259,7 +310,27 @@ const SurvivalView = () => {
           </div>
         </div>
 
-        <LivePill connected={connected} />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+          <LivePill connected={connected} />
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 10,
+            border: `1px solid ${isRecord ? GOLD : 'rgba(255,209,102,0.3)'}`,
+            background: isRecord ? 'rgba(255,209,102,0.12)' : 'rgba(255,209,102,0.04)',
+            boxShadow: isRecord ? `0 0 18px ${GOLD}55` : 'none',
+            fontFamily: '"Space Mono", monospace', fontSize: 11, letterSpacing: '0.08em', color: GOLD,
+          }}>
+            <span style={{ opacity: 0.8 }}>★ RECORD</span>
+            <span style={{ fontFamily: '"Rajdhani", sans-serif', fontWeight: 700, fontSize: 18 }}>
+              {Math.max(best, sol)}
+            </span>
+            <span style={{ opacity: 0.7 }}>sols</span>
+            {isRecord && (
+              <span style={{ color: '#fff', fontWeight: 700, animation: 'survPulse 1s ease-in-out infinite' }}>
+                · NEW!
+              </span>
+            )}
+          </div>
+        </div>
       </header>
 
       {/* ── LIFE SUPPORT TELEMETRY ───────────────────────────── */}
@@ -286,6 +357,9 @@ const SurvivalView = () => {
           <div style={standbyStyle}>Awaiting telemetry — pilot has not started a run.</div>
         )}
       </section>
+
+      {/* ── MISSION CONTROL (token-gated) ────────────────────── */}
+      <ControlPanel />
 
       {/* ── DECK + DECISION LOG ──────────────────────────────── */}
       <section style={{ flex: 1, minHeight: 300, display: 'flex', gap: 12 }}>

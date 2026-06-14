@@ -14,6 +14,7 @@ Run:  python mcp_biosim/server.py     (stdio transport; launched by the MCP clie
 Env:  BIOSIM_URL  — BioSim REST base (default the competition VM).
 """
 
+import json
 import os
 import queue
 import secrets
@@ -119,6 +120,7 @@ class Run:
         self.ended_reason = None
         self.trend = {}          # store name -> [pct, ...]
         self.last_actions = []
+        _load_state_into(self)   # survive a full MCP restart (Claude Code restart)
 
     def reset(self, difficulty):
         self.sim_id = None
@@ -129,6 +131,39 @@ class Run:
         self.ended_reason = None
         self.trend = {}
         self.last_actions = []
+
+
+# ---------------------------------------------------------------------------
+# Run-state persistence — so a long endurance run survives a Claude context
+# compaction AND a full Claude Code / MCP restart.
+#
+# Context compaction alone does NOT need this: the MCP process keeps RUN in memory,
+# so get_status resumes. But a Claude Code restart kills this process (while the
+# BioSim sim keeps running), so we mirror the live sim id + sol count to a small
+# local file and reload it on boot. resume_run() then re-attaches and verifies.
+# ---------------------------------------------------------------------------
+_STATE_FILE = _REPO / "mcp_biosim" / ".run_state.json"
+
+
+def _save_state():
+    try:
+        _STATE_FILE.write_text(json.dumps({
+            "sim_id": RUN.sim_id, "run_id": RUN.run_id,
+            "sols": RUN.sols, "difficulty": RUN.difficulty,
+        }))
+    except Exception:
+        pass
+
+
+def _load_state_into(run):
+    try:
+        d = json.loads(_STATE_FILE.read_text())
+        run.sim_id = d.get("sim_id")
+        run.run_id = d.get("run_id")
+        run.sols = int(d.get("sols", 0) or 0)
+        run.difficulty = d.get("difficulty", "off")
+    except Exception:
+        pass
 
 
 RUN = Run()
@@ -285,6 +320,7 @@ def start_run(crew_size: int = 15, difficulty: str = "off", note: str = "") -> d
     config = build_survival_config(crew_size)
     RUN.sim_id = RUN.client.start_sim(config)
     RUN.run_id = secrets.token_hex(8)
+    _save_state()
     payload = _status_payload()
     _publish("run", {"run_id": RUN.run_id, "difficulty": RUN.difficulty,
                      "crew_size": crew_size})
@@ -314,6 +350,36 @@ def get_status(detail: str = "normal") -> dict:
 
 
 @mcp.tool()
+def resume_run() -> dict:
+    """Re-attach to the active survival run after a context compaction or restart.
+
+    Within-session compaction needs nothing — this MCP process keeps the run in
+    memory, so get_status already resumes. Use this after a FULL Claude Code / MCP
+    restart: it reloads the saved sim id from disk and verifies the BioSim sim is
+    still alive, then returns current telemetry. If there's no live saved run it
+    hints to call start_run. Idempotent and safe to call any time you're unsure of
+    the run state (e.g. right after a compaction summary).
+    """
+    if RUN.sim_id is None:
+        _load_state_into(RUN)
+    if RUN.sim_id is None:
+        return {"resumed": False, "hint": "No saved run found. Call start_run to begin."}
+    try:
+        raw = RUN.client.get_state(RUN.sim_id)
+    except Exception as e:
+        return {"resumed": False, "error": str(e),
+                "hint": "Saved sim is unreachable. Call start_run for a fresh run."}
+    snap = summarize_state(raw)
+    RUN.alive = not snap["ended"]
+    if not RUN.alive and RUN.ended_reason is None:
+        RUN.ended_reason = "crew_death"
+    payload = _status_payload()
+    payload["resumed"] = True
+    payload["sim_id"] = RUN.sim_id
+    return payload
+
+
+@mcp.tool()
 def set_flows(actions: list[dict], note: str = "") -> dict:
     """Set life-support flow rates (does NOT advance time — call advance after).
 
@@ -331,6 +397,7 @@ def set_flows(actions: list[dict], note: str = "") -> dict:
     for a in applied:
         RUN.client.set_flows(RUN.sim_id, a["module"], a["kind"], a["type"], a["rates"])
     RUN.last_actions = applied
+    _save_state()
     try:
         raw = RUN.client.get_state(RUN.sim_id)
         _publish("sol", _sol_event(raw, note))
@@ -378,6 +445,7 @@ def advance(sols: int = 1, detail: str = "normal", note: str = "") -> dict:
                              "ended_reason": RUN.ended_reason or "crew_death"})
             break
         _publish("sol", _sol_event(raw, note if advanced == 1 else ""))
+    _save_state()
     payload = _status_payload("full" if detail == "full" else "normal")
     payload["sols_advanced_this_call"] = advanced
     return payload

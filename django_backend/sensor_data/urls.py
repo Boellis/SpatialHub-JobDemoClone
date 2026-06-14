@@ -22,4 +22,5 @@ urlpatterns = [
     path('survival/stop', views.survival_stop, name='survival-stop'),
     path('survival/ingest', views.survival_ingest, name='survival-ingest'),
     path('survival/live', views.survival_live, name='survival-live'),
+    path('survival/control', views.survival_control, name='survival-control'),
 ]

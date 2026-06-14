@@ -20,6 +20,22 @@ export function survivalStreamUrl(difficulty: "off" | "malfunctions"): string {
 export function survivalLiveUrl(): string {
   return `${SURVIVAL_API}/live`;
 }
+// Authenticated control of a server-side run from the web panel. The token is the
+// SURVIVAL_RELAY_TOKEN; the page is public but controls are inert without it.
+export async function survivalControl(
+  token: string,
+  body: Record<string, unknown>,
+): Promise<{ ok: boolean; status: number; data: unknown }> {
+  const res = await fetch(`${SURVIVAL_API}/control`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  let data: unknown = null;
+  try { data = await res.json(); } catch { /* ignore */ }
+  return { ok: res.ok, status: res.status, data };
+}
+
 export async function stopSurvival(runId: string): Promise<void> {
   await fetch(`${SURVIVAL_API}/stop`, {
     method: "POST", headers: { "Content-Type": "application/json" },

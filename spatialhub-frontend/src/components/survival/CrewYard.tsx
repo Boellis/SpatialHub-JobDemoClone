@@ -1,20 +1,18 @@
 // CrewYard — the habitat deck. Each crew member is an 8-bit astronaut that works a
-// shift: walk to a life-support STATION, perform a task there (work animation + task
-// tag), then move on. Crew gravitate toward whatever system is currently in alert,
-// so the deck visibly reacts to the telemetry. Pure CSS/SVG — no sprite assets.
+// shift: walk to a life-support STATION, perform a task there, then move on. When a
+// system goes faulty (its store enters alert), the station turns red and crew swarm
+// it to REPAIR — wrench out, repair progress bar climbing. When the fault clears
+// (the bot recovers the system), the station flashes RESTORED and crew resume normal
+// monitoring. Pure CSS/SVG — no sprite assets.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-// 8-bit suit accents — each crew member gets a distinct colour so the 15 little
-// astronauts read as individuals.
 const ACCENTS = [
   '#00ffc6', '#ffd166', '#ff5d8f', '#7cf2ff', '#b5ff5d',
   '#ff8a3d', '#c792ea', '#5dd0ff', '#ff5252', '#9affc0',
   '#ffe14d', '#6da8ff', '#ff7ad9', '#48e0a0', '#ffa14d',
 ];
 
-// Work stations, each tied to a real life-support store. Crew walk between these
-// and perform the station's task.
 type Station = { key: string; label: string; task: string; store: string; x: number; y: number };
 const STATIONS: Station[] = [
   { key: 'o2', label: 'O₂ BAY', task: 'MONITORING', store: 'O2_Store', x: 17, y: 32 },
@@ -27,25 +25,17 @@ const STATIONS: Station[] = [
 
 type Phase = 'walk' | 'work';
 type CrewMember = {
-  id: number;
-  accent: string;
-  station: number; // index into STATIONS
-  x: number; y: number; // current target pos (% of deck)
-  facing: 1 | -1;
-  phase: Phase;
-  since: number; // ms timestamp the current phase started
-  dur: number;   // ms the current phase lasts
+  id: number; accent: string; station: number;
+  x: number; y: number; facing: 1 | -1;
+  phase: Phase; since: number; dur: number;
 };
 
 const rand = (min: number, max: number) => min + Math.random() * (max - min);
-
-// A spot near a station (clustered, not exactly overlapping).
-function spotAt(s: Station): { x: number; y: number } {
-  return { x: s.x + rand(-7, 7), y: s.y + rand(2, 11) };
-}
+const spotAt = (s: Station) => ({ x: s.x + rand(-7, 7), y: s.y + rand(2, 11) });
 
 function pickStation(hot: Set<number>): number {
-  if (hot.size && Math.random() < 0.55) {
+  // Faulty systems pull crew in hard — that's where the work is.
+  if (hot.size && Math.random() < 0.7) {
     const arr = [...hot];
     return arr[Math.floor(Math.random() * arr.length)];
   }
@@ -57,19 +47,13 @@ function spawn(count: number, now: number): CrewMember[] {
     const station = Math.floor(Math.random() * STATIONS.length);
     const p = spotAt(STATIONS[station]);
     return {
-      id: i,
-      accent: ACCENTS[i % ACCENTS.length],
-      station,
-      x: p.x, y: p.y,
-      facing: Math.random() > 0.5 ? 1 : -1,
-      phase: 'work' as Phase, // start mid-task
-      since: now - rand(0, 2000),
-      dur: rand(2500, 5500),
+      id: i, accent: ACCENTS[i % ACCENTS.length], station,
+      x: p.x, y: p.y, facing: Math.random() > 0.5 ? 1 : -1,
+      phase: 'work' as Phase, since: now - rand(0, 2000), dur: rand(2500, 5500),
     };
   });
 }
 
-// One pixel astronaut. `working` swaps to a busier pose (raised arms).
 function PixelAstronaut({ accent, dead, working }: { accent: string; dead: boolean; working: boolean }) {
   const suit = dead ? '#5b6470' : '#eef3f8';
   const shade = dead ? '#3c424c' : '#c2ccd8';
@@ -77,15 +61,12 @@ function PixelAstronaut({ accent, dead, working }: { accent: string; dead: boole
   return (
     <svg width="26" height="34" viewBox="0 0 12 16" shapeRendering="crispEdges"
       style={{ imageRendering: 'pixelated', display: 'block' }}>
-      {/* helmet */}
       <rect x="4" y="0" width="4" height="1" fill={suit} />
       <rect x="3" y="1" width="6" height="5" fill={suit} />
       <rect x="4" y="2" width="4" height="2" fill={visor} />
       <rect x="4" y="2" width="1" height="2" fill="#ffffff" opacity="0.7" />
-      {/* torso */}
       <rect x="3" y="6" width="6" height="5" fill={suit} />
       <rect x="5" y="7" width="2" height="2" fill={visor} />
-      {/* arms — raised when working (tending a console), down otherwise */}
       {working && !dead ? (
         <>
           <rect x="2" y="5" width="1" height="2" fill={suit} />
@@ -99,11 +80,24 @@ function PixelAstronaut({ accent, dead, working }: { accent: string; dead: boole
           <rect x="9" y="6" width="1" height="4" fill={suit} />
         </>
       )}
-      {/* legs + boots */}
       <rect x="4" y="11" width="1" height="4" fill={suit} />
       <rect x="7" y="11" width="1" height="4" fill={suit} />
       <rect x="4" y="15" width="1" height="1" fill={shade} />
       <rect x="7" y="15" width="1" height="1" fill={shade} />
+    </svg>
+  );
+}
+
+// A tiny pixel wrench held up while repairing.
+function Wrench() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 6 6" shapeRendering="crispEdges"
+      style={{ imageRendering: 'pixelated', position: 'absolute', top: -2, right: -7, zIndex: 5,
+        transformOrigin: 'bottom left', animation: 'wrenchSwing 0.4s steps(2,end) infinite' }}>
+      <rect x="0" y="0" width="2" height="2" fill="#ffd166" />
+      <rect x="1" y="1" width="3" height="1" fill="#cfd6df" />
+      <rect x="2" y="2" width="2" height="2" fill="#cfd6df" />
+      <rect x="3" y="3" width="2" height="2" fill="#9aa4b0" />
     </svg>
   );
 }
@@ -117,12 +111,24 @@ export function CrewYard({
   const [crew, setCrew] = useState<CrewMember[]>(() => spawn(crewSize, now0));
   const sizeRef = useRef(crewSize);
   const hotRef = useRef<Set<number>>(new Set());
+  const prevHotRef = useRef<Set<number>>(new Set());
+  const [restored, setRestored] = useState<Record<number, number>>({}); // stationIdx -> expiry ms
 
-  // Hot stations = stations whose store is currently in alert.
   hotRef.current = useMemo(() => {
     const set = new Set<number>();
     STATIONS.forEach((s, i) => { if (hot.includes(s.store)) set.add(i); });
     return set;
+  }, [hot]);
+
+  // Detect fault->recovery transitions to flash a RESTORED badge.
+  useEffect(() => {
+    const cur = hotRef.current;
+    const prev = prevHotRef.current;
+    const now = Date.now();
+    const flash: Record<number, number> = {};
+    prev.forEach((i) => { if (!cur.has(i)) flash[i] = now + 3800; });
+    if (Object.keys(flash).length) setRestored((r) => ({ ...r, ...flash }));
+    prevHotRef.current = new Set(cur);
   }, [hot]);
 
   useEffect(() => {
@@ -132,7 +138,6 @@ export function CrewYard({
     }
   }, [crewSize]);
 
-  // Director: advance each crew member's walk→work→walk shift loop.
   useEffect(() => {
     if (!alive) return;
     const iv = window.setInterval(() => {
@@ -141,16 +146,15 @@ export function CrewYard({
         prev.map((c) => {
           if (now - c.since < c.dur) return c;
           if (c.phase === 'walk') {
-            // Arrived — start the task.
-            return { ...c, phase: 'work', since: now, dur: rand(2600, 5600) };
+            // Arrived — work longer when repairing a fault.
+            const repairing = hotRef.current.has(c.station);
+            return { ...c, phase: 'work', since: now, dur: repairing ? rand(4000, 7000) : rand(2600, 5200) };
           }
-          // Done working — pick a (possibly troubled) station and walk there.
           const station = pickStation(hotRef.current);
           const p = spotAt(STATIONS[station]);
           const dist = Math.hypot(p.x - c.x, p.y - c.y);
           return {
-            ...c, station, x: p.x, y: p.y,
-            facing: p.x >= c.x ? 1 : -1,
+            ...c, station, x: p.x, y: p.y, facing: p.x >= c.x ? 1 : -1,
             phase: 'walk', since: now, dur: Math.max(1500, dist * 70),
           };
         }),
@@ -165,7 +169,12 @@ export function CrewYard({
     @keyframes deckScan { from { background-position-y: 0; } to { background-position-y: 26px; } }
     @keyframes spark { 0% { transform: translateY(0); opacity: 0.9; } 100% { transform: translateY(-12px); opacity: 0; } }
     @keyframes stationPulse { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
+    @keyframes faultPulse { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
+    @keyframes wrenchSwing { 0% { transform: rotate(-18deg); } 100% { transform: rotate(20deg); } }
+    @keyframes repairFill { 0% { width: 10%; } 100% { width: 92%; } }
   `, []);
+
+  const now = Date.now();
 
   return (
     <div style={{
@@ -176,7 +185,6 @@ export function CrewYard({
     }}>
       <style>{styleTag}</style>
 
-      {/* perspective floor grid */}
       <div style={{
         position: 'absolute', inset: 0,
         backgroundImage:
@@ -197,17 +205,17 @@ export function CrewYard({
       {/* STATIONS */}
       {STATIONS.map((s, i) => {
         const isHot = hotRef.current.has(i);
-        const accent = isHot ? '#ff5d5d' : '#39d9b0';
+        const isRestored = !isHot && (restored[i] ?? 0) > now;
+        const accent = isHot ? '#ff5d5d' : isRestored ? '#39ffb0' : '#39d9b0';
         return (
           <div key={s.key} style={{
             position: 'absolute', left: `${s.x}%`, top: `${s.y}%`,
             transform: 'translate(-50%, -50%)', textAlign: 'center', zIndex: 1, pointerEvents: 'none',
           }}>
-            {/* console */}
             <div style={{
               width: 26, height: 18, margin: '0 auto', borderRadius: 3,
-              background: 'rgba(8,16,18,0.9)', border: `1px solid ${accent}66`,
-              boxShadow: isHot ? `0 0 14px ${accent}55` : 'none',
+              background: 'rgba(8,16,18,0.9)', border: `1px solid ${accent}${isHot ? 'aa' : '66'}`,
+              boxShadow: isHot ? `0 0 16px ${accent}77` : isRestored ? `0 0 14px ${accent}66` : 'none',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <div style={{
@@ -216,16 +224,26 @@ export function CrewYard({
               }}>
                 <div style={{
                   position: 'absolute', top: 1, left: 1, width: 2, height: 2, borderRadius: '50%',
-                  background: accent, animation: 'stationPulse 1.4s ease-in-out infinite',
+                  background: accent,
+                  animation: `${isHot ? 'faultPulse 0.6s' : 'stationPulse 1.4s'} ease-in-out infinite`,
                 }} />
               </div>
             </div>
             <div style={{
               fontFamily: '"Space Mono", monospace', fontSize: 8.5, letterSpacing: '0.12em',
-              color: isHot ? '#ff9a9a' : 'rgba(120,200,180,0.7)', marginTop: 3, whiteSpace: 'nowrap',
+              color: isHot ? '#ff9a9a' : isRestored ? '#8affd0' : 'rgba(120,200,180,0.7)',
+              marginTop: 3, whiteSpace: 'nowrap',
             }}>
               {s.label}
             </div>
+            {(isHot || isRestored) && (
+              <div style={{
+                fontFamily: '"Space Mono", monospace', fontSize: 8, letterSpacing: '0.14em',
+                color: isHot ? '#ff5d5d' : '#39ffb0', marginTop: 1, fontWeight: 700,
+              }}>
+                {isHot ? '⚠ FAULT' : '✓ RESTORED'}
+              </div>
+            )}
           </div>
         );
       })}
@@ -233,6 +251,7 @@ export function CrewYard({
       {/* CREW */}
       {crew.map((c) => {
         const working = alive && c.phase === 'work';
+        const repairing = working && hotRef.current.has(c.station);
         const station = STATIONS[c.station];
         return (
           <div key={c.id} style={{
@@ -244,25 +263,38 @@ export function CrewYard({
             filter: alive ? 'none' : 'grayscale(1) brightness(0.6)',
             opacity: alive ? 1 : 0.55, zIndex: Math.round(c.y) + 3, willChange: 'left, top',
           }}>
-            {/* task tag while working */}
             {working && (
               <div style={{
                 position: 'absolute', bottom: '100%', left: '50%',
-                transform: `translateX(-50%) scaleX(${c.facing})`, marginBottom: 2, whiteSpace: 'nowrap',
+                transform: `translateX(-50%) scaleX(${c.facing})`, marginBottom: 3, whiteSpace: 'nowrap',
                 fontFamily: '"Space Mono", monospace', fontSize: 7.5, letterSpacing: '0.1em',
-                color: c.accent, textShadow: '0 1px 3px #000', pointerEvents: 'none',
+                color: repairing ? '#ff8a8a' : c.accent, textShadow: '0 1px 3px #000',
+                pointerEvents: 'none', fontWeight: repairing ? 700 : 400,
               }}>
-                {station.task}
+                {repairing ? 'REPAIRING' : station.task}
               </div>
             )}
-            {/* work sparks */}
+            {/* repair progress bar */}
+            {repairing && (
+              <div style={{
+                position: 'absolute', bottom: 'calc(100% + 12px)', left: '50%',
+                transform: `translateX(-50%) scaleX(${c.facing})`, width: 22, height: 3,
+                background: 'rgba(255,255,255,0.15)', borderRadius: 2, overflow: 'hidden',
+              }}>
+                <div style={{
+                  height: '100%', background: 'linear-gradient(90deg,#ffb000,#39ffb0)',
+                  animation: 'repairFill 2.2s ease-in-out infinite',
+                }} />
+              </div>
+            )}
+            {repairing && <Wrench />}
             {working && (
               <>
-                <div style={sparkStyle(c.accent, 0)} />
-                <div style={sparkStyle(c.accent, 0.5)} />
+                <div style={sparkStyle(repairing ? '#ffd166' : c.accent, 0)} />
+                <div style={sparkStyle(repairing ? '#ff8a3d' : c.accent, 0.45)} />
+                {repairing && <div style={sparkStyle('#ffd166', 0.25)} />}
               </>
             )}
-            {/* shadow */}
             <div style={{
               position: 'absolute', left: '50%', bottom: -3, transform: 'translateX(-50%)',
               width: 18, height: 5, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', filter: 'blur(1px)',
