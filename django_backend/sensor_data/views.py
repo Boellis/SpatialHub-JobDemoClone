@@ -299,26 +299,50 @@ def survival_live(request):
     Public read — no run is started here and no secrets are exposed.
     """
 
+    def emit(slots, log, sent, log_ver):
+        """Yield frames for whatever advanced past the caller's cursors.
+
+        Reasoning frames live in `log` and are emitted in order (so the decision
+        history is never lost to sol-event coalescing); the latest `sol` slot keeps
+        the resource cards fresh. A sol already emitted via the log isn't repeated.
+        """
+        # run first (so a late joiner sees crew size / difficulty before telemetry)
+        data, stamp = slots["run"]
+        if data is not None and stamp > sent["run"]:
+            sent["run"] = stamp
+            yield _sse_frame({"type": "run", "data": data})
+
+        # every new reasoning frame, oldest -> newest
+        last_log_ver = log_ver[0]
+        for ver, sol_data in log:
+            if ver > last_log_ver:
+                log_ver[0] = ver
+                yield _sse_frame({"type": "sol", "data": sol_data})
+
+        # latest sol (skip if the log already delivered this exact version)
+        data, stamp = slots["sol"]
+        if data is not None and stamp > sent["sol"] and stamp > log_ver[0]:
+            sent["sol"] = stamp
+            yield _sse_frame({"type": "sol", "data": data})
+
+        data, stamp = slots["end"]
+        if data is not None and stamp > sent["end"]:
+            sent["end"] = stamp
+            yield _sse_frame({"type": "end", "data": data})
+
     def stream():
-        slots, version = relay.snapshot()
         sent = {t: 0 for t in relay.EVENT_TYPES}
-        for t in relay.EVENT_TYPES:
-            data, stamp = slots[t]
-            if data is not None and stamp > sent[t]:
-                sent[t] = stamp
-                yield _sse_frame({"type": t, "data": data})
+        log_ver = [0]  # highest reasoning-frame version already emitted
+        slots, log, version = relay.snapshot()
+        yield from emit(slots, log, sent, log_ver)
         last = version
 
         while True:
-            slots, version = relay.wait(last, _LIVE_HEARTBEAT_SECS)
+            slots, log, version = relay.wait(last, _LIVE_HEARTBEAT_SECS)
             if version == last:
                 yield ": keepalive\n\n"
                 continue
-            for t in relay.EVENT_TYPES:
-                data, stamp = slots[t]
-                if data is not None and stamp > sent[t]:
-                    sent[t] = stamp
-                    yield _sse_frame({"type": t, "data": data})
+            yield from emit(slots, log, sent, log_ver)
             last = version
 
     response = StreamingHttpResponse(stream(), content_type="text/event-stream")

@@ -1,11 +1,16 @@
 const SURVIVAL_API = import.meta.env.VITE_SURVIVAL_API ?? "/api/survival";
 
+export type SurvivalStore = { name: string; pct: number; runway_sols?: number };
+export type SurvivalBalance = { resource: string; net: number };
+
 export type SurvivalSolEvent = {
   sol: number; alive: boolean;
-  modules: Record<string, unknown>;           // raw BioSim modules -> mapBioSimToHabitatReadings
+  modules: Record<string, unknown>;           // raw BioSim modules (fallback source for stores)
   reasoning: string;
   actions: { module: string; kind: string; type: string; desired_rates: number[] }[];
   warnings: { sensor: string; status: string }[];
+  stores?: SurvivalStore[];                    // compact per-store telemetry (preferred)
+  balances?: SurvivalBalance[];                // per-resource net flow (negative = draining)
 };
 export type SurvivalEndEvent = { sols_survived: number; ended_reason: string };
 

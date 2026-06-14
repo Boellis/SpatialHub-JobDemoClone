@@ -33,20 +33,32 @@ class RelayStoreTests(TestCase):
         v1 = relay.publish("run", {"run_id": "r1", "difficulty": "off"})
         v2 = relay.publish("sol", SOL_DATA)
         self.assertEqual((v1, v2), (1, 2))
-        slots, version = relay.snapshot()
+        slots, log, version = relay.snapshot()
         self.assertEqual(version, 2)
         self.assertEqual(slots["run"][0]["run_id"], "r1")
         self.assertEqual(slots["sol"][0]["sol"], 5)
         self.assertIsNone(slots["end"][0])
+        # SOL_DATA carries reasoning -> it lands in the decision log.
+        self.assertEqual(len(log), 1)
+        self.assertEqual(log[0][1]["reasoning"], SOL_DATA["reasoning"])
 
-    def test_run_event_clears_prior_sol_and_end(self):
+    def test_reasoning_log_buffers_history_blank_skipped(self):
+        relay.publish("run", {"run_id": "r1", "difficulty": "off"})
+        relay.publish("sol", {**SOL_DATA, "sol": 1, "reasoning": "first decision"})
+        relay.publish("sol", {**SOL_DATA, "sol": 2, "reasoning": ""})   # no reasoning
+        relay.publish("sol", {**SOL_DATA, "sol": 3, "reasoning": "third decision"})
+        _, log, _ = relay.snapshot()
+        self.assertEqual([e[1]["sol"] for e in log], [1, 3])  # blank sol skipped
+
+    def test_run_event_clears_prior_sol_end_and_log(self):
         relay.publish("sol", SOL_DATA)
         relay.publish("end", {"sols_survived": 5, "ended_reason": "crew_death"})
         relay.publish("run", {"run_id": "r2", "difficulty": "malfunctions"})
-        slots, _ = relay.snapshot()
+        slots, log, _ = relay.snapshot()
         self.assertIsNone(slots["sol"][0])   # stale sol gone
         self.assertIsNone(slots["end"][0])   # stale result card gone
         self.assertEqual(slots["run"][0]["run_id"], "r2")
+        self.assertEqual(log, [])            # decision log reset
 
     def test_publish_rejects_unknown_event_type(self):
         with self.assertRaises(ValueError):
@@ -54,8 +66,8 @@ class RelayStoreTests(TestCase):
 
     def test_wait_times_out_without_change(self):
         relay.publish("sol", SOL_DATA)
-        _, version = relay.snapshot()
-        slots, v = relay.wait(version, timeout=0.05)   # no new publish -> times out
+        _, _, version = relay.snapshot()
+        slots, log, v = relay.wait(version, timeout=0.05)   # no new publish -> times out
         self.assertEqual(v, version)
 
 
@@ -75,7 +87,7 @@ class IngestEndpointTests(TestCase):
         resp = self._post(json.dumps({"type": "sol", "data": SOL_DATA}))
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(resp.json()["ok"])
-        slots, _ = relay.snapshot()
+        slots, _, _ = relay.snapshot()
         self.assertEqual(slots["sol"][0]["sol"], 5)
 
     def test_missing_token_is_unauthorized(self):
@@ -138,3 +150,19 @@ class LiveStreamTests(TestCase):
         self.assertIn("event: run", first)
         self.assertIn("event: sol", second)
         self.assertIn('"sol": 5', second)
+
+    def test_live_replays_reasoning_history_on_connect(self):
+        relay.publish("run", {"run_id": "r1", "difficulty": "off"})
+        relay.publish("sol", {**SOL_DATA, "sol": 1, "reasoning": "boot"})
+        relay.publish("sol", {**SOL_DATA, "sol": 2, "reasoning": ""})
+        relay.publish("sol", {**SOL_DATA, "sol": 3, "reasoning": "trim O2"})
+
+        resp = self.client.get(reverse("survival-live"))
+        gen = iter(resp.streaming_content)
+        # run, then both reasoning sols (1 and 3) replay in order; the blank sol 2 is
+        # the latest slot but shares no new version beyond the log, so no dup flood.
+        frames = [next(gen).decode() for _ in range(3)]
+
+        self.assertIn("event: run", frames[0])
+        self.assertIn('"reasoning": "boot"', frames[1])
+        self.assertIn('"reasoning": "trim O2"', frames[2])

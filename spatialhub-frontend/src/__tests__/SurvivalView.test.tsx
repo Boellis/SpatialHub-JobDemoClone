@@ -1,12 +1,11 @@
 /** @vitest-environment jsdom */
 /**
- * SurvivalView page tests — SPECTATOR mode.
+ * SurvivalView page tests — SPECTATOR mode (self-contained mission-control dashboard).
  *
- * Tests verify the read-only SSE spectator view:
  *  - On render the page AUTO-CONNECTS an EventSource to the `/live` URL (no Run click).
- *  - A `sol` event drives the habitat store (zone state updates via solEventToReadings),
- *    bumps the big SOL counter, and surfaces the bot's reasoning.
- *  - An `end` event renders the "Survived N sols" result card.
+ *  - A `sol` event bumps the big SOL counter, renders life-support resource cards from
+ *    the event's `stores`, and surfaces the bot's reasoning in the decision log.
+ *  - An `end` event renders the "Run Complete · N sols" climax card.
  *
  * EventSource is mocked so we can drive named events synchronously.
  */
@@ -16,7 +15,6 @@ import { render, screen, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { MemoryRouter } from 'react-router-dom';
 import SurvivalView from '../pages/SurvivalView';
-import { useHabitatStore } from '../store/habitatStore';
 
 // ---- EventSource mock --------------------------------------------------------
 type Listener = (ev: MessageEvent) => void;
@@ -25,6 +23,7 @@ class MockEventSource {
   static instances: MockEventSource[] = [];
   url: string;
   listeners: Record<string, Listener[]> = {};
+  onopen: (() => void) | null = null;
   closed = false;
 
   constructor(url: string) {
@@ -44,7 +43,6 @@ class MockEventSource {
     this.closed = true;
   }
 
-  // Test helper: emit a named SSE event with a JSON payload.
   emit(type: string, data: unknown) {
     const ev = { data: JSON.stringify(data) } as MessageEvent;
     for (const cb of this.listeners[type] ?? []) cb(ev);
@@ -54,8 +52,6 @@ class MockEventSource {
 beforeEach(() => {
   MockEventSource.instances = [];
   (globalThis as unknown as { EventSource: unknown }).EventSource = MockEventSource;
-  // Silence the stopSurvival fetch.
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }));
 });
 
 afterEach(() => {
@@ -72,7 +68,7 @@ function renderView() {
 }
 
 describe('SurvivalView', () => {
-  it('auto-connects an EventSource and drives store + SOL counter + reasoning on a sol event', () => {
+  it('auto-connects and drives the SOL counter, resource cards, and reasoning on a sol event', () => {
     renderView();
 
     // Spectator mode: auto-connects on render, no Run click.
@@ -81,39 +77,46 @@ describe('SurvivalView', () => {
     expect(es.url).toContain('/live');
 
     act(() => {
-      es.emit('run', { run_id: 'run-123', difficulty: 'malfunctions', crew_size: 4 });
+      es.emit('run', { run_id: 'run-123', difficulty: 'off', crew_size: 6 });
       es.emit('sol', {
         sol: 5,
         alive: true,
-        modules: {
-          Crew_Quarters_Environment: {
-            properties: { temperature: 22, relativeHumidity: 40, totalPressure: 101 },
-          },
-        },
-        reasoning: 'Venting CO2 to stabilize the grow bays.',
-        actions: [],
+        modules: {},
+        reasoning: 'Trimming OGS O2 to stop wasting potable water.',
+        actions: [{ module: 'OGS', kind: 'producers', type: 'O2', desired_rates: [990] }],
         warnings: [],
+        stores: [
+          { name: 'O2_Store', pct: 75 },
+          { name: 'Potable_Water_Store', pct: 87, runway_sols: 119 },
+        ],
+        balances: [{ resource: 'O2', net: 15.4 }],
       });
     });
 
-    // Big SOL counter reflects the event value.
+    // Big SOL counter reflects the event value (zero-padded to 3).
     expect(screen.getByTestId('survival-sol').textContent).toContain('5');
 
-    // Bot reasoning surfaced in the overlay.
-    expect(screen.getByText(/Venting CO2 to stabilize the grow bays\./)).toBeInTheDocument();
+    // A resource card rendered from the event's stores.
+    expect(screen.getByText('Oxygen')).toBeInTheDocument();
 
-    // Zone state updated via the shared habitat store.
-    expect(useHabitatStore.getState().zones['grow-bays'].sensors['gb-temp'].value).toBe(22);
+    // Bot reasoning surfaced in the decision log.
+    expect(
+      screen.getByText(/Trimming OGS O2 to stop wasting potable water\./),
+    ).toBeInTheDocument();
+
+    // Last command echoed.
+    expect(screen.getByText(/OGS · producers · O2/)).toBeInTheDocument();
   });
 
-  it('renders a "Survived N sols" result card on an end event', () => {
+  it('renders the run-complete card on an end event', () => {
     renderView();
     const es = MockEventSource.instances[0];
 
     act(() => {
-      es.emit('end', { sols_survived: 5, ended_reason: 'crew_dead' });
+      es.emit('end', { sols_survived: 42, ended_reason: 'crew_death' });
     });
 
-    expect(screen.getByText(/Survived 5 sols/i)).toBeInTheDocument();
+    expect(screen.getByText('Run Complete')).toBeInTheDocument();
+    expect(screen.getByText('Run Complete').parentElement?.textContent).toContain('42 sols');
   });
 });

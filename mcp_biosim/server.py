@@ -239,8 +239,13 @@ def _status_payload(detail="normal"):
 
 
 def _sol_event(raw, reasoning):
-    """Build the relay `sol` event data from a raw BioSim state dict. Shape must
-    match sensor_data.survival.loop exactly (the frontend already consumes it)."""
+    """Build the relay `sol` event data from a raw BioSim state dict.
+
+    Carries the canonical loop fields (sol/alive/modules/reasoning/actions/warnings)
+    PLUS the compact `stores` and `balances` telemetry so the web app renders clean
+    resource cards without re-parsing raw BioSim modules. The frontend computes its
+    own per-store delta across successive events."""
+    snap = summarize_state(raw)
     return {
         "sol": RUN.sols,
         "alive": RUN.alive,
@@ -251,7 +256,13 @@ def _sol_event(raw, reasoning):
              "desired_rates": a["rates"]}
             for a in RUN.last_actions
         ],
-        "warnings": summarize_state(raw)["warnings"],
+        "warnings": snap["warnings"],
+        "stores": [
+            {k: s[k] for k in ("name", "pct", "runway_sols") if k in s}
+            for s in snap["stores"]
+        ],
+        "balances": [{"resource": b["resource"], "net": b["net"]}
+                     for b in snap["balances"]],
     }
 
 

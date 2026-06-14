@@ -1,126 +1,151 @@
-// SurvivalView — SPECTATOR view for "Can the autonomous Claude bot keep the habitat alive?"
+// SurvivalView — mission-control SPECTATOR dashboard for the autonomous survival run.
 //
-// The bot is now driven EXTERNALLY (by a Claude subscription session via an MCP server).
-// This page only WATCHES: it auto-connects to a read-only SSE stream and renders whatever
-// the external pilot pushes. No Run/Stop — the spectator can't start the pilot's run.
+// The bot is driven EXTERNALLY (a Claude subscription session via the biosim MCP);
+// this page only WATCHES a read-only SSE stream and renders what the pilot pushes.
+// Self-contained: it does NOT touch the 3D habitat store/HUD — a single SOL counter,
+// a live life-support telemetry grid, an 8-bit crew deck, Claude's decision log, and
+// a computed alerts strip. Auto-connects, auto-reconnects, no Run/Stop controls.
 //
-// Drives the SHARED useHabitatStore and renders the REUSED ZonePanel / HabitatHUD /
-// AlertBanner habitat components, plus a big SOL counter, a live bot-reasoning overlay,
-// a read-only LIVE/RECONNECTING status pill, and an end-of-run result card.
-//
-// Data flow (per spec):
-//   mount -> new EventSource(survivalLiveUrl())  (auto-connect, auto-reconnect on error)
-//   run   -> reset local state for the new run + capture difficulty for display
-//   sol   -> useHabitatStore.getState().tick(solEventToReadings(modules, history))
-//            + bump local sol counter, append reasoning, track warnings
-//   end   -> show "Survived N sols" result card
+//   mount -> EventSource(survivalLiveUrl())
+//   run   -> reset for new run + capture crew size / difficulty
+//   sol   -> update telemetry (stores/balances), counter, reasoning, alerts
+//   end   -> crew slumps + "Survived N sols" climax card
 //
 // Lazy-loaded via React.lazy in App.tsx — needs a default export.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useHabitatStore } from '../store/habitatStore';
-import { ZonePanel } from '../components/habitat/ZonePanel';
-import { HabitatHUD } from '../components/habitat/HabitatHUD';
-import { AlertBanner } from '../components/habitat/AlertBanner';
-import { solEventToReadings } from '../simulation/survivalZone';
 import {
   survivalLiveUrl,
   type SurvivalSolEvent,
   type SurvivalEndEvent,
+  type SurvivalStore,
 } from '../api/survival';
+import { CrewYard } from '../components/survival/CrewYard';
+import { ResourceCard, healthOf, type Health } from '../components/survival/ResourceCard';
 
 type Difficulty = 'off' | 'malfunctions';
+interface RunEvent { run_id: string; difficulty: Difficulty; crew_size: number }
+interface ReasoningEntry { sol: number; reasoning: string }
+interface SurvivalResult { sols_survived: number; ended_reason: string }
+type SolAction = { module: string; kind: string; type: string; desired_rates: number[] };
+type StoreView = { name: string; pct: number; delta: number; runway?: number; net?: number };
 
-interface RunEvent {
-  run_id: string;
-  difficulty: Difficulty;
-  crew_size: number;
-}
+// Life-support stores in display order. `highIsBad` flips the health bands for
+// scrubber/waste stores (full = danger), and `resource` links to the net-flow balance.
+const RESOURCES: {
+  name: string; label: string; primary: boolean; highIsBad: boolean; resource: string;
+}[] = [
+  { name: 'O2_Store', label: 'Oxygen', primary: true, highIsBad: false, resource: 'O2' },
+  { name: 'CO2_Store', label: 'CO₂ Scrubber', primary: true, highIsBad: true, resource: 'CO2' },
+  { name: 'General_Power_Store', label: 'Power', primary: true, highIsBad: false, resource: 'Power' },
+  { name: 'Potable_Water_Store', label: 'Potable Water', primary: true, highIsBad: false, resource: 'PotableWater' },
+  { name: 'Food_Store', label: 'Food', primary: true, highIsBad: false, resource: 'Food' },
+  { name: 'Biomass_Store', label: 'Biomass', primary: false, highIsBad: false, resource: 'Biomass' },
+  { name: 'Grey_Water_Store', label: 'Grey Water', primary: false, highIsBad: false, resource: 'GreyWater' },
+  { name: 'Dirty_Water_Store', label: 'Dirty Water', primary: false, highIsBad: true, resource: 'DirtyWater' },
+  { name: 'H2_Store', label: 'Hydrogen', primary: false, highIsBad: false, resource: 'H2' },
+  { name: 'Dry_Waste_Store', label: 'Dry Waste', primary: false, highIsBad: true, resource: 'DryWaste' },
+];
+const META = new Map(RESOURCES.map((r) => [r.name, r]));
 
-interface ReasoningEntry {
-  sol: number;
-  reasoning: string;
-}
-
-interface SurvivalResult {
-  sols_survived: number;
-  ended_reason: string;
-}
-
-// Per-sensor history ring buffer threaded into the mapper across sols so sparklines populate.
-type SensorHistory = Record<string, Record<string, number[]>>;
-
-const SURVIVAL_GREEN = '#00ff88';
 const RECONNECT_DELAY_MS = 3000;
+const GREEN = '#00ff9c';
+const AMBER = '#ffb000';
+
+// Fallback: reconstruct compact stores from raw BioSim modules when the event
+// doesn't carry `stores` (older pilot build). Reads each *_Store level/capacity.
+function deriveStores(modules: Record<string, unknown>): SurvivalStore[] {
+  const out: SurvivalStore[] = [];
+  for (const [name, mod] of Object.entries(modules || {})) {
+    if (!name.endsWith('_Store')) continue;
+    const props = (mod as { properties?: Record<string, number> })?.properties;
+    if (!props) continue;
+    const level = props.currentLevel;
+    const cap = props.currentCapacity;
+    if (typeof level === 'number' && typeof cap === 'number' && cap > 0) {
+      out.push({ name, pct: (level / cap) * 100 });
+    }
+  }
+  return out;
+}
 
 const SurvivalView = () => {
-  const selectedZoneId = useHabitatStore((s) => s.selectedZoneId);
-  const setSelectedZoneId = useHabitatStore((s) => s.setSelectedZoneId);
-
   const [connected, setConnected] = useState(false);
   const [difficulty, setDifficulty] = useState<Difficulty | null>(null);
+  const [crewSize, setCrewSize] = useState(15);
   const [sol, setSol] = useState(0);
+  const [alive, setAlive] = useState(true);
+  const [stores, setStores] = useState<StoreView[]>([]);
+  const [lastActions, setLastActions] = useState<SolAction[]>([]);
   const [reasoningLog, setReasoningLog] = useState<ReasoningEntry[]>([]);
-  const [warnings, setWarnings] = useState<{ sensor: string; status: string }[]>([]);
   const [result, setResult] = useState<SurvivalResult | null>(null);
 
-  // Non-reactive refs — the EventSource, the rolling sensor history, the reconnect timer,
-  // and a mounted flag so the reconnect loop stops cleanly on unmount.
   const esRef = useRef<EventSource | null>(null);
-  const historyRef = useRef<SensorHistory>({});
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
+  const lastPctRef = useRef<Map<string, number>>(new Map()); // for per-store delta
 
   const handleSol = useCallback((d: SurvivalSolEvent) => {
-    // Feed the shared habitat store — the reused zone components subscribe to it directly.
-    useHabitatStore.getState().tick(solEventToReadings(d.modules, historyRef.current));
+    const raw = d.stores && d.stores.length ? d.stores : deriveStores(d.modules);
+    const balMap = new Map((d.balances ?? []).map((b) => [b.resource, b.net]));
+    const view: StoreView[] = raw.map((s) => {
+      const prev = lastPctRef.current.get(s.name);
+      lastPctRef.current.set(s.name, s.pct);
+      const meta = META.get(s.name);
+      return {
+        name: s.name,
+        pct: s.pct,
+        delta: prev === undefined ? 0 : s.pct - prev,
+        runway: s.runway_sols,
+        net: meta ? balMap.get(meta.resource) : undefined,
+      };
+    });
+    setStores(view);
     setSol(d.sol);
-    setWarnings(d.warnings ?? []);
+    setAlive(d.alive);
+    if (d.actions) setLastActions(d.actions);
     if (d.reasoning) {
-      setReasoningLog((log) => [{ sol: d.sol, reasoning: d.reasoning }, ...log].slice(0, 12));
+      setReasoningLog((log) => {
+        // Guard against a replay frame duplicating the newest live entry.
+        if (log[0] && log[0].sol === d.sol && log[0].reasoning === d.reasoning) return log;
+        return [{ sol: d.sol, reasoning: d.reasoning }, ...log].slice(0, 14);
+      });
     }
   }, []);
 
-  // Auto-connect on mount, with a simple reconnect loop on error.
+  // Auto-connect with reconnect loop.
   useEffect(() => {
     mountedRef.current = true;
-
     const connect = () => {
       if (!mountedRef.current) return;
-
       const es = new EventSource(survivalLiveUrl());
       esRef.current = es;
-
-      es.onopen = () => {
-        setConnected(true);
-      };
+      es.onopen = () => setConnected(true);
 
       es.addEventListener('run', (ev) => {
         setConnected(true);
         const d = JSON.parse((ev as MessageEvent).data) as RunEvent;
-        // Fresh run — reset local state for the new run.
         setResult(null);
         setSol(0);
+        setAlive(true);
+        setStores([]);
+        setLastActions([]);
         setReasoningLog([]);
-        setWarnings([]);
-        historyRef.current = {};
+        lastPctRef.current = new Map();
         setDifficulty(d.difficulty);
+        if (d.crew_size) setCrewSize(d.crew_size);
       });
-
       es.addEventListener('sol', (ev) => {
         setConnected(true);
         handleSol(JSON.parse((ev as MessageEvent).data) as SurvivalSolEvent);
       });
-
       es.addEventListener('end', (ev) => {
         setConnected(true);
         const d = JSON.parse((ev as MessageEvent).data) as SurvivalEndEvent;
+        setAlive(false);
         setResult({ sols_survived: d.sols_survived, ended_reason: d.ended_reason });
       });
-
       es.addEventListener('error', () => {
-        // EventSource auto-reconnects, but we drive an explicit reconnect so the status
-        // pill reflects reality. Close, mark disconnected, and re-create after a delay.
         setConnected(false);
         es.close();
         esRef.current = null;
@@ -132,248 +157,245 @@ const SurvivalView = () => {
         }
       });
     };
-
     connect();
-
     return () => {
       mountedRef.current = false;
-      if (reconnectTimerRef.current !== null) {
-        clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
-      }
+      if (reconnectTimerRef.current !== null) clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
       esRef.current?.close();
       esRef.current = null;
     };
   }, [handleSol]);
 
+  // Derive resource rows + alerts from current stores.
+  const byName = new Map(stores.map((s) => [s.name, s]));
+  const cards = RESOURCES.map((r) => {
+    const s = byName.get(r.name);
+    if (!s) return null;
+    const health = healthOf(s.pct, r.highIsBad);
+    return { ...r, ...s, health };
+  }).filter(Boolean) as (typeof RESOURCES[number] & StoreView & { health: Health })[];
+  const primary = cards.filter((c) => c.primary);
+  const secondary = cards.filter((c) => !c.primary);
+  // Stores currently in alert — the crew gravitate toward these stations.
+  const hotStores = cards.filter((c) => c.health !== 'ok').map((c) => c.name);
+
+  const alerts = cards
+    .filter((c) => c.health !== 'ok')
+    .sort((a, b) => (a.health === 'crit' ? -1 : 1) - (b.health === 'crit' ? -1 : 1))
+    .slice(0, 4)
+    .map((c) => {
+      const word = c.health === 'crit'
+        ? (c.highIsBad ? 'SATURATED' : 'CRITICAL')
+        : (c.highIsBad ? 'HIGH' : 'LOW');
+      return { key: c.name, label: c.label, word, pct: c.pct, crit: c.health === 'crit' };
+    });
+
+  const hasRun = sol > 0 || stores.length > 0;
+
   return (
     <div
       style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'radial-gradient(ellipse at 50% 30%, #1a0f0a 0%, #0a0a0a 70%)',
-        color: 'white',
-        fontFamily: 'monospace',
-        overflow: 'hidden',
+        position: 'relative',
+        minHeight: 'calc(100vh - var(--nav-height, 56px))',
+        background:
+          'radial-gradient(1200px 600px at 70% -10%, rgba(0,90,70,0.18), transparent 60%),' +
+          'radial-gradient(900px 500px at 10% 110%, rgba(0,40,80,0.22), transparent 60%),' +
+          '#05070a',
+        color: '#e9eef4',
+        fontFamily: '"Outfit", system-ui, sans-serif',
+        padding: '16px 20px 20px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
+        boxSizing: 'border-box',
       }}
     >
-      {/* Reused habitat overlay components — all store-driven. */}
-      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 10 }}>
-        <HabitatHUD />
-        <AlertBanner />
-        {selectedZoneId && (
-          <ZonePanel zoneId={selectedZoneId} onClose={() => setSelectedZoneId(null)} />
-        )}
-      </div>
-
-      {/* Big SOL counter — center top */}
-      <div
+      {/* ── HERO ─────────────────────────────────────────────── */}
+      <header
         style={{
-          position: 'fixed',
-          top: '2rem',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          textAlign: 'center',
-          zIndex: 15,
-          pointerEvents: 'none',
-        }}
-      >
-        <div
-          style={{
-            fontSize: '0.75rem',
-            letterSpacing: '0.3em',
-            color: 'rgba(156,163,175,1)',
-            marginBottom: '0.25rem',
-          }}
-        >
-          SURVIVAL · SOL
-        </div>
-        <div
-          data-testid="survival-sol"
-          style={{
-            fontSize: '5rem',
-            fontWeight: 800,
-            lineHeight: 1,
-            letterSpacing: '0.05em',
-            color: warnings.length > 0 ? '#ffaa00' : SURVIVAL_GREEN,
-            textShadow: '0 0 24px rgba(0,255,136,0.35)',
-          }}
-        >
-          {String(sol).padStart(3, '0')}
-        </div>
-      </div>
-
-      {/* Bot-reasoning overlay — bottom-left log */}
-      <div
-        style={{
-          position: 'fixed',
-          left: '1.5rem',
-          bottom: '1.5rem',
-          width: 'min(420px, 40vw)',
-          maxHeight: '40vh',
-          overflowY: 'auto',
-          background: 'rgba(10, 12, 18, 0.72)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: '12px',
-          padding: '14px 16px',
-          zIndex: 15,
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 24px rgba(0,0,0,0.4)',
-        }}
-      >
-        <div
-          style={{
-            fontSize: '0.7rem',
-            letterSpacing: '0.2em',
-            color: 'rgba(156,163,175,1)',
-            marginBottom: '8px',
-          }}
-        >
-          CLAUDE · BOT REASONING
-        </div>
-        {reasoningLog.length === 0 ? (
-          <div style={{ fontSize: '0.8rem', color: 'rgba(156,163,175,0.7)' }}>
-            {sol > 0 ? 'Standing by…' : 'Waiting for the pilot to start a run…'}
-          </div>
-        ) : (
-          reasoningLog.map((entry, i) => (
-            <div
-              key={`${entry.sol}-${i}`}
-              style={{
-                fontSize: '0.82rem',
-                lineHeight: 1.4,
-                marginBottom: '8px',
-                opacity: i === 0 ? 1 : 0.6,
-              }}
-            >
-              <span style={{ color: SURVIVAL_GREEN, fontWeight: 700 }}>
-                SOL {String(entry.sol).padStart(3, '0')}
-              </span>{' '}
-              <span style={{ color: 'rgba(229,231,235,1)' }}>{entry.reasoning}</span>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Read-only status pill — bottom-center */}
-      <div
-        style={{
-          position: 'fixed',
-          bottom: '1.5rem',
-          left: '50%',
-          transform: 'translateX(-50%)',
           display: 'flex',
           alignItems: 'center',
-          gap: '0.75rem',
-          zIndex: 20,
+          gap: 24,
+          flexWrap: 'wrap',
+          padding: '4px 4px 12px',
+          borderBottom: '1px solid rgba(255,255,255,0.07)',
         }}
       >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            padding: '0.5rem 1rem',
-            fontFamily: 'monospace',
-            fontSize: '0.8rem',
-            fontWeight: 700,
-            letterSpacing: '0.08em',
-            border: `1px solid ${connected ? SURVIVAL_GREEN : 'rgba(255,170,0,0.6)'}`,
-            borderRadius: '8px',
-            background: 'rgba(10,12,18,0.8)',
-            color: connected ? SURVIVAL_GREEN : '#ffaa00',
-            boxShadow: connected ? `0 0 16px ${SURVIVAL_GREEN}33` : 'none',
-          }}
-        >
-          {connected ? '● LIVE' : '○ RECONNECTING…'}
-        </div>
-
-        {difficulty && (
+        <div>
+          <div style={labelStyle}>Sols Survived</div>
           <div
+            data-testid="survival-sol"
             style={{
-              padding: '0.5rem 0.9rem',
-              fontFamily: 'monospace',
-              fontSize: '0.75rem',
-              letterSpacing: '0.05em',
-              border: '1px solid rgba(255,255,255,0.12)',
-              borderRadius: '8px',
-              color: 'rgba(156,163,175,1)',
+              fontFamily: '"Rajdhani", sans-serif',
+              fontWeight: 700,
+              fontSize: 72,
+              lineHeight: 0.9,
+              letterSpacing: '0.02em',
+              color: alive ? GREEN : '#ff5252',
+              textShadow: alive ? '0 0 28px rgba(0,255,150,0.35)' : '0 0 28px rgba(255,60,60,0.4)',
             }}
           >
-            {difficulty === 'off' ? 'NO MALFUNCTIONS' : 'MALFUNCTIONS'}
+            {String(sol).padStart(3, '0')}
           </div>
-        )}
-      </div>
+        </div>
 
-      {/* Result card — shown when the run ends */}
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <div style={labelStyle}>Mission Status</div>
+          <div
+            style={{
+              fontFamily: '"Rajdhani", sans-serif',
+              fontSize: 26,
+              fontWeight: 600,
+              color: alive ? '#e9eef4' : '#ff7a7a',
+              letterSpacing: '0.01em',
+            }}
+          >
+            {alive ? `Crew ${crewSize}/${crewSize} · Alive` : 'Crew Lost'}
+          </div>
+          <div style={{ fontFamily: '"Space Mono", monospace', fontSize: 11, color: 'rgba(160,170,185,0.8)', marginTop: 2 }}>
+            Pilot: Claude (live, on subscription)
+            {difficulty && ` · ${difficulty === 'off' ? 'No malfunctions' : 'Malfunctions on'}`}
+          </div>
+        </div>
+
+        <LivePill connected={connected} />
+      </header>
+
+      {/* ── LIFE SUPPORT TELEMETRY ───────────────────────────── */}
+      <section>
+        <div style={{ ...labelStyle, marginBottom: 8 }}>Life Support</div>
+        {hasRun ? (
+          <>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {primary.map((c) => (
+                <ResourceCard key={c.name} label={c.label} pct={c.pct} health={c.health}
+                  delta={c.delta} net={c.net} runway={c.runway} primary />
+              ))}
+            </div>
+            {secondary.length > 0 && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                {secondary.map((c) => (
+                  <ResourceCard key={c.name} label={c.label} pct={c.pct} health={c.health}
+                    delta={c.delta} net={c.net} primary={false} />
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={standbyStyle}>Awaiting telemetry — pilot has not started a run.</div>
+        )}
+      </section>
+
+      {/* ── DECK + DECISION LOG ──────────────────────────────── */}
+      <section style={{ flex: 1, minHeight: 300, display: 'flex', gap: 12 }}>
+        <div style={{ flex: 1.7, minWidth: 0 }}>
+          <CrewYard crewSize={crewSize} alive={alive} sol={sol} hot={hotStores} />
+        </div>
+
+        <div
+          style={{
+            flex: 1,
+            minWidth: 280,
+            maxWidth: 460,
+            display: 'flex',
+            flexDirection: 'column',
+            background: 'rgba(10,13,18,0.7)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 14,
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ ...labelStyle, padding: '12px 16px 8px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <span style={{ color: GREEN }}>◆</span> Claude · Decision Log
+          </div>
+          <div style={{ overflowY: 'auto', padding: '10px 16px', flex: 1 }}>
+            {reasoningLog.length === 0 ? (
+              <div style={{ ...standbyStyle, border: 'none', padding: '8px 0' }}>
+                {hasRun ? 'Standing by for the next decision…' : 'Waiting for the pilot to start a run…'}
+              </div>
+            ) : (
+              reasoningLog.map((e, i) => (
+                <div key={`${e.sol}-${i}`} style={{ marginBottom: 12, opacity: i === 0 ? 1 : 0.6 }}>
+                  <span style={{ fontFamily: '"Space Mono", monospace', fontSize: 11, color: GREEN, fontWeight: 700 }}>
+                    SOL {String(e.sol).padStart(3, '0')}
+                  </span>
+                  <div style={{ fontSize: 13, lineHeight: 1.45, color: '#dbe2ea', marginTop: 2 }}>{e.reasoning}</div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ── ALERTS + LAST ACTION ─────────────────────────────── */}
+      <footer style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'stretch' }}>
+        <div style={{ flex: 2, minWidth: 280 }}>
+          <div style={{ ...labelStyle, marginBottom: 6 }}>Alerts</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {!hasRun ? (
+              <div style={standbyStyle}>—</div>
+            ) : alerts.length === 0 ? (
+              <div style={{ ...alertChip(false), color: GREEN, borderColor: 'rgba(0,255,150,0.35)' }}>
+                ● All systems nominal
+              </div>
+            ) : (
+              alerts.map((a) => (
+                <div key={a.key} style={alertChip(a.crit)}>
+                  <span style={{ fontWeight: 700 }}>!!</span>&nbsp;{a.label} {a.word}
+                  <span style={{ opacity: 0.7 }}> · {a.pct.toFixed(a.pct < 10 ? 1 : 0)}%</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <div style={{ ...labelStyle, marginBottom: 6 }}>Last Command</div>
+          <div style={{
+            fontFamily: '"Space Mono", monospace', fontSize: 12, color: '#cfe9dd',
+            background: 'rgba(0,255,150,0.05)', border: '1px solid rgba(0,255,150,0.15)',
+            borderRadius: 10, padding: '10px 12px', minHeight: 22,
+          }}>
+            {lastActions.length === 0
+              ? '— no flow changes yet —'
+              : lastActions.map((a, i) => (
+                  <div key={i}>
+                    {a.module} · {a.kind} · {a.type} → {a.desired_rates.join(', ')}
+                  </div>
+                ))}
+          </div>
+        </div>
+      </footer>
+
+      {/* ── END-OF-RUN CLIMAX ────────────────────────────────── */}
       {result && (
         <div
           style={{
-            position: 'fixed',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(0,0,0,0.6)',
-            backdropFilter: 'blur(4px)',
-            zIndex: 30,
+            position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(2,4,7,0.72)', backdropFilter: 'blur(6px)', zIndex: 40,
           }}
         >
-          <div
-            style={{
-              background: 'rgba(14, 16, 22, 0.92)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '16px',
-              padding: '2rem 2.5rem',
-              textAlign: 'center',
-              boxShadow: '0 8px 48px rgba(0,0,0,0.6)',
-              minWidth: '320px',
-            }}
-          >
-            <div
-              style={{
-                fontSize: '0.75rem',
-                letterSpacing: '0.3em',
-                color: 'rgba(156,163,175,1)',
-                marginBottom: '0.75rem',
-              }}
-            >
-              RUN COMPLETE
+          <div style={{
+            background: 'rgba(12,16,22,0.96)', border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: 18, padding: '2.4rem 3rem', textAlign: 'center',
+            boxShadow: '0 12px 60px rgba(0,0,0,0.7)', minWidth: 340,
+          }}>
+            <div style={labelStyle}>Run Complete</div>
+            <div style={{
+              fontFamily: '"Rajdhani", sans-serif', fontSize: 64, fontWeight: 700,
+              color: GREEN, margin: '6px 0', textShadow: '0 0 30px rgba(0,255,150,0.4)',
+            }}>
+              {result.sols_survived}<span style={{ fontSize: 22, opacity: 0.7 }}> sols</span>
             </div>
-            <div
-              style={{
-                fontSize: '2.25rem',
-                fontWeight: 800,
-                color: SURVIVAL_GREEN,
-                marginBottom: '0.5rem',
-              }}
-            >
-              Survived {result.sols_survived} sols
-            </div>
-            <div
-              style={{
-                fontSize: '0.9rem',
-                color: 'rgba(229,231,235,0.8)',
-                marginBottom: '1.5rem',
-              }}
-            >
+            <div style={{ fontSize: 14, color: 'rgba(220,228,236,0.8)', marginBottom: 20 }}>
               Ended: {result.ended_reason.replace(/_/g, ' ')}
             </div>
-            <div
-              style={{
-                fontSize: '0.8rem',
-                color: 'rgba(156,163,175,0.9)',
-                marginBottom: '1rem',
-              }}
-            >
-              Waiting for next run…
-            </div>
-            <button
-              type="button"
-              onClick={() => setResult(null)}
-              style={controlButtonStyle(SURVIVAL_GREEN)}
-            >
+            <button type="button" onClick={() => setResult(null)} style={{
+              fontFamily: '"Space Mono", monospace', fontSize: 13, fontWeight: 700, letterSpacing: '0.08em',
+              padding: '0.6rem 1.5rem', borderRadius: 9, cursor: 'pointer',
+              border: `1px solid ${GREEN}`, background: 'rgba(0,255,150,0.08)', color: GREEN,
+            }}>
               Dismiss
             </button>
           </div>
@@ -383,20 +405,64 @@ const SurvivalView = () => {
   );
 };
 
-function controlButtonStyle(accent: string): React.CSSProperties {
+const labelStyle: React.CSSProperties = {
+  fontFamily: '"Space Mono", monospace',
+  fontSize: 10.5,
+  letterSpacing: '0.24em',
+  textTransform: 'uppercase',
+  color: 'rgba(150,162,178,0.85)',
+};
+
+const standbyStyle: React.CSSProperties = {
+  fontFamily: '"Space Mono", monospace',
+  fontSize: 12,
+  color: 'rgba(150,162,178,0.6)',
+  border: '1px dashed rgba(255,255,255,0.1)',
+  borderRadius: 10,
+  padding: '14px 16px',
+};
+
+function alertChip(crit: boolean): React.CSSProperties {
+  const c = crit ? '#ff3b30' : '#ffb000';
   return {
-    padding: '0.6rem 1.4rem',
-    fontFamily: 'monospace',
-    fontSize: '0.85rem',
-    fontWeight: 700,
-    letterSpacing: '0.08em',
-    border: `1px solid ${accent}`,
-    borderRadius: '8px',
-    background: 'rgba(10,12,18,0.8)',
-    color: accent,
-    cursor: 'pointer',
-    boxShadow: `0 0 16px ${accent}33`,
+    fontFamily: '"Space Mono", monospace',
+    fontSize: 12,
+    color: c,
+    background: `${c}12`,
+    border: `1px solid ${c}55`,
+    borderRadius: 9,
+    padding: '8px 12px',
+    boxShadow: crit ? `0 0 16px ${c}33` : 'none',
+    display: 'flex',
+    alignItems: 'center',
   };
+}
+
+function LivePill({ connected }: { connected: boolean }) {
+  return (
+    <div
+      style={{
+        display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px',
+        fontFamily: '"Space Mono", monospace', fontSize: 12, fontWeight: 700, letterSpacing: '0.1em',
+        borderRadius: 10,
+        border: `1px solid ${connected ? 'rgba(0,255,150,0.5)' : 'rgba(255,176,0,0.5)'}`,
+        color: connected ? GREEN : AMBER,
+        background: connected ? 'rgba(0,255,150,0.06)' : 'rgba(255,176,0,0.06)',
+        boxShadow: connected ? '0 0 18px rgba(0,255,150,0.2)' : 'none',
+      }}
+    >
+      <span
+        style={{
+          width: 8, height: 8, borderRadius: '50%',
+          background: connected ? GREEN : AMBER,
+          boxShadow: connected ? `0 0 8px ${GREEN}` : 'none',
+          animation: connected ? 'survPulse 1.4s ease-in-out infinite' : 'none',
+        }}
+      />
+      {connected ? 'LIVE' : 'RECONNECTING'}
+      <style>{`@keyframes survPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }`}</style>
+    </div>
+  );
 }
 
 export { SurvivalView };
