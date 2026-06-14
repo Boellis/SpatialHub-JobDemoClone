@@ -163,6 +163,25 @@ class ControlEndpointTests(TestCase):
         self.assertEqual(self._post({"action": "advance", "sols": 1}).status_code, 400)
 
 
+@override_settings(SURVIVAL_RELAY_TOKEN="relay-tok", SURVIVAL_CONTROL_TOKEN="control-pw")
+class ControlSeparateTokenTests(TestCase):
+    def setUp(self):
+        relay.reset()
+        self.url = reverse("survival-control")
+
+    def _stop(self, tok):
+        return self.client.post(self.url, data=json.dumps({"action": "stop"}),
+                                content_type="application/json",
+                                HTTP_AUTHORIZATION=f"Bearer {tok}")
+
+    def test_control_password_works(self):
+        self.assertEqual(self._stop("control-pw").status_code, 200)
+
+    def test_relay_token_rejected_when_control_password_set(self):
+        # Once a separate control password exists, the MCP relay token can't drive controls.
+        self.assertEqual(self._stop("relay-tok").status_code, 401)
+
+
 @override_settings(SURVIVAL_RELAY_TOKEN="")
 class ControlDisabledTests(TestCase):
     def test_control_fails_closed_without_token(self):

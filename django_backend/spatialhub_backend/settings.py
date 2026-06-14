@@ -112,3 +112,8 @@ SURVIVAL_CREW_SIZE = int(os.environ.get("BIOSIM_CREW_SIZE", "15"))
 # live run/sol/end events to /api/survival/ingest. No value => ingest is disabled
 # (fails closed). This is NOT an Anthropic key; the relay path uses no API key.
 SURVIVAL_RELAY_TOKEN = os.environ.get("SURVIVAL_RELAY_TOKEN", "")
+# Separate password for the web control panel (/api/survival/control). Decoupled from
+# the MCP relay token so you can rotate the human-facing control password with one
+# command (deploy/set-control-password.sh) without touching the MCP pilot. Unset =>
+# the view falls back to SURVIVAL_RELAY_TOKEN.
+SURVIVAL_CONTROL_TOKEN = os.environ.get("SURVIVAL_CONTROL_TOKEN", "")

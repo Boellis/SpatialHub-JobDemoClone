@@ -365,9 +365,11 @@ def survival_control(request):
     if request.method != "POST":
         return JsonResponse({"error": "POST only"}, status=405)
 
-    token = getattr(settings, "SURVIVAL_RELAY_TOKEN", "")
+    # The control panel has its own password (rotate it independently of the MCP
+    # token); fall back to the relay token if it's unset.
+    token = getattr(settings, "SURVIVAL_CONTROL_TOKEN", "") or getattr(settings, "SURVIVAL_RELAY_TOKEN", "")
     if not token:
-        return JsonResponse({"error": "control disabled (no SURVIVAL_RELAY_TOKEN)"}, status=503)
+        return JsonResponse({"error": "control disabled (no control token)"}, status=503)
     auth = request.headers.get("Authorization", "")
     provided = auth[7:] if auth.startswith("Bearer ") else ""
     if not hmac.compare_digest(provided, token):
