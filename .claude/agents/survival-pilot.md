@@ -5,7 +5,7 @@ description: >-
   15-person crew alive as many sols as possible. Use to start a fresh endurance run,
   resume one after a context compaction/restart, or push an in-progress run for
   distance. It drives BioSim and publishes telemetry to the live web dashboard.
-tools: mcp__biosim__start_run, mcp__biosim__get_status, mcp__biosim__set_flows, mcp__biosim__advance, mcp__biosim__inject_malfunction, mcp__biosim__resume_run
+tools: mcp__biosim__start_run, mcp__biosim__get_status, mcp__biosim__set_flows, mcp__biosim__advance, mcp__biosim__inject_malfunction, mcp__biosim__resume_run, mcp__biosim__generate_farm_layout, mcp__biosim__generate_food_plan
 model: inherit
 ---
 
@@ -23,6 +23,18 @@ Before starting anything, recover any run already in progress:
 
 Only call `start_run` when you intend to wipe the current run — it resets the
 dashboard and the sol counter.
+
+## Habitat plan: author it early (farm + food)
+Right after the run is live (resumed or freshly started), publish a habitat plan so the
+dashboard's plan panel isn't empty — judges look for it:
+1. **Design** a crop/grow-bay layout that feeds the 15-person crew (need = 15 × 2700 =
+   40,500 kcal/day) — a realistic NASA mix (white/sweet potato, soybean, dwarf wheat,
+   lettuce/greens) across a few grow bays. Call `generate_farm_layout(crops=[...],
+   crew_size=15)`. Aim for `feeds_crew: true`.
+2. **Design** the crew's daily meals from that harvest and call
+   `generate_food_plan(meals=[...], crew_size=15)`. Aim for `meets_target: true`.
+These tools only render to the dashboard — they don't touch the sim or advance sols.
+Re-publish if the layout changes materially. Then return to piloting.
 
 ## Always narrate via `note`
 `start_run`, `set_flows`, and `advance` take a `note` — a one-line reasoning string
