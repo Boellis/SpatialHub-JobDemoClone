@@ -14,6 +14,7 @@ import SimulateDevices from "./pages/SimulateDevices";
 import UnityEmbed from "./pages/UnityEmbed";
 
 const HabitatView = React.lazy(() => import("./pages/TvDashboardView"));
+const SurvivalView = React.lazy(() => import("./pages/SurvivalView"));
 
 const NavLink = ({
   to,
@@ -60,6 +61,9 @@ const AppContent = () => {
             <NavLink to="/unity">Unity</NavLink>
             <NavLink to="/habitat" className="nav-link--habitat">
               Mars Habitat
+            </NavLink>
+            <NavLink to="/survival" className="nav-link--habitat">
+              Survival
             </NavLink>
             <a
               href={openMctUrl}
@@ -119,6 +123,21 @@ const AppContent = () => {
               }
             >
               <HabitatView />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/survival"
+          element={
+            <Suspense
+              fallback={
+                <div className="loading-state">
+                  <div className="loading-spinner" />
+                  <div className="loading-text">LOADING SURVIVAL</div>
+                </div>
+              }
+            >
+              <SurvivalView />
             </Suspense>
           }
         />
