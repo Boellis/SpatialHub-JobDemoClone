@@ -30,8 +30,20 @@ import traceback
 from django.utils.dateparse import parse_datetime
 
 class RawSensorListView(ListAPIView):
-    queryset = RawSensorData.objects.all().order_by("-datetime")
     serializer_class = RawSensorSerializer
+    # No DRF pagination is configured, so a bare ListAPIView would dump the whole
+    # table. Bound it (same class of fix as EnrichedSensorListView) and honor an
+    # optional page_size so a busy raw_sensor_data table can never full-scan.
+    MAX_ROWS = 500
+    DEFAULT_ROWS = 100
+
+    def get_queryset(self):
+        try:
+            limit = int(self.request.query_params.get("page_size", self.DEFAULT_ROWS))
+        except (TypeError, ValueError):
+            limit = self.DEFAULT_ROWS
+        limit = max(1, min(limit, self.MAX_ROWS))
+        return RawSensorData.objects.all().order_by("-datetime")[:limit]
 
 class HabitatZoneListView(ListAPIView):
     queryset = HabitatZone.objects.all()
@@ -39,6 +51,8 @@ class HabitatZoneListView(ListAPIView):
 
 class EnrichedSensorListView(APIView):
     MAX_ROWS = 500
+
+    DEFAULT_ROWS = 50
 
     def get(self, request):
         try:
@@ -51,8 +65,15 @@ class EnrichedSensorListView(APIView):
             if hub_id:
                 queryset = queryset.filter(hub_id=hub_id)
 
-            # Cap results to avoid OOM on Cloud Run (512 MiB limit)
-            queryset = queryset[:self.MAX_ROWS]
+            # Honor the caller's page_size (clamped to MAX_ROWS) instead of always
+            # serializing 500 rows. The frontend's live poll asks for 5; respecting
+            # that keeps each request cheap and avoids hammering the DB/Cloud Run.
+            try:
+                limit = int(request.query_params.get("page_size", self.DEFAULT_ROWS))
+            except (TypeError, ValueError):
+                limit = self.DEFAULT_ROWS
+            limit = max(1, min(limit, self.MAX_ROWS))
+            queryset = queryset[:limit]
 
             serializer = EnrichedSensorSerializer(queryset, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
