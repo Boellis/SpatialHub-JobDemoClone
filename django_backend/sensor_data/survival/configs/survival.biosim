@@ -30,7 +30,12 @@
 		<water>
 			<PotableWaterStore capacity="10000" moduleName="Potable_Water_Store" level="10000"/>
 			<GreyWaterStore capacity="10000" moduleName="Grey_Water_Store" level="10000"/>
-			<DirtyWaterStore capacity="10000" moduleName="Dirty_Water_Store" level="0"/>
+			<!-- Raw-water reserve: holds crew wastewater PLUS water extracted from Mars
+			     regolith/atmosphere by ISRU. WaterRS purifies it into potable, closing
+			     the water loop. Sized as an ISRU stockpile (~15k sols of feedstock) so
+			     potable is sustainable across the full 500-sol mission even when grey-
+			     water recycling is malfunctioned. -->
+			<DirtyWaterStore capacity="50000" moduleName="Dirty_Water_Store" level="50000"/>
 			<WaterRS moduleName="Water_RS">
 				<powerConsumer inputs="General_Power_Store" desiredFlowRates="500" maxFlowRates="1000"/>
 				<dirtyWaterConsumer inputs="Dirty_Water_Store" desiredFlowRates="100" maxFlowRates="100"/>

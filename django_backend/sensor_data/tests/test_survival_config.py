@@ -14,6 +14,14 @@ def test_includes_water_recovery_system():
     assert 'inputs="Dirty_Water_Store"' in xml
 
 
+def test_isru_raw_water_reserve():
+    # ISRU stockpiles raw water in the Dirty_Water_Store so WaterRS can sustain
+    # potable across the full 500-sol mission. A small (10k) reserve drains and the
+    # potable loop collapses; the large reserve is what makes the clean run possible.
+    xml = build_survival_config(15)
+    assert '<DirtyWaterStore capacity="50000" moduleName="Dirty_Water_Store" level="50000"/>' in xml
+
+
 def test_injects_crew_count():
     assert build_survival_config(15).count("<crewPerson") == 15
 

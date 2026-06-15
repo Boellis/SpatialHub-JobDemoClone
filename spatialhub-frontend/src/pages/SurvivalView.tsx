@@ -54,7 +54,10 @@ const RESOURCES: {
   { name: 'Food_Store', label: 'Food', primary: true, highIsBad: false, resource: 'Food' },
   { name: 'Biomass_Store', label: 'Biomass', primary: false, highIsBad: false, resource: 'Biomass' },
   { name: 'Grey_Water_Store', label: 'Grey Water', primary: false, highIsBad: false, resource: 'GreyWater', ventSafe: true },
-  { name: 'Dirty_Water_Store', label: 'Dirty Water', primary: false, highIsBad: true, resource: 'DirtyWater' },
+  // Raw-water reserve (crew wastewater + ISRU-extracted water) that WaterRS purifies
+  // into potable. It is FEEDSTOCK, so low — not high — is the danger direction; a
+  // near-full reserve is healthy (lots to purify), unlike a true waste accumulator.
+  { name: 'Dirty_Water_Store', label: 'Raw Water', primary: false, highIsBad: false, resource: 'DirtyWater' },
   { name: 'H2_Store', label: 'Hydrogen', primary: false, highIsBad: false, resource: 'H2', ventSafe: true },
   { name: 'Dry_Waste_Store', label: 'Dry Waste', primary: false, highIsBad: true, resource: 'DryWaste' },
 ];
