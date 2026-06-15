@@ -482,3 +482,17 @@ def test_status_payload_includes_guardrail_violations(monkeypatch, tmp_path):
     stores = {v["store"] for v in payload["guardrail_violations"]}
     assert "Potable_Water_Store" in stores
     assert "O2_Store" not in stores
+
+
+def test_record_reserve_updates_min_and_below_floor(monkeypatch, tmp_path):
+    import server, doctrine
+    monkeypatch.setattr(doctrine, "_DOCTRINE_FILE", tmp_path / "doctrine.json")
+    monkeypatch.setattr(doctrine, "_MIRROR_FILE", tmp_path / "doctrine.md")
+    doctrine.save(doctrine.bootstrap())
+    server.RUN.reset("off")
+    # sol 1: potable healthy (>= 30 floor)
+    server._record_reserve([{"name": "Potable_Water_Store", "pct": 60.0}])
+    # sol 2: potable below 30 floor
+    server._record_reserve([{"name": "Potable_Water_Store", "pct": 12.0}])
+    assert server.RUN.reserve_min["Potable_Water_Store"] == 12.0
+    assert server.RUN.sols_below_floor["Potable_Water_Store"] == 1

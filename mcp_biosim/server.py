@@ -138,6 +138,9 @@ class Run:
         self.last_actions = []
         self.farm_layout = None  # latest Claude-generated crop layout (dict)
         self.food_plan = None    # latest Claude-generated crew food plan (dict)
+        self.reserve_min = {}        # store name -> lowest pct seen this run
+        self.sols_below_floor = {}   # store name -> count of sols below its floor
+        self.malfunctions = 0        # malfunctions injected this run
         _load_state_into(self)   # survive a full MCP restart (Claude Code restart)
 
     def reset(self, difficulty):
@@ -151,6 +154,9 @@ class Run:
         self.last_actions = []
         self.farm_layout = None
         self.food_plan = None
+        self.reserve_min = {}
+        self.sols_below_floor = {}
+        self.malfunctions = 0
 
 
 # ---------------------------------------------------------------------------
@@ -231,6 +237,19 @@ def _record_trend(stores):
             del h[0]
         deltas[s["name"]] = round(s["pct"] - prev, 2)
     return deltas
+
+
+def _record_reserve(stores):
+    """Update per-run reserve stats from a sol's stores ([{name, pct}, ...])."""
+    bands = doctrine.load()["guardrails"]["reserve_bands"]
+    for s in stores:
+        name, pct = s["name"], s["pct"]
+        prev = RUN.reserve_min.get(name)
+        if prev is None or pct < prev:
+            RUN.reserve_min[name] = pct
+        band = bands.get(name)
+        if band is not None and pct < band["floor_pct"]:
+            RUN.sols_below_floor[name] = RUN.sols_below_floor.get(name, 0) + 1
 
 
 def _compact_stores(stores, deltas):
@@ -504,6 +523,7 @@ def advance(sols: int = 1, detail: str = "normal", note: str = "") -> dict:
                 and RUN.sols > 0 and RUN.sols % 10 == 0):
             try:
                 RUN.client.add_malfunction(RUN.sim_id, DIFFICULTY_MALF_MODULE)
+                RUN.malfunctions += 1
             except Exception:
                 pass
         RUN.client.tick(RUN.sim_id, TICKS_PER_SOL)
@@ -512,7 +532,9 @@ def advance(sols: int = 1, detail: str = "normal", note: str = "") -> dict:
         # Reuse this single state read for both the ended-check and the relay
         # publish — do NOT add extra BioSim calls.
         raw = RUN.client.get_state(RUN.sim_id)
-        if summarize_state(raw)["ended"]:
+        snap = summarize_state(raw)
+        _record_reserve(snap["stores"])
+        if snap["ended"]:
             RUN.alive = False
             RUN.ended_reason = "crew_death"
             _publish("sol", _sol_event(raw, note if advanced == 1 else ""))
