@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "updated_at": null,
+  "guardrails": {
+    "reserve_bands": {
+      "Potable_Water_Store": {
+        "floor_pct": 30,
+        "target_pct": 40
+      },
+      "O2_Store": {
+        "floor_pct": 20,
+        "target_pct": 40
+      },
+      "Food_Store": {
+        "floor_pct": 15,
+        "target_pct": 30
+      },
+      "General_Power_Store": {
+        "floor_pct": 20,
+        "target_pct": 40
+      }
+    },
+    "rules": [
+      "Survival is necessary but not sufficient \u2014 hold every life-critical store inside its reserve band.",
+      "If all store deltas == 0 AND all recoverable balances == 0 across >2 sols, the engine has stalled \u2014 report it, do not treat it as equilibrium."
+    ]
+  },
+  "lessons": []
+}
