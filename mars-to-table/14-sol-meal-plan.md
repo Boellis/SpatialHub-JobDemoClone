@@ -11,7 +11,7 @@ Crew: 15 (incl. 1 food-systems engineer + 1 nutrition/meal-prep specialist) · M
 |---|---|---|
 | Caloric intake | **3,035 kcal/crew/day** avg (STD-3001) | Each sol totals 3,030–3,045 kcal/person |
 | EVA load | **+200 kcal / EVA-hour** above nominal | EVA-day supplements scale (see §6) |
-| Earth-provisioned share | **≤ 50% of total calories** | This plan: **~37% Earth / ~63% in-situ** (§7) |
+| Earth-provisioned share | **≤ 50% of total calories** | This plan: **~34% Earth / ~66% in-situ** (§7) |
 | Food sources | Multiple required (plants, fungi, animals, other) | 6 source classes (§3) |
 | Supplemental items | ≤ 2 per sol | Exactly 2/sol (1 snack + 1 beverage/treat) |
 | Crew time | ≤ 9 h/sol, no overtime, 2 specialists | Batch-cook + automation model (§8) |
@@ -32,7 +32,7 @@ Crew: 15 (incl. 1 food-systems engineer + 1 nutrition/meal-prep specialist) · M
 
 ## 3. Food source palette
 
-### 3a. In-situ (Mars-produced) — provides ~63% of calories
+### 3a. In-situ (Mars-produced) — provides ~66% of calories
 | Source | Class | Production system | Primary outputs |
 |---|---|---|---|
 | Dwarf wheat | Plant (grain) | Soil-less vertical racks | Flour → bread, pasta, flatbread, porridge |
@@ -52,7 +52,7 @@ Crew: 15 (incl. 1 food-systems engineer + 1 nutrition/meal-prep specialist) · M
 | Spirulina | **Algae** | Photobioreactor | Protein boost, seasoning, smoothie |
 | Yeast / single-cell protein | **Microbe** | Fermenter (on sugar/CO₂) | Leavening, B-vitamins, savory paste |
 
-### 3b. Earth-provisioned (enhancements, not necessities) — ~37% of calories
+### 3b. Earth-provisioned (enhancements, not necessities) — ~34% of calories
 Bulk: cooking oil reserve, milk powder, hard cheese, sugar, honey, oats, almonds/walnuts, dried fruit. Prepackaged: coffee, tea, cocoa/chocolate, freeze-dried specialty meat (beef/chicken — *morale only*, ~2 sols), condiments not yet produced in-situ, vitamin/mineral supplement packs (notably **B12 & vitamin D** — critical given limited animal products), EVA electrolyte/protein powder.
 
 > **Note on sim model:** The BioSim Python model (Deliverable 6) currently models the 5-crop calorie-staple subset (wheat, white/sweet potato, soybean, greens). The aquaponic/fungal/algal lines above are the full-system design; staged crop introduction is documented in the ConOps (Deliverable 3).
@@ -237,7 +237,8 @@ Margin to the 50%-Earth cap: **~16 percentage points** — Earth items remain en
 
 - Caloric/macro figures are design estimates per STD-3001 DRI ranges; **all nutrition values require human verification against the official submission template** before submission (Human-in-the-Loop mandate).
 - In-situ yields assume the staged crop/aquaponic/fungal build-out detailed in the ConOps; the BioSim model (Del. 6) currently validates the calorie-staple subset.
-- **AI disclosure (for Solution Summary):** "Generative AI assisted in drafting and structuring the 14-sol meal plan and sourcing tables; all nutritional figures, sourcing logic, and system-design choices were reviewed and are owned by the team."
+- **AI disclosure (for Solution Summary):** "Generative AI — Anthropic Claude (Opus) via the Claude Code CLI, including a custom BioSim Model Context Protocol (MCP) integration — was used as a force multiplier across all six deliverables: drafting and structuring the written documents, generating and analyzing the BioSim simulation code, and producing data analysis and visualizations. The food-system concept, architecture, and strategic decisions originate with the team; per the Human-in-the-Loop mandate, all AI-generated outputs (nutritional figures, sourcing logic, engineering values) are reviewed and verified by the team against authoritative sources before submission, and the team bears sole responsibility for the final content."
+  <!-- Nick: confirm this is truthful and own it. The canonical disclosure belongs in the Solution Summary (Deliverable 1). Also resolve the AI-originality question: keep design-provenance notes showing the food-system concept originated with the team, since judges may probe it. -->
 
 ---
 

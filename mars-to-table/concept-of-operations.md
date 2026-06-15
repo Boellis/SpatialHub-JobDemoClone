@@ -20,8 +20,8 @@ Format: slide-deck specification + technical Appendix · Crew: 15 · Mission: 50
 ## Slide 2 — System Overview & ECLSS Coupling
 **On-slide:** Block diagram — food system as a node inside the habitat, sharing mass/energy with ECLSS.
 - **Inputs:** light/power (nuclear), CO₂ (crew + processing), recycled water, nutrient salts, seed/culture stock, limited Earth provisions.
-- **Outputs:** edible biomass → meals; O₂ (crop photosynthesis) → cabin; potable condensate → ECLSS; compost/biogas → nutrients/energy.
-- **Coupling claim:** the food system *augments* ECLSS — crops scrub CO₂ and produce O₂; aquaponics + condensate close water; waste loops close nutrients.
+- **Outputs:** edible biomass → meals; crop/process water → recovery loop (WaterRS) → potable; compost/biogas → nutrients/energy. *(Crops also exchange CO₂/O₂ with the cabin; in the BioSim model this air contribution is minor vs the mechanical OGS/VCCR and scales with canopy area — see Appendix A1/A2.)*
+- **Coupling claim:** the food system *augments* ECLSS primarily through its **water** (recovery + reuse) and **nutrient/waste** loops; crop CO₂/O₂ exchange adds a secondary air contribution that grows with canopy scale, while mechanical OGS/VCCR remain the primary air revitalization in the modeled subset.
 - *Ties to: Form/Fit/Function; Circular Resource Systems; STD-3001 §7.*
 
 ## Slide 3 — Operational Zones (habitat integration)
@@ -49,7 +49,7 @@ Format: slide-deck specification + technical Appendix · Crew: 15 · Mission: 50
 **On-slide:** Steady-state daily/weekly cadence.
 - **Daily:** automated light/climate cycles; harvest-to-order greens/fish; assembly cooking per 14-sol plan; data review.
 - **Weekly batch:** mill grain, press tofu/oil, ferment (tempeh/miso/kimchi), cook-chill staples → keeps daily crew time ≤9 h.
-- **Subsystem interactions:** crop O₂↔cabin, transpiration→condensate→potable, crop residue→fungi substrate & compost→nutrients, fish effluent→fertigation.
+- **Subsystem interactions:** crop CO₂/O₂ exchange with cabin (secondary), crop/process water→recovery (WaterRS)→potable, crop residue→fungi substrate & compost→nutrients, fish effluent→fertigation.
 - **Crew responsibilities:** specialist ~6–7 h/sol (harvest/prep/cook/clean); FSE ~2–3 h/sol (system health, preventive maintenance).
 - *Ties to: ConOps; Processing & Preparation; Crew Responsibilities.*
 
@@ -96,7 +96,7 @@ Format: slide-deck specification + technical Appendix · Crew: 15 · Mission: 50
 **On-slide:** Closed-loop flow diagram.
 - **Water:** transpiration→condensate→potable; greywater→treatment→irrigation; aquaponic loop reuse.
 - **Nutrients:** fish effluent + compost + digestate → nutrient solution; crop residue → fungi substrate → spent block → compost.
-- **Air:** crop O₂→cabin; cabin/processing CO₂→crops & photobioreactor.
+- **Air:** crops & photobioreactor exchange CO₂/O₂ with the cabin — a *secondary* contribution (magnitude scales with canopy area); primary air revitalization is mechanical OGS/VCCR in the modeled subset.
 - **Waste:** near-zero edible waste; inedible biomass → compost/biogas; packaging → habitat recycle stream.
 - *Ties to: Circular Resource Systems (Design 20%); STD-3001 waste-stream requirement.*
 
@@ -151,14 +151,14 @@ Format: slide-deck specification + technical Appendix · Crew: 15 · Mission: 50
 | Crop growing area | ~300 m² (multi-tier; ~120 m² floor) | + ~65 m² bioreactors/processing |
 | Food-system water throughput | ~1,500–2,000 L/sol circulating | **>90% recycled**; net make-up small |
 | Food-system power draw | ~700–900 kWh/sol | **LED lighting dominant**; nuclear primary |
-| O₂ produced (crops) | net positive contribution to cabin | augments ECLSS OGS |
-| CO₂ consumed (crops + PBR) | offsets crew + processing output | augments ECLSS VCCR |
+| O₂ produced (crops) | secondary contribution; OGS remains primary | scales with canopy area; minor at the modeled 1–25 m² scale |
+| CO₂ consumed (crops + PBR) | secondary contribution; VCCR remains primary | scales with canopy area; minor at the modeled 1–25 m² scale |
 | Inedible biomass → compost/biogas | ~5–8 kg/sol | near-zero edible waste |
 
 *All values are representative engineering estimates to be verified against the official submission template and the BioSim benchmark outputs.*
 
 ## A2 — BioSim-modeled subset (Deliverable 6 linkage)
-The Python model validates the calorie-staple subset (wheat, white/sweet potato, soybean, greens) against BioSim modules (BiomassPS, OGS, VCCR, stores, nuclear power). The control loop demonstrated a **self-sustaining closed-loop equilibrium** (all resource balances → ~0 net) over an extended run under the malfunctions profile — evidence for the resilience and monitoring/control claims. Aquaponic/fungal/algal lines are full-system design, staged per the startup protocol (Slide 4).
+The Python model validates the calorie-staple subset (wheat, white/sweet potato, soybean, greens) against BioSim modules (BiomassPS, OGS, VCCR, stores, nuclear power). The control loop demonstrated a **self-sustaining closed-loop equilibrium** (all resource balances → ~0 net) over an extended run under the malfunctions profile — evidence for the resilience and monitoring/control claims. The model's quantitative strengths are the **closed water loop** (WaterRS + ISRU reserve) and stable 500-sol life support; **air revitalization in the model is mechanical (OGS/VCCR)**. We tested enabling crop CO₂/O₂ exchange (BiomassPS air ports) at 1–25 m² and confirmed the contribution is real but negligible in BioSim's units (~0.1 mol O₂/tick at 25 m² vs OGS ~986) — so crop-driven air revitalization is presented as a design effect that scales with canopy area, not a quantitative model result. Aquaponic/fungal/algal lines are full-system design, staged per the startup protocol (Slide 4).
 
 ## A3 — Technology maturity (TRL) & gaps
 | Technology | Maturity | Gap to close |
