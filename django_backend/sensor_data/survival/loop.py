@@ -62,9 +62,12 @@ def run_survival(client, brain, config_xml, max_sols=200, token_budget=None,
                           "reasoning": decision["reasoning"], "actions": decision["actions"],
                           "warnings": snap["warnings"]})
         if not alive:
+            # Crew died during the tick that took them from sol N to N+1; they
+            # did not actually complete sol N+1, so report N as survived.
             reason = "crew_death"
+            sol -= 1
             break
         if token_budget is not None and getattr(brain, "tokens_used", 0) >= token_budget:
             reason = "token_budget"
             break
-    yield _ev("end", {"sols_survived": sol, "ended_reason": reason})
+    yield _ev("end", {"sols_survived": max(sol, 0), "ended_reason": reason})

@@ -61,6 +61,10 @@ def _sol_data(raw, reasoning=""):
 
 def start(biosim_url, crew_size=15, difficulty="off"):
     with _LOCK:
+        from sensor_data.models import SurvivalRun
+
+        if SurvivalRun.objects.filter(ended_at__isnull=True).exists():
+            return {"ok": False, "error": "a run is already in progress"}
         RUN.client = BiosimControl(biosim_url)
         RUN.crew_size = max(1, min(int(crew_size), 50))
         RUN.difficulty = difficulty if difficulty in ("off", "malfunctions") else "off"
@@ -128,5 +132,7 @@ def inject(module=_MALF_MODULE, intensity="SEVERE_MALF", length="TEMPORARY_MALF"
 
 def stop():
     with _LOCK:
+        if RUN.sim_id is not None:
+            relay.publish("end", {"sols_survived": RUN.sols, "ended_reason": "stopped"})
         RUN.sim_id = None
         return {"ok": True}
