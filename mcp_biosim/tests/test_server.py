@@ -311,18 +311,18 @@ def test_generate_farm_layout_computes_totals_and_feeds_crew():
     _fresh()
     with _Capture() as cap:
         out = server.generate_farm_layout(crops=[
-            {"crop": "Potato", "area_m2": 60, "yield_kcal_per_day": 22000,
+            {"crop": "Potato", "area_m2": 60, "yield_kcal_per_day": 27000,
              "zone": "Grow Bay A", "purpose": "calorie staple"},
             {"crop": "Soybean", "area_m2": 40, "yield_kcal_per_day": 19000},
         ], crew_size=15)
     assert out["total_area_m2"] == 100.0
-    assert out["total_kcal_per_day"] == 41000
-    assert out["crew_kcal_need_per_day"] == 15 * 2700      # 40500
-    assert out["feeds_crew"] is True                        # 41000 >= 40500
+    assert out["total_kcal_per_day"] == 46000
+    assert out["crew_kcal_need_per_day"] == 15 * 3035      # 45525
+    assert out["feeds_crew"] is True                        # 46000 >= 45525
     assert out["crops"][0]["crop"] == "Potato"
     assert out["crops"][1]["zone"] == "Grow Bay"            # default filled
     plan = [d for t, d in cap.events if t == "plan"]
-    assert len(plan) == 1 and plan[0]["farm_layout"]["total_kcal_per_day"] == 41000
+    assert len(plan) == 1 and plan[0]["farm_layout"]["total_kcal_per_day"] == 46000
     assert plan[0]["food_plan"] is None
 
 
@@ -330,7 +330,7 @@ def test_generate_farm_layout_flags_shortfall():
     _fresh()
     out = server.generate_farm_layout(
         crops=[{"crop": "Lettuce", "area_m2": 10, "yield_kcal_per_day": 1000}], crew_size=15)
-    assert out["feeds_crew"] is False                       # 1000 < 40500
+    assert out["feeds_crew"] is False                       # 1000 < 45525
 
 
 def test_generate_food_plan_sums_and_meets_target():
@@ -339,14 +339,14 @@ def test_generate_food_plan_sums_and_meets_target():
         out = server.generate_food_plan(meals=[
             {"meal": "Breakfast", "items": ["Porridge", "Soy milk"], "kcal": 700, "protein_g": 20},
             {"meal": "Lunch", "items": ["Bean stew"], "kcal": 1100, "protein_g": 40},
-            {"meal": "Dinner", "items": ["Potato mash"], "kcal": 1000, "protein_g": 25},
+            {"meal": "Dinner", "items": ["Potato mash"], "kcal": 1250, "protein_g": 25},
         ], crew_size=15)
-    assert out["total_kcal_per_day"] == 2800
+    assert out["total_kcal_per_day"] == 3050
     assert out["total_protein_g"] == 85
-    assert out["meets_target"] is True                      # 2800 >= 2700
+    assert out["meets_target"] is True                      # 3050 >= 3035
     assert out["meals"][0]["items"] == ["Porridge", "Soy milk"]
     plan = [d for t, d in cap.events if t == "plan"]
-    assert plan[0]["food_plan"]["total_kcal_per_day"] == 2800
+    assert plan[0]["food_plan"]["total_kcal_per_day"] == 3050
 
 
 def test_farm_and_food_merge_into_one_plan_slot():

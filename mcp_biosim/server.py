@@ -690,7 +690,7 @@ def generate_farm_layout(crops: list[dict], crew_size: int = 15, note: str = "")
       {"crop": str, "area_m2": float, "yield_kcal_per_day": float,
        "zone": str (e.g. "Grow Bay A"), "purpose": str (e.g. "calorie staple")}
     The tool sums area + kcal/day, computes kcal/person and whether the layout meets
-    the crew's caloric need (crew_size * 2700 kcal/day), and publishes. Returns the
+    the crew's caloric need (crew_size * 3035 kcal/day), and publishes. Returns the
     computed summary so you can iterate. Pair with generate_food_plan.
     """
     clean = []
@@ -806,7 +806,7 @@ def survival_doctrine() -> str:
         "HABITAT PLANNING (optional, for the dashboard): call generate_farm_layout to "
         "design a crop/grow-bay layout sized to feed the crew (each crop's area_m2 and "
         "yield_kcal_per_day), and generate_food_plan to lay out the crew's daily meals. "
-        "Aim for total crop kcal/day >= crew_size * 2700 so the layout actually feeds "
+        "Aim for total crop kcal/day >= crew_size * 3035 so the layout actually feeds "
         "everyone. These render live in the web app and don't affect the sim."
     )
 
