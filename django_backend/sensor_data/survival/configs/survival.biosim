@@ -31,6 +31,12 @@
 			<PotableWaterStore capacity="10000" moduleName="Potable_Water_Store" level="10000"/>
 			<GreyWaterStore capacity="10000" moduleName="Grey_Water_Store" level="10000"/>
 			<DirtyWaterStore capacity="10000" moduleName="Dirty_Water_Store" level="0"/>
+			<WaterRS moduleName="Water_RS">
+				<powerConsumer inputs="General_Power_Store" desiredFlowRates="500" maxFlowRates="1000"/>
+				<dirtyWaterConsumer inputs="Dirty_Water_Store" desiredFlowRates="100" maxFlowRates="100"/>
+				<greyWaterConsumer inputs="Grey_Water_Store" desiredFlowRates="100" maxFlowRates="100"/>
+				<potableWaterProducer outputs="Potable_Water_Store" desiredFlowRates="100" maxFlowRates="100"/>
+			</WaterRS>
 		</water>
 		<power>
 			<PowerStore capacity="100000" moduleName="General_Power_Store" level="100000"/>

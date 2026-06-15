@@ -5,6 +5,15 @@ def test_run_till_crew_death_true():
     assert 'runTillCrewDeath="true"' in build_survival_config(15)
 
 
+def test_includes_water_recovery_system():
+    # Water_RS closes the water loop (reclaims dirty/grey -> potable). Without it,
+    # potable is a one-way drain and no run can hold the potable reserve to 500 sols.
+    xml = build_survival_config(15)
+    assert "<WaterRS" in xml
+    assert 'outputs="Potable_Water_Store"' in xml
+    assert 'inputs="Dirty_Water_Store"' in xml
+
+
 def test_injects_crew_count():
     assert build_survival_config(15).count("<crewPerson") == 15
 

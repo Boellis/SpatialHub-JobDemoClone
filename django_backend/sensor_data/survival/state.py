@@ -35,6 +35,9 @@ CONTROLLABLE = {
     ("BiomassPS", "producers", "Biomass"): 100.0,
     ("Crew_Quarters_Group", "consumers", "Food"): 5.0,
     ("Crew_Quarters_Group", "consumers", "PotableWater"): 3.0,
+    # Water Recovery System: reclaims dirty/grey water back into potable. The only
+    # potable PRODUCER lever — closes the water loop so potable isn't a one-way drain.
+    ("Water_RS", "producers", "PotableWater"): 100.0,
 }
 
 # Store fill % thresholds that escalate to a warning surface.
