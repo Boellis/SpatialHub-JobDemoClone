@@ -50,8 +50,22 @@ water" beats "adjusting flows".
 2. **O2** — keep `OGS` O2 production ≥ crew demand. Act on a falling runway, not
    after the warning.
 3. **CO2** — keep `VCCR` removal ≥ crew output.
-4. **Water** — keep potable water positive.
+4. **Water** — hold potable water inside its reserve band (see Reserve discipline),
+   not merely positive.
 5. **Food/biomass** — sustain `BiomassPS` so food replenishes.
+
+## Reserve discipline (read this every loop)
+**Survival is necessary but NOT sufficient.** The status/advance payload now includes
+a `guardrail_violations` array driven by the server-side doctrine (learned reserve
+bands per life-critical store). Treat every violation as actionable:
+- A store below its reserve floor must be **rebuilt** (tune that loop net-positive
+  toward the target band) before you chase distance — do not coast on a store at 0%.
+- Hold each life-critical store **inside its band** (≥ floor, around target), then
+  balance to net ~0 to hold it there.
+- **Flatline check:** if all store deltas are 0 AND all recoverable balances
+  (PotableWater/GreyWater/DirtyWater/O2/CO2/Biomass) are 0 across >2 sols despite
+  your flow changes, the engine has stalled — report it; do not mistake it for a
+  healthy equilibrium.
 
 Controllable ceilings: `Nuclear_Source` producers/Power ≤3000 · `OGS`
 consumers/Power ≤1000, producers/O2 ≤1000 · `VCCR` consumers/Power ≤1000,
