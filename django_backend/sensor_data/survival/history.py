@@ -76,40 +76,47 @@ def _record_run(data):
 def _record_sol(data):
     from sensor_data.models import SurvivalDecision
 
-    reasoning = (data.get("reasoning") or "").strip()
-    if not reasoning:
-        return  # only reasoned sols are decisions
     run = _current_run()
     if run is None:
         return
     sol = int(data.get("sol", 0) or 0)
+    # Advance the survival counter for EVERY sol, reasoned or not, so it stays
+    # monotonic even when the tail of a run carries no reasoning and no 'end'
+    # event is ever published (e.g. control.stop() or a Cloud Run restart).
+    if sol > run.sols_survived:
+        run.sols_survived = sol
+        run.save(update_fields=["sols_survived"])
+    reasoning = (data.get("reasoning") or "").strip()
+    if not reasoning:
+        return  # advanced the sol counter; not a logged decision
     SurvivalDecision.objects.create(
         run=run,
         sol=sol,
         reasoning=reasoning,
         actions=data.get("actions", []) or [],
     )
-    if sol > run.sols_survived:
-        run.sols_survived = sol
-        run.save(update_fields=["sols_survived"])
 
 
 def _record_plan(data):
     """Persist one generated habitat plan (farm layout + food plan). Skips empties and
-    exact consecutive duplicates so re-published identical plans don't pile up. Tags the
-    open run (if any) for context, but plans are browsed independently of runs."""
+    exact consecutive duplicates *within the same run* so re-published identical plans
+    don't pile up. Dedup is scoped to the open run's ``run_id`` (or the orphan ""
+    bucket), so a new run's first plan is never suppressed by an identical plan from a
+    prior run. Tags the open run (if any) for context, but plans are browsed
+    independently of runs."""
     from sensor_data.models import SurvivalPlan
 
     farm = data.get("farm_layout")
     food = data.get("food_plan")
     if not farm and not food:
         return  # nothing generated yet
-    last = SurvivalPlan.objects.order_by("-id").first()
-    if last is not None and last.farm_layout == farm and last.food_plan == food:
-        return  # identical to the most recent — don't duplicate
     run = _current_run()
+    scope = run.run_id if run is not None else ""
+    last = SurvivalPlan.objects.filter(run_id=scope).order_by("-id").first()
+    if last is not None and last.farm_layout == farm and last.food_plan == food:
+        return  # identical to the most recent in this run — don't duplicate
     SurvivalPlan.objects.create(
-        run_id=run.run_id if run is not None else "",
+        run_id=scope,
         sol=int(data.get("sol", 0) or 0),
         farm_layout=farm,
         food_plan=food,
