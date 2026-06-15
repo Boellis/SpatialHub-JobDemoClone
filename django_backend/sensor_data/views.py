@@ -339,6 +339,13 @@ def survival_live(request):
             sent["run"] = stamp
             yield _sse_frame({"type": "run", "data": data})
 
+        # paused/running status — broadcast on every transition and replayed on
+        # connect so a late-joining screen knows immediately if the run is paused.
+        data, stamp = slots["status"]
+        if data is not None and stamp > sent["status"]:
+            sent["status"] = stamp
+            yield _sse_frame({"type": "status", "data": data})
+
         # every new reasoning frame, oldest -> newest
         last_log_ver = log_ver[0]
         for ver, sol_data in log:
@@ -363,7 +370,7 @@ def survival_live(request):
             yield _sse_frame({"type": "end", "data": data})
 
     def stream():
-        sent = {t: 0 for t in relay.EVENT_TYPES}
+        sent = {t: 0 for t in relay.SLOT_TYPES}
         log_ver = [0]  # highest reasoning-frame version already emitted
         slots, log, version = relay.snapshot()
         yield from emit(slots, log, sent, log_ver)
@@ -432,6 +439,10 @@ def survival_control(request):
             )
         elif action == "stop":
             out = survival_control_mod.stop()
+        elif action == "pause":
+            out = survival_control_mod.pause()
+        elif action == "resume":
+            out = survival_control_mod.resume()
         elif action == "new_session":
             # Reverse-channel signal, NOT a server-side run command: queue a
             # "respawn the pilot" request the external supervisor polls via
@@ -469,7 +480,9 @@ def survival_command(request):
     if not hmac.compare_digest(provided, token):
         return JsonResponse({"error": "unauthorized"}, status=401)
 
-    return JsonResponse({"command": relay.take_command()})
+    # `paused` is the steady-state pause flag (not consume-once) so the pilot can
+    # idle for as long as the run is paused, then resume when it clears.
+    return JsonResponse({"command": relay.take_command(), "paused": relay.is_paused()})
 
 
 def _run_summary(run):

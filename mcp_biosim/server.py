@@ -621,18 +621,22 @@ def update_doctrine(guardrails: dict | None = None, lessons: list | None = None)
 
 @mcp.tool()
 def poll_command() -> dict:
-    """Supervisor: check for a pending web-app control command (consume-once).
+    """Supervisor: check for a pending web-app control command + the paused flag.
 
-    Returns ``{"command": "new_session"|None}``. The web app's token-gated
-    'New Pilot Session' button queues ``new_session`` on the relay; the supervisor
-    calls this each loop tick and, when it sees it, RESPAWNS a fresh pilot subagent
-    (which calls ``resume_run`` to re-attach to the live sim) — compacting context
-    without losing the run or the relay key. This is a SUPERVISOR call, not pilot
-    telemetry, so it does not count toward the pilot-context gauge. No-op (returns
-    ``None``) when the relay isn't configured.
+    Returns ``{"command": "new_session"|None, "paused": bool}``. The web app's
+    token-gated 'New Pilot Session' button queues ``new_session`` on the relay; the
+    supervisor calls this each loop tick and, when it sees it, RESPAWNS a fresh pilot
+    subagent (which calls ``resume_run`` to re-attach to the live sim) — compacting
+    context without losing the run or the relay key.
+
+    ``paused`` is the web Pause/Resume state (steady-state, NOT consume-once): while
+    it is true the pilot must STOP calling ``advance`` (the test is paused and every
+    screen shows it paused) and keep polling; resume when it clears. This is a
+    SUPERVISOR call, not pilot telemetry, so it does not count toward the
+    pilot-context gauge. No-op when the relay isn't configured.
     """
     if not _relay_enabled():
-        return {"command": None, "note": "relay not configured"}
+        return {"command": None, "paused": False, "note": "relay not configured"}
     try:
         r = requests.get(
             f"{SURVIVAL_RELAY_URL}/api/survival/command",
@@ -640,14 +644,15 @@ def poll_command() -> dict:
             timeout=3,
         )
         if r.status_code == 200:
-            return {"command": r.json().get("command")}
+            body = r.json()
+            return {"command": body.get("command"), "paused": bool(body.get("paused", False))}
         if r.status_code == 401:
-            return {"command": None,
+            return {"command": None, "paused": False,
                     "error": "relay rejected token (401) — the MCP's SURVIVAL_RELAY_TOKEN "
                              "is stale; restart Claude Code after rotating the key."}
-        return {"command": None, "error": f"HTTP {r.status_code}"}
+        return {"command": None, "paused": False, "error": f"HTTP {r.status_code}"}
     except Exception as e:  # network guard — never raise into the supervisor loop
-        return {"command": None, "error": str(e)}
+        return {"command": None, "paused": False, "error": str(e)}
 
 
 @mcp.tool()

@@ -22,6 +22,10 @@ Two kinds of state are kept:
 import threading
 
 EVENT_TYPES = ("run", "sol", "end", "plan")
+# Slots replayed to a late-joining browser. `status` (paused/running) is broadcast
+# like the telemetry slots but is NOT in EVENT_TYPES — the pilot can't inject it via
+# /ingest; only the web pause/resume controls set it (see set_paused).
+SLOT_TYPES = EVENT_TYPES + ("status",)
 # Replay buffer for late-joining browsers. The durable, unbounded history lives in
 # Postgres (see history.py); this just keeps the current run replayable from memory.
 _LOG_CAP = 500
@@ -33,6 +37,7 @@ _STATE = {
     "sol": (None, 0),   # latest 'sol' event data + version
     "end": (None, 0),   # 'end' event data once the run ends + version
     "plan": (None, 0),  # latest 'plan' (farm layout + food plan) + version
+    "status": ({"paused": False}, 0),  # run paused/running — broadcast to all screens
     "log": [],          # [(version, sol_data), ...] for sol events with reasoning
 }
 
@@ -62,6 +67,10 @@ def publish(event_type, data):
             _STATE["sol"] = (None, v)
             _STATE["end"] = (None, v)
             _STATE["plan"] = (None, v)  # fresh run -> drop any stale habitat plan
+            # A fresh run is running. Clear any stale paused flag, but keep the slot's
+            # stamp so we don't emit a redundant "running" frame on every connect —
+            # the `run` event itself tells the client the run is live.
+            _STATE["status"] = ({"paused": False}, _STATE["status"][1])
             _STATE["log"] = []
         elif event_type == "sol":
             _STATE["sol"] = (data, v)
@@ -74,6 +83,9 @@ def publish(event_type, data):
             _STATE["plan"] = (data, v)
         else:  # end
             _STATE["end"] = (data, v)
+            # An ended/stopped run is not "paused". Clear the flag without bumping the
+            # stamp (the `end` event already moves the client out of the paused view).
+            _STATE["status"] = ({"paused": False}, _STATE["status"][1])
         _COND.notify_all()
     # Durable archive — best-effort, outside the lock so DB I/O never blocks readers.
     _persist(event_type, data)
@@ -92,7 +104,7 @@ def _persist(event_type, data):
 
 def _read():
     return (
-        {k: _STATE[k] for k in EVENT_TYPES},
+        {k: _STATE[k] for k in SLOT_TYPES},
         list(_STATE["log"]),
         _STATE["version"],
     )
@@ -114,6 +126,24 @@ def wait(last_version, timeout):
         if _STATE["version"] <= last_version:
             _COND.wait(timeout)
         return _read()
+
+
+def set_paused(paused):
+    """Set the run's paused flag and wake subscribers so every screen reflects it
+    immediately. Broadcast as a version-stamped ``status`` slot (replayed to late
+    joiners), independent of the discrete telemetry events. Returns the new version."""
+    with _COND:
+        _STATE["version"] += 1
+        _STATE["status"] = ({"paused": bool(paused)}, _STATE["version"])
+        _COND.notify_all()
+        return _STATE["version"]
+
+
+def is_paused():
+    """Whether the current run is paused — the single source of truth read by the
+    web controls, the server-side advance loop, and the MCP pilot's command poll."""
+    with _COND:
+        return bool(_STATE["status"][0].get("paused", False))
 
 
 def set_command(command):
@@ -140,6 +170,7 @@ def reset():
         _STATE["version"] = 0
         for k in EVENT_TYPES:
             _STATE[k] = (None, 0)
+        _STATE["status"] = ({"paused": False}, 0)
         _STATE["log"] = []
         _COMMAND["pending"] = None
         _COND.notify_all()

@@ -84,6 +84,53 @@ class RelayStoreTests(TestCase):
         self.assertEqual(v, version)
 
 
+class PauseStateTests(TestCase):
+    """The paused/running status broadcast — the single source of truth both the
+    survival and habitat screens read to reflect a paused or stopped test."""
+
+    def setUp(self):
+        relay.reset()
+
+    def test_default_is_running(self):
+        self.assertFalse(relay.is_paused())
+        self.assertFalse(relay.snapshot()[0]["status"][0]["paused"])
+
+    def test_set_paused_broadcasts_status_and_bumps_version(self):
+        _, _, v0 = relay.snapshot()
+        v = relay.set_paused(True)
+        self.assertGreater(v, v0)
+        self.assertTrue(relay.is_paused())
+        slots, _, version = relay.snapshot()
+        self.assertEqual(version, v)
+        self.assertTrue(slots["status"][0]["paused"])
+
+    def test_resume_clears_paused(self):
+        relay.set_paused(True)
+        relay.set_paused(False)
+        self.assertFalse(relay.is_paused())
+
+    def test_new_run_resets_paused(self):
+        relay.set_paused(True)
+        relay.publish("run", {"run_id": "r1", "difficulty": "off"})
+        self.assertFalse(relay.is_paused())  # a fresh run starts running, never paused
+
+    def test_end_clears_paused(self):
+        relay.set_paused(True)
+        relay.publish("end", {"sols_survived": 3, "ended_reason": "stopped"})
+        self.assertFalse(relay.is_paused())  # an ended/stopped run is not "paused"
+
+    def test_reset_clears_paused(self):
+        relay.set_paused(True)
+        relay.reset()
+        self.assertFalse(relay.is_paused())
+
+    def test_status_is_not_an_ingestable_event_type(self):
+        # The pilot can post run/sol/end/plan via /ingest, but NOT status — pause is
+        # a control-plane action, not telemetry.
+        self.assertNotIn("status", relay.EVENT_TYPES)
+        self.assertIn("status", relay.SLOT_TYPES)
+
+
 @override_settings(SURVIVAL_RELAY_TOKEN=TOKEN)
 class IngestEndpointTests(TestCase):
     def setUp(self):
@@ -183,6 +230,18 @@ class ControlEndpointTests(TestCase):
         self.assertEqual(resp.json()["command"], "new_session")
         self.assertEqual(relay.take_command(), "new_session")
 
+    def test_pause_and_resume_set_relay_flag(self):
+        # pause/resume never touch the BioSim client (just the broadcast flag), so
+        # they're valid with no active run — the screens still need to reflect them.
+        r = self._post({"action": "pause"})
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.json()["paused"])
+        self.assertTrue(relay.is_paused())
+        r = self._post({"action": "resume"})
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(r.json()["paused"])
+        self.assertFalse(relay.is_paused())
+
 
 class CommandChannelTests(TestCase):
     """The web→supervisor reverse channel: relay store + consume-once poll endpoint."""
@@ -236,6 +295,14 @@ class CommandEndpointTests(TestCase):
         relay.set_command("new_session")
         self.assertEqual(self._get().json()["command"], "new_session")
         self.assertIsNone(self._get().json()["command"])  # already consumed
+
+    def test_returns_paused_flag_for_the_pilot(self):
+        # The MCP pilot polls this to honor a web pause: `paused` is steady-state
+        # (not consume-once) so it stays true across polls until the run resumes.
+        self.assertFalse(self._get().json()["paused"])
+        relay.set_paused(True)
+        self.assertTrue(self._get().json()["paused"])
+        self.assertTrue(self._get().json()["paused"])  # still paused on the next poll
 
 
 @override_settings(SURVIVAL_RELAY_TOKEN="")
@@ -310,6 +377,18 @@ class LiveStreamTests(TestCase):
         self.assertIn("event: run", first)
         self.assertIn("event: plan", second)
         self.assertIn("41000", second)
+
+    def test_live_replays_paused_status_on_connect(self):
+        # A screen joining mid-pause must immediately learn the run is paused.
+        relay.publish("run", {"run_id": "r1", "difficulty": "off"})
+        relay.set_paused(True)
+        resp = self.client.get(reverse("survival-live"))
+        gen = iter(resp.streaming_content)
+        first = next(gen).decode()    # run
+        second = next(gen).decode()   # status (paused)
+        self.assertIn("event: run", first)
+        self.assertIn("event: status", second)
+        self.assertIn('"paused": true', second)
 
     def test_live_replays_reasoning_history_on_connect(self):
         relay.publish("run", {"run_id": "r1", "difficulty": "off"})

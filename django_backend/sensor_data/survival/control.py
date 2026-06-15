@@ -87,6 +87,10 @@ def advance(sols=1, note=""):
         sols = max(1, min(int(sols), _MAX_ADVANCE))
         advanced = 0
         for _ in range(sols):
+            if relay.is_paused():
+                # Paused mid-request: stop ticking and report how far we got. The
+                # run stays alive; a resume + advance picks up from here.
+                break
             if RUN.difficulty == "malfunctions" and RUN.sols > 0 and RUN.sols % 10 == 0:
                 try:
                     RUN.client.add_malfunction(RUN.sim_id, _MALF_MODULE)
@@ -136,3 +140,16 @@ def stop():
             relay.publish("end", {"sols_survived": RUN.sols, "ended_reason": "stopped"})
         RUN.sim_id = None
         return {"ok": True}
+
+
+def pause():
+    """Pause the run: broadcast paused=true to every screen. Honored server-side by
+    advance() (won't tick while paused) and by the MCP pilot via its command poll."""
+    relay.set_paused(True)
+    return {"ok": True, "paused": True}
+
+
+def resume():
+    """Resume a paused run: broadcast paused=false to every screen."""
+    relay.set_paused(False)
+    return {"ok": True, "paused": False}
