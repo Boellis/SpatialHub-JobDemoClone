@@ -20,6 +20,7 @@ import {
   fetchSurvivalRunLog,
   type SurvivalSolEvent,
   type SurvivalEndEvent,
+  type SurvivalStatusEvent,
   type SurvivalStore,
   type PilotStat,
   type SurvivalRunSummary,
@@ -30,6 +31,7 @@ import { CrewYard } from '../components/survival/CrewYard';
 import { ControlPanel } from '../components/survival/ControlPanel';
 import { PlanPanel } from '../components/survival/PlanPanel';
 import { ResourceCard, healthOf, type Health } from '../components/survival/ResourceCard';
+import { RESOURCES, META } from '../components/survival/resources';
 
 type Difficulty = 'off' | 'malfunctions';
 interface RunEvent { run_id: string; difficulty: Difficulty; crew_size: number; pilot?: PilotStat }
@@ -38,30 +40,9 @@ interface SurvivalResult { sols_survived: number; ended_reason: string }
 type SolAction = { module: string; kind: string; type: string; desired_rates: number[] };
 type StoreView = { name: string; pct: number; delta: number; runway?: number; net?: number };
 
-// Life-support stores in display order. `highIsBad` flips the health bands for
-// accumulator/waste stores (full = danger). `ventSafe` marks flow-through byproduct
-// buffers (CO₂, grey water, H₂) that overflow/vent harmlessly and are normally near
-// a bound — they have no crew-danger direction and always read nominal. `resource`
-// links to the net-flow balance.
-const RESOURCES: {
-  name: string; label: string; primary: boolean; highIsBad: boolean; resource: string;
-  ventSafe?: boolean;
-}[] = [
-  { name: 'O2_Store', label: 'Oxygen', primary: true, highIsBad: false, resource: 'O2' },
-  { name: 'CO2_Store', label: 'CO₂ Store', primary: true, highIsBad: true, resource: 'CO2', ventSafe: true },
-  { name: 'General_Power_Store', label: 'Power', primary: true, highIsBad: false, resource: 'Power' },
-  { name: 'Potable_Water_Store', label: 'Potable Water', primary: true, highIsBad: false, resource: 'PotableWater' },
-  { name: 'Food_Store', label: 'Food', primary: true, highIsBad: false, resource: 'Food' },
-  { name: 'Biomass_Store', label: 'Biomass', primary: false, highIsBad: false, resource: 'Biomass' },
-  { name: 'Grey_Water_Store', label: 'Grey Water', primary: false, highIsBad: false, resource: 'GreyWater', ventSafe: true },
-  // Raw-water reserve (crew wastewater + ISRU-extracted water) that WaterRS purifies
-  // into potable. It is FEEDSTOCK, so low — not high — is the danger direction; a
-  // near-full reserve is healthy (lots to purify), unlike a true waste accumulator.
-  { name: 'Dirty_Water_Store', label: 'Raw Water', primary: false, highIsBad: false, resource: 'DirtyWater' },
-  { name: 'H2_Store', label: 'Hydrogen', primary: false, highIsBad: false, resource: 'H2', ventSafe: true },
-  { name: 'Dry_Waste_Store', label: 'Dry Waste', primary: false, highIsBad: true, resource: 'DryWaste' },
-];
-const META = new Map(RESOURCES.map((r) => [r.name, r]));
+// Life-support store spec (display order, health-band direction, net-flow link)
+// lives in a shared module so the habitat dashboard's live-test mirror shows the
+// exact same telemetry for the same run. See components/survival/resources.ts.
 
 // Exponential backoff schedule for SSE reconnects: 1s → 2s → 4s → 8s → 16s → 32s cap.
 // After repeated failures we keep retrying at the 32s cap but surface a hard error.
@@ -139,6 +120,7 @@ const SurvivalView = () => {
   const [isRecord, setIsRecord] = useState(false);
   const [pilot, setPilot] = useState<PilotStat | null>(null);
   const [plan, setPlan] = useState<SurvivalPlanEvent | null>(null); // Claude habitat plan
+  const [paused, setPaused] = useState(false); // run paused via the web control (broadcast)
 
   // Durable decision-log archive (persisted across restarts/runs).
   const [showHistory, setShowHistory] = useState(false);
@@ -353,6 +335,7 @@ const SurvivalView = () => {
         setLastActions([]);
         setReasoningLog([]);
         setPlan(null);
+        setPaused(false);          // a fresh run starts running, never paused
         setSeeAllOpen(false);
         lastPctRef.current = new Map();
         lastSolRef.current = 0;
@@ -373,11 +356,17 @@ const SurvivalView = () => {
         const d = parseFrame<SurvivalPlanEvent>(ev, 'plan');
         if (d) setPlan(d);
       });
+      es.addEventListener('status', (ev) => {
+        onLiveEvent();
+        const d = parseFrame<SurvivalStatusEvent>(ev, 'status');
+        if (d) setPaused(!!d.paused);
+      });
       es.addEventListener('end', (ev) => {
         onLiveEvent();
         const d = parseFrame<SurvivalEndEvent>(ev, 'end');
         if (!d) return;
         setAlive(false);
+        setPaused(false);          // an ended/stopped run is no longer "paused"
         setResult({ sols_survived: d.sols_survived, ended_reason: d.ended_reason });
         // Log the completed run + persist any new record.
         const runDiff = difficultyRef.current ?? 'malfunctions';
@@ -618,10 +607,24 @@ const SurvivalView = () => {
         )}
       </section>
 
+      {/* Paused banner — mirrors the relay's paused broadcast (also shown on the
+          habitat dashboard) so both screens reflect a paused test identically. */}
+      {paused && !result && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+          borderRadius: 10, border: '1px solid rgba(255,176,0,0.5)',
+          background: 'rgba(255,176,0,0.1)', color: '#ffb000',
+          fontFamily: '"Space Mono", monospace', fontSize: 13, letterSpacing: '0.08em',
+        }}>
+          <span style={{ fontSize: 15 }}>❚❚</span>
+          <span>TEST PAUSED — the pilot is standing by. Resume from Mission Control.</span>
+        </div>
+      )}
+
       {/* ── MISSION CONTROL (token-gated) ────────────────────── */}
       {/* A run is "live" once telemetry exists, the crew is alive, and it hasn't
           ended — gates Start and enables New-Pilot-Session in the panel. */}
-      <ControlPanel running={hasRun && alive && !result} />
+      <ControlPanel running={hasRun && alive && !result} paused={paused} />
 
       {/* ── HABITAT PLAN (Claude-generated farm layout + food plan) ── */}
       <PlanPanel plan={plan} />

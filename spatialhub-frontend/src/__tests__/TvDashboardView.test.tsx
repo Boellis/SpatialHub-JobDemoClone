@@ -1,67 +1,112 @@
 /** @vitest-environment jsdom */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+/**
+ * TvDashboardView (the /habitat dashboard) tests — it MIRRORS the live survival test.
+ *
+ *  - With no run it shows an explicit standby state (NO ACTIVE TEST).
+ *  - It auto-connects an EventSource to the same `/live` relay as the survival screen.
+ *  - A run+sol drives the phase pill to LIVE, the SOL counter, and the crew's
+ *    life-support resource cards (the same cards the survival screen shows).
+ *  - A `status` paused event flips it to PAUSED; an `end` event reflects STOPPED/ended.
+ *
+ * EventSource is mocked so we can drive named events synchronously.
+ */
+
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { render, screen, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
-
-const mockUseSimSource = vi.fn();
-vi.mock('../hooks/useSimSource', () => ({
-  useSimSource: () => mockUseSimSource(),
-}));
-
-const mockUseLiveSensors = vi.fn();
-vi.mock('../hooks/useLiveSensors', () => ({
-  useLiveSensors: () => mockUseLiveSensors(),
-}));
-
-vi.mock('../components/tv/StatusBar', () => ({
-  StatusBar: () => <div data-testid="status-bar" />,
-}));
-
-vi.mock('../components/tv/PriorityGrid', () => ({
-  PriorityGrid: () => <div data-testid="priority-grid" />,
-}));
-
-vi.mock('../store/habitatStore', () => ({
-  useHabitatStore: () => undefined,
-  selectSimSource: (s: unknown) => s,
-}));
-
 import TvDashboardView from '../pages/TvDashboardView';
 
-describe('TvDashboardView', () => {
-  beforeEach(() => {
-    mockUseSimSource.mockClear();
-    mockUseLiveSensors.mockClear();
-  });
+type Listener = (ev: MessageEvent) => void;
 
-  it('renders without crashing', () => {
-    const { container } = render(<TvDashboardView />);
-    expect(container.firstChild).toBeTruthy();
-  });
+class MockEventSource {
+  static instances: MockEventSource[] = [];
+  static readonly CLOSED = 2;
+  url: string;
+  readyState = 0;
+  listeners: Record<string, Listener[]> = {};
+  onerror: (() => void) | null = null;
 
-  it('renders StatusBar', () => {
+  constructor(url: string) {
+    this.url = url;
+    MockEventSource.instances.push(this);
+  }
+  addEventListener(type: string, cb: Listener) {
+    (this.listeners[type] ??= []).push(cb);
+  }
+  removeEventListener(type: string, cb: Listener) {
+    this.listeners[type] = (this.listeners[type] ?? []).filter((l) => l !== cb);
+  }
+  close() { this.readyState = MockEventSource.CLOSED; }
+  emit(type: string, data: unknown) {
+    const ev = { data: JSON.stringify(data) } as MessageEvent;
+    for (const cb of this.listeners[type] ?? []) cb(ev);
+  }
+}
+
+beforeEach(() => {
+  MockEventSource.instances = [];
+  (globalThis as unknown as { EventSource: unknown }).EventSource = MockEventSource;
+});
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
+
+const SOL = {
+  sol: 5, alive: true, modules: {}, reasoning: '', actions: [], warnings: [],
+  stores: [
+    { name: 'O2_Store', pct: 75 },
+    { name: 'Potable_Water_Store', pct: 87, runway_sols: 119 },
+  ],
+  balances: [{ resource: 'O2', net: 2.1 }],
+};
+
+describe('TvDashboardView (habitat mirror)', () => {
+  it('shows an explicit standby state when no test is running', () => {
     render(<TvDashboardView />);
-    expect(screen.getByTestId('status-bar')).toBeInTheDocument();
+    expect(screen.getByText(/NO ACTIVE TEST/i)).toBeInTheDocument();
   });
 
-  it('renders PriorityGrid', () => {
+  it('auto-connects to the same /live relay as the survival screen', () => {
     render(<TvDashboardView />);
-    expect(screen.getByTestId('priority-grid')).toBeInTheDocument();
+    expect(MockEventSource.instances).toHaveLength(1);
+    expect(MockEventSource.instances[0].url).toContain('/live');
   });
 
-  it('does not contain any event handler attributes', () => {
-    const { container } = render(<TvDashboardView />);
-    const html = container.innerHTML.toLowerCase();
-    expect(html).not.toContain('onclick');
-    expect(html).not.toContain('onmousedown');
-    expect(html).not.toContain('onpointerdown');
-    expect(html).not.toContain('ontouchstart');
-    expect(html).not.toContain('onkeydown');
-  });
-
-  it('useSimSource and useLiveSensors are called', () => {
+  it('mirrors the live test: phase LIVE, sol counter, and crew resource cards', () => {
     render(<TvDashboardView />);
-    expect(mockUseSimSource).toHaveBeenCalledOnce();
-    expect(mockUseLiveSensors).toHaveBeenCalledOnce();
+    const es = MockEventSource.instances[0];
+    act(() => {
+      es.emit('run', { run_id: 'r1', difficulty: 'malfunctions', crew_size: 15 });
+      es.emit('sol', SOL);
+    });
+    expect(screen.getByText('LIVE')).toBeInTheDocument();
+    expect(screen.getByText(/SOL 005/)).toBeInTheDocument();
+    expect(screen.getByText('Oxygen')).toBeInTheDocument();      // same card label as the survival screen
+    expect(screen.getByText('Potable Water')).toBeInTheDocument();
+  });
+
+  it('reflects a paused test via the status broadcast', () => {
+    render(<TvDashboardView />);
+    const es = MockEventSource.instances[0];
+    act(() => {
+      es.emit('run', { run_id: 'r1', difficulty: 'off', crew_size: 15 });
+      es.emit('sol', SOL);
+      es.emit('status', { paused: true });
+    });
+    // 'PAUSED' shows in both the phase pill and the watermark.
+    expect(screen.getAllByText(/PAUSED/).length).toBeGreaterThan(0);
+  });
+
+  it('reflects a stopped test', () => {
+    render(<TvDashboardView />);
+    const es = MockEventSource.instances[0];
+    act(() => {
+      es.emit('run', { run_id: 'r1', difficulty: 'off', crew_size: 15 });
+      es.emit('sol', SOL);
+      es.emit('end', { sols_survived: 412, ended_reason: 'stopped' });
+    });
+    expect(screen.getByText('STOPPED')).toBeInTheDocument();
+    expect(screen.getByText(/412 sols/)).toBeInTheDocument();
   });
 });

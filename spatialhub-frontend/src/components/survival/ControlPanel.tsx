@@ -18,7 +18,8 @@ type Difficulty = 'off' | 'malfunctions';
 // `running` reflects the live relay run (any driver). Start is disabled while a run
 // is active so a server-side run can't stomp the live MCP-piloted one (single relay
 // slot), and 'New Pilot Session' only makes sense when there's a run to compact.
-export function ControlPanel({ running = false }: { running?: boolean }) {
+export function ControlPanel({ running = false, paused = false }:
+  { running?: boolean; paused?: boolean }) {
   const [token, setToken] = useState<string>(() => {
     try { return localStorage.getItem(TOKEN_KEY) ?? ''; } catch { return ''; }
   });
@@ -161,6 +162,18 @@ export function ControlPanel({ running = false }: { running?: boolean }) {
             <button type="button" disabled={!!busy}
               onClick={() => send('Inject fault', { action: 'inject', module: 'Grey_Water_Store', intensity: 'SEVERE_MALF' })}
               style={btn(AMBER)}>⚠ Inject Fault</button>
+            {/* Pause/Resume — toggles the relay's broadcast paused flag so BOTH the
+                survival and habitat screens reflect it. Only meaningful with a live run. */}
+            {paused ? (
+              <button type="button" disabled={!!busy}
+                onClick={() => send('Resume', { action: 'resume' })}
+                style={btn(GREEN)}>▶ Resume</button>
+            ) : (
+              <button type="button" disabled={!!busy || !running}
+                title={running ? undefined : 'No live run to pause'}
+                onClick={() => send('Pause', { action: 'pause' })}
+                style={btnState(AMBER, !!busy || !running)}>❚❚ Pause</button>
+            )}
             <button type="button" disabled={!!busy} onClick={() => send('Stop', { action: 'stop' })} style={btn(RED)}>■ Stop</button>
             <button type="button" onClick={lock} style={{ ...miniBtn, marginLeft: 'auto' }}>🔒 Lock</button>
           </div>

@@ -15,6 +15,9 @@ export type SurvivalSolEvent = {
 };
 export type PilotStat = { tool_calls: number; est_tokens: number; budget: number };
 export type SurvivalEndEvent = { sols_survived: number; ended_reason: string };
+// Broadcast on pause/resume (and replayed on connect) so every screen reflects a
+// paused test immediately — independent of the discrete sol telemetry.
+export type SurvivalStatusEvent = { paused: boolean };
 
 // Claude-generated habitat plan (farm layout + crew food plan), pushed via the MCP
 // generate_farm_layout / generate_food_plan tools and merged into one relay slot.
