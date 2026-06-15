@@ -176,6 +176,9 @@ def _save_state():
         _STATE_FILE.write_text(json.dumps({
             "sim_id": RUN.sim_id, "run_id": RUN.run_id,
             "sols": RUN.sols, "difficulty": RUN.difficulty,
+            "reserve_min": RUN.reserve_min,
+            "sols_below_floor": RUN.sols_below_floor,
+            "malfunctions": RUN.malfunctions,
         }))
     except Exception:
         pass
@@ -188,6 +191,9 @@ def _load_state_into(run):
         run.run_id = d.get("run_id")
         run.sols = int(d.get("sols", 0) or 0)
         run.difficulty = d.get("difficulty", "off")
+        run.reserve_min = d.get("reserve_min", {}) or {}
+        run.sols_below_floor = d.get("sols_below_floor", {}) or {}
+        run.malfunctions = int(d.get("malfunctions", 0) or 0)
     except Exception:
         pass
 

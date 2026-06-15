@@ -560,3 +560,27 @@ def test_update_doctrine_rejects_bad_band(monkeypatch, tmp_path):
     assert "error" in out
     # unchanged
     assert doctrine.load()["guardrails"]["reserve_bands"]["O2_Store"]["floor_pct"] == 20
+
+
+def test_run_state_persists_reserve_stats(monkeypatch, tmp_path):
+    import server
+    monkeypatch.setattr(server, "_STATE_FILE", tmp_path / ".run_state.json")
+    server.RUN.reset("malfunctions")
+    server.RUN.sim_id = 7
+    server.RUN.run_id = "persist1"
+    server.RUN.sols = 120
+    server.RUN.reserve_min = {"Potable_Water_Store": 4.5}
+    server.RUN.sols_below_floor = {"Potable_Water_Store": 30}
+    server.RUN.malfunctions = 12
+    server._save_state()
+
+    # Simulate a fresh process: wipe the in-memory stats, then reload from disk.
+    server.RUN.reserve_min = {}
+    server.RUN.sols_below_floor = {}
+    server.RUN.malfunctions = 0
+    server._load_state_into(server.RUN)
+
+    assert server.RUN.reserve_min == {"Potable_Water_Store": 4.5}
+    assert server.RUN.sols_below_floor == {"Potable_Water_Store": 30}
+    assert server.RUN.malfunctions == 12
+    assert server.RUN.sols == 120  # existing field still restored
