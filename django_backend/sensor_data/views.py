@@ -248,6 +248,10 @@ def survival_stream(request):
     response = StreamingHttpResponse(stream(), content_type="text/event-stream")
     response["Cache-Control"] = "no-cache"
     response["X-Accel-Buffering"] = "no"
+    # Opt out of GZipMiddleware: compressing an SSE stream buffers it, so the
+    # browser's EventSource never receives events (curl without gzip is unaffected).
+    # GZipMiddleware skips any response that already declares a Content-Encoding.
+    response["Content-Encoding"] = "identity"
     return response
 
 
@@ -376,6 +380,10 @@ def survival_live(request):
     response = StreamingHttpResponse(stream(), content_type="text/event-stream")
     response["Cache-Control"] = "no-cache"
     response["X-Accel-Buffering"] = "no"
+    # Opt out of GZipMiddleware: compressing an SSE stream buffers it, so the
+    # browser's EventSource never receives events (curl without gzip is unaffected).
+    # GZipMiddleware skips any response that already declares a Content-Encoding.
+    response["Content-Encoding"] = "identity"
     return response
 
 
