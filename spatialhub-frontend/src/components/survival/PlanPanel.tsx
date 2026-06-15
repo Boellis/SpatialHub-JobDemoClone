@@ -28,7 +28,7 @@ const cardStyle: React.CSSProperties = {
   fontFamily: '"Space Mono", monospace',
 };
 
-const k = (n: number) => `${Math.round(n / 1000)}k`;
+const k = (n: number) => Number.isFinite(n) ? `${Math.round(n / 1000)}k` : '—';
 
 function Badge({ ok, okText, badText }: { ok: boolean; okText: string; badText: string }) {
   const c = ok ? GREEN : AMBER;
@@ -90,7 +90,7 @@ function PlanCards({ farm, food }: { farm: FarmLayout | null; food: FoodPlan | n
           <div style={{ marginTop: 10, display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 11, color: 'rgba(190,200,212,0.85)' }}>
             <Stat l="Area" v={`${farm.total_area_m2} m²`} />
             <Stat l="Yield" v={`${k(farm.total_kcal_per_day)} kcal/day`} />
-            <Stat l="Per crew" v={`${k(farm.kcal_per_person_per_day)} / ${k(farm.crew_kcal_need_per_day / farm.crew_size)} kcal`}
+            <Stat l="Per crew" v={`${k(farm.kcal_per_person_per_day)} / ${farm.crew_size > 0 ? k(farm.crew_kcal_need_per_day / farm.crew_size) : '—'} kcal`}
               bad={!farm.feeds_crew} />
           </div>
         </div>

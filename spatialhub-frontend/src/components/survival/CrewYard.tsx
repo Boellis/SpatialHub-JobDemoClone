@@ -160,15 +160,26 @@ export function CrewYard({
     return set;
   }, [hot]);
 
-  // Detect fault->recovery transitions to flash a RESTORED badge.
+  // Detect fault->recovery transitions to flash a RESTORED badge. The badge state
+  // self-expires via a scheduled cleanup so it clears ~3.8s after it was set even
+  // when the walk interval and parent re-renders are quiescent (idle/dead).
   useEffect(() => {
     const cur = hotRef.current;
     const prev = prevHotRef.current;
     const now = Date.now();
     const flash: Record<number, number> = {};
     prev.forEach((i) => { if (!cur.has(i)) flash[i] = now + 3800; });
-    if (Object.keys(flash).length) setRestored((r) => ({ ...r, ...flash }));
     prevHotRef.current = new Set(cur);
+    if (!Object.keys(flash).length) return;
+    setRestored((r) => ({ ...r, ...flash }));
+    const t = window.setTimeout(() => {
+      setRestored((r) => {
+        const n = { ...r };
+        for (const k of Object.keys(flash)) delete n[Number(k)];
+        return n;
+      });
+    }, 3800);
+    return () => window.clearTimeout(t);
   }, [hot]);
 
   useEffect(() => {

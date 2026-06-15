@@ -143,6 +143,7 @@ const SurvivalView = () => {
   const attemptRef = useRef(0);      // consecutive failed connect attempts (for backoff)
   const mountedRef = useRef(true);
   const lastPctRef = useRef<Map<string, number>>(new Map()); // for per-store delta
+  const lastSolRef = useRef(0);       // replay cursor: suppress delta on non-advancing (replayed) sols
   const bestRef = useRef(0);          // record at-large (ref avoids stale closures)
   const recordStartRef = useRef(0);   // best when the current run began
   const logRef = useRef<RunRecord[]>([]);
@@ -173,14 +174,18 @@ const SurvivalView = () => {
   const handleSol = useCallback((d: SurvivalSolEvent) => {
     const raw = d.stores && d.stores.length ? d.stores : deriveStores(d.modules);
     const balMap = new Map((d.balances ?? []).map((b) => [b.resource, b.net]));
+    // On reconnect the relay replays buffered (non-advancing) sols; their deltas
+    // would be computed against a stale pre-drop pct, showing bogus trend arrows.
+    const isReplay = d.sol <= lastSolRef.current;
+    if (d.sol > lastSolRef.current) lastSolRef.current = d.sol;
     const view: StoreView[] = raw.map((s) => {
       const prev = lastPctRef.current.get(s.name);
-      lastPctRef.current.set(s.name, s.pct);
+      if (!isReplay) lastPctRef.current.set(s.name, s.pct);
       const meta = META.get(s.name);
       return {
         name: s.name,
         pct: s.pct,
-        delta: prev === undefined ? 0 : s.pct - prev,
+        delta: isReplay || prev === undefined ? 0 : s.pct - prev,
         runway: s.runway_sols,
         net: meta ? balMap.get(meta.resource) : undefined,
       };
@@ -198,8 +203,10 @@ const SurvivalView = () => {
     if (d.actions) setLastActions(d.actions);
     if (d.reasoning) {
       setReasoningLog((log) => {
-        // Guard against a replay frame duplicating the newest live entry.
-        if (log[0] && log[0].sol === d.sol && log[0].reasoning === d.reasoning) return log;
+        // Guard against replay frames duplicating ANY already-seen entry — the
+        // relay replays a batch of buffered frames on reconnect, so a head-only
+        // check would re-prepend every frame past the first.
+        if (log.some((e) => e.sol === d.sol && e.reasoning === d.reasoning)) return log;
         // Keep the whole current run (scrollable). The durable cross-run archive
         // lives in Postgres and is browsable via the History toggle.
         return [{ sol: d.sol, reasoning: d.reasoning }, ...log].slice(0, 500);
@@ -330,6 +337,7 @@ const SurvivalView = () => {
         setPlan(null);
         setSeeAllOpen(false);
         lastPctRef.current = new Map();
+        lastSolRef.current = 0;
         setDifficulty(d.difficulty);
         if (d.crew_size) setCrewSize(d.crew_size);
         recordStartRef.current = bestRef.current; // snapshot the record to beat
@@ -642,7 +650,7 @@ const SurvivalView = () => {
                 </div>
               ) : (
                 reasoningLog.map((e, i) => (
-                  <div key={e.sol} style={{ marginBottom: 12, opacity: i === 0 ? 1 : 0.7 }}>
+                  <div key={`${e.sol}-${i}`} style={{ marginBottom: 12, opacity: i === 0 ? 1 : 0.7 }}>
                     <span style={{ fontFamily: '"Space Mono", monospace', fontSize: 11, color: GREEN, fontWeight: 700 }}>
                       SOL {String(e.sol).padStart(3, '0')}
                     </span>
@@ -663,8 +671,8 @@ const SurvivalView = () => {
                 ) : archiveLog.length === 0 ? (
                   <div style={{ ...standbyStyle, border: 'none', padding: '8px 0' }}>No reasoned decisions recorded.</div>
                 ) : (
-                  archiveLog.map((d) => (
-                    <div key={d.sol} style={{ marginBottom: 12 }}>
+                  archiveLog.map((d, i) => (
+                    <div key={`${d.sol}-${i}`} style={{ marginBottom: 12 }}>
                       <span style={{ fontFamily: '"Space Mono", monospace', fontSize: 11, color: GREEN, fontWeight: 700 }}>
                         SOL {String(d.sol).padStart(3, '0')}
                       </span>
@@ -787,7 +795,7 @@ const SurvivalView = () => {
                 </div>
               )}
               {windowed.map((e, i) => (
-                <div key={e.sol} style={{
+                <div key={`${e.sol}-${i}`} style={{
                   marginBottom: 14, paddingBottom: 14,
                   borderBottom: i === windowed.length - 1 ? 'none' : '1px solid rgba(255,255,255,0.05)',
                 }}>
