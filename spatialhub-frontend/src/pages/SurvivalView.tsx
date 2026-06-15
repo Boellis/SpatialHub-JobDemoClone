@@ -39,7 +39,10 @@ type SolAction = { module: string; kind: string; type: string; desired_rates: nu
 type StoreView = { name: string; pct: number; delta: number; runway?: number; net?: number };
 
 // Life-support stores in display order. `highIsBad` flips the health bands for
-// scrubber/waste stores (full = danger), and `resource` links to the net-flow balance.
+// accumulator/waste stores (full = danger). `ventSafe` marks flow-through byproduct
+// buffers (CO₂, grey water, H₂) that overflow/vent harmlessly and are normally near
+// a bound — they have no crew-danger direction and always read nominal. `resource`
+// links to the net-flow balance.
 const RESOURCES: {
   name: string; label: string; primary: boolean; highIsBad: boolean; resource: string;
   ventSafe?: boolean;
@@ -50,9 +53,9 @@ const RESOURCES: {
   { name: 'Potable_Water_Store', label: 'Potable Water', primary: true, highIsBad: false, resource: 'PotableWater' },
   { name: 'Food_Store', label: 'Food', primary: true, highIsBad: false, resource: 'Food' },
   { name: 'Biomass_Store', label: 'Biomass', primary: false, highIsBad: false, resource: 'Biomass' },
-  { name: 'Grey_Water_Store', label: 'Grey Water', primary: false, highIsBad: false, resource: 'GreyWater' },
+  { name: 'Grey_Water_Store', label: 'Grey Water', primary: false, highIsBad: false, resource: 'GreyWater', ventSafe: true },
   { name: 'Dirty_Water_Store', label: 'Dirty Water', primary: false, highIsBad: true, resource: 'DirtyWater' },
-  { name: 'H2_Store', label: 'Hydrogen', primary: false, highIsBad: false, resource: 'H2' },
+  { name: 'H2_Store', label: 'Hydrogen', primary: false, highIsBad: false, resource: 'H2', ventSafe: true },
   { name: 'Dry_Waste_Store', label: 'Dry Waste', primary: false, highIsBad: true, resource: 'DryWaste' },
 ];
 const META = new Map(RESOURCES.map((r) => [r.name, r]));
