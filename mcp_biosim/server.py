@@ -556,6 +556,48 @@ def advance(sols: int = 1, detail: str = "normal", note: str = "") -> dict:
 
 
 @mcp.tool()
+def get_run_review() -> dict:
+    """After-action metrics for the just-finished (or in-progress) run, for the
+    survival-reviewer agent to derive lessons + guardrail adjustments.
+
+    Returns sols_survived, alive, ended_reason, malfunctions_seen, final flow
+    set-points, the live guardrails, and per-store {min_pct, sols_below_floor,
+    final_pct}. Read-only — does not advance or mutate the sim.
+    """
+    final_pct = {}
+    final_flows = list(RUN.last_actions)
+    if RUN.sim_id is not None:
+        try:
+            snap = summarize_state(RUN.client.get_state(RUN.sim_id))
+            final_pct = {s["name"]: s["pct"] for s in snap["stores"]}
+            final_flows = snap.get("controllable", final_flows)
+        except Exception:
+            pass
+    names = set(RUN.reserve_min) | set(RUN.sols_below_floor) | set(final_pct)
+    per_store = {
+        name: {
+            "min_pct": RUN.reserve_min.get(name),
+            "sols_below_floor": RUN.sols_below_floor.get(name, 0),
+            "final_pct": final_pct.get(name),
+        }
+        for name in sorted(names)
+    }
+    result = {
+        "run_id": RUN.run_id,
+        "difficulty": RUN.difficulty,
+        "sols_survived": RUN.sols,
+        "alive": RUN.alive,
+        "ended_reason": RUN.ended_reason,
+        "malfunctions_seen": RUN.malfunctions,
+        "per_store": per_store,
+        "final_flows": final_flows,
+        "guardrails": doctrine.load()["guardrails"],
+    }
+    _track_call(result)
+    return result
+
+
+@mcp.tool()
 def poll_command() -> dict:
     """Supervisor: check for a pending web-app control command (consume-once).
 

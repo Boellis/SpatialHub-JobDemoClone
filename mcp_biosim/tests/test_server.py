@@ -496,3 +496,39 @@ def test_record_reserve_updates_min_and_below_floor(monkeypatch, tmp_path):
     server._record_reserve([{"name": "Potable_Water_Store", "pct": 12.0}])
     assert server.RUN.reserve_min["Potable_Water_Store"] == 12.0
     assert server.RUN.sols_below_floor["Potable_Water_Store"] == 1
+
+
+def test_get_run_review_reports_metrics(monkeypatch):
+    import server, doctrine
+    import tempfile, pathlib
+    tmp = pathlib.Path(tempfile.mkdtemp())
+    monkeypatch.setattr(doctrine, "_DOCTRINE_FILE", tmp / "doctrine.json")
+    monkeypatch.setattr(doctrine, "_MIRROR_FILE", tmp / "doctrine.md")
+    doctrine.save(doctrine.bootstrap())
+    server.RUN.reset("malfunctions")
+    server.RUN.run_id = "rev1"
+    server.RUN.sim_id = 1
+    server.RUN.sols = 50
+    server.RUN.alive = False
+    server.RUN.ended_reason = "crew_death"
+    server.RUN.malfunctions = 5
+    server.RUN.reserve_min = {"Potable_Water_Store": 0.0}
+    server.RUN.sols_below_floor = {"Potable_Water_Store": 40}
+
+    class FakeClient:
+        def get_state(self, sim_id):
+            return {"_fake": True}
+
+    monkeypatch.setattr(server.RUN, "client", FakeClient())
+    monkeypatch.setattr(server, "summarize_state", lambda raw: {
+        "ended": True, "warnings": [], "balances": [], "controllable": [],
+        "stores": [{"name": "Potable_Water_Store", "pct": 0.0}],
+    })
+
+    r = server.get_run_review()
+    assert r["sols_survived"] == 50
+    assert r["ended_reason"] == "crew_death"
+    assert r["malfunctions_seen"] == 5
+    ps = r["per_store"]["Potable_Water_Store"]
+    assert ps["min_pct"] == 0.0 and ps["sols_below_floor"] == 40 and ps["final_pct"] == 0.0
+    assert "reserve_bands" in r["guardrails"]
