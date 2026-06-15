@@ -1,6 +1,6 @@
 {
-  "version": 3,
-  "updated_at": "2026-06-15T13:03:35.128726+00:00",
+  "version": 4,
+  "updated_at": "2026-06-15T13:34:05.638050+00:00",
   "guardrails": {
     "reserve_bands": {
       "Potable_Water_Store": {
@@ -23,11 +23,11 @@
     "rules": [
       "Survival is necessary but not sufficient \u2014 hold every life-critical store inside its reserve band.",
       "If all store deltas == 0 AND all recoverable balances == 0 across >2 sols, the engine has stalled \u2014 report it, do not treat it as equilibrium.",
-      "O2_Store boots low (~10%, below floor) every run \u2014 expected boot condition. Hold OGS at max O2 ONLY through the boot dip (~sol 0\u201310); O2 rebuilds past 65% by ~sol 5. Once O2 is banked, THROTTLE OGS DOWN per the potable-defense rule \u2014 never leave OGS pinned at max for the rest of the mission.",
-      "If greywater/dirty-water recycling is lost (e.g. Grey_Water_Store malfunction), zero OGS water draw (OGS electrolyzes potable water) to protect the Potable_Water_Store reserve. Prefer defending potable over O2 production once O2 is above its band.",
-      "OGS electrolyzes POTABLE water to make O2, so over-producing O2 silently drains potable. Never pin O2 at 100%: once O2 is in-band (>~50%), cut OGS O2 production to the minimum that holds O2 near target. Surplus O2 is the most common hidden potable sink on a long mission.",
-      "BiomassPS draws up to 100/tick of POTABLE water \u2014 the single largest controllable potable sink. As soon as Biomass_Store is full (>=90%), throttle BiomassPS consumers/PotableWater toward minimum (keep only what steady food/biomass needs). Do this EARLY (by ~sol 30), not after potable is already low.",
-      "Defend potable by NET FLOW, not just level. Check the Potable_Water_Store net balance every sol; if negative, act at once \u2014 lever order: (1) cut OGS O2 over-production, (2) cut BiomassPS potable draw. A tiny per-tick deficit is invisible per sol but compounds over 500 sols (~-0.5/tick drains a full reserve across the back half)."
+      "O2_Store boots low (~10%, below floor) every run \u2014 expected boot condition. Hold OGS at max O2 ONLY through the boot dip (~sol 0\u201310); O2 rebuilds past 65% by ~sol 5. Once O2 is banked, throttle OGS down \u2014 never leave it pinned at max all mission.",
+      "Potable is defended by the Water_RS recovery loop, NOT by starving other systems. Water_RS (producers/PotableWater, \u2264100) reclaims dirty+grey water back into potable \u2014 drive it to keep the Potable_Water_Store net flow \u2265 0. Dirty-water reclaim is INDEPENDENT of any Grey_Water_Store malfunction, so Water_RS holds potable even when grey recycling is lost.",
+      "OGS electrolyzes potable to make O2, but ONLY while actually producing O2 \u2014 it idles (\u22480 potable draw) once O2_Store is full. Surplus-O2 electrolysis is therefore a minor, self-limiting potable sink; do not panic-cut OGS to defend potable. The real potable lever is Water_RS.",
+      "BiomassPS draws up to 100/tick of potable. Once Biomass_Store is full (>=90%), throttle BiomassPS consumers/PotableWater toward minimum \u2014 it is feeding biomass that is already maxed. Frees potable for the crew.",
+      "Defend potable by NET FLOW, not just level \u2014 check the Potable_Water_Store net balance every sol. If negative, lever order: (1) raise Water_RS potable production, (2) cut BiomassPS potable draw, (3) trim OGS O2 only if it is actually running. A small per-tick deficit is invisible per sol but compounds over 500 sols."
     ]
   },
   "lessons": [
@@ -64,6 +64,13 @@
       "run_id": "sim37",
       "sol": 405,
       "text": "Sim 37 survived 500 sols / 15 crew on difficulty=malfunctions but BREACHED the Potable_Water_Store floor (below 30% from ~sol 405, finished 11.94%). O2/Food/Power held above floor all run. Root cause was PILOTING, not physics: OGS was held at 986\u20131000 to pin O2 at 100% the whole mission (OGS electrolyzes potable), and BiomassPS drew up to 100/tick of potable until sol 305 even though Biomass_Store was pinned at 100%. There is NO controllable potable producer, so potable can only be defended by cutting its sinks early \u2014 surplus-O2 electrolysis and BiomassPS draw. Crew draw (3/tick) is trivial and irreducible. Fix encoded in rules: throttle OGS once O2 is banked, cut BiomassPS potable draw by ~sol 30, and watch potable NET FLOW (not just level) every sol.",
+      "source": "after-action"
+    },
+    {
+      "id": 6,
+      "run_id": "config-fix",
+      "sol": 0,
+      "text": "ROOT CAUSE of the sim 37/38 potable breaches: the habitat config shipped with NO Water Recovery System. Crew + BiomassPS produced grey/dirty water every tick but nothing reclaimed it, so potable was a ONE-WAY DRAIN (irreducible ~-0.556/tick crew draw, zero production) and crossed the 30% floor at ~sol 366 no matter how the pilot flew. The earlier 'OGS electrolyzes potable -> starve OGS to defend potable' theory was a red herring: OGS only draws potable while producing O2 and idles once O2 is full. FIX: added a WaterRS module to survival.biosim (consumes dirty+grey+power, produces potable \u2264100/tick) and exposed Water_RS producers/PotableWater in the control surface. Verified live against BioSim \u2014 the module is accepted and produces potable (was 0). Dirty-water reclaim is independent of the Grey_Water_Store malfunction, so potable is now defensible for a full 500-sol mission. Potable floor stays at 30%.",
       "source": "after-action"
     }
   ]
