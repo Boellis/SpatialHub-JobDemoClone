@@ -532,3 +532,31 @@ def test_get_run_review_reports_metrics(monkeypatch):
     ps = r["per_store"]["Potable_Water_Store"]
     assert ps["min_pct"] == 0.0 and ps["sols_below_floor"] == 40 and ps["final_pct"] == 0.0
     assert "reserve_bands" in r["guardrails"]
+
+
+def test_update_doctrine_persists_and_round_trips(monkeypatch, tmp_path):
+    import server, doctrine
+    monkeypatch.setattr(doctrine, "_DOCTRINE_FILE", tmp_path / "doctrine.json")
+    monkeypatch.setattr(doctrine, "_MIRROR_FILE", tmp_path / "doctrine.md")
+    doctrine.save(doctrine.bootstrap())
+
+    out = server.update_doctrine(
+        guardrails={"reserve_bands": {"Potable_Water_Store": {"floor_pct": 35, "target_pct": 45}}},
+        lessons=[{"run_id": "rev1", "sol": 50, "text": "potable chronically below floor; raise to 35"}],
+    )
+    assert out["ok"] is True
+    reloaded = doctrine.load()
+    assert reloaded["guardrails"]["reserve_bands"]["Potable_Water_Store"]["floor_pct"] == 35
+    assert reloaded["lessons"][-1]["text"].startswith("potable chronically")
+
+
+def test_update_doctrine_rejects_bad_band(monkeypatch, tmp_path):
+    import server, doctrine
+    monkeypatch.setattr(doctrine, "_DOCTRINE_FILE", tmp_path / "doctrine.json")
+    monkeypatch.setattr(doctrine, "_MIRROR_FILE", tmp_path / "doctrine.md")
+    doctrine.save(doctrine.bootstrap())
+    out = server.update_doctrine(guardrails={"reserve_bands": {"O2_Store": {"floor_pct": 90, "target_pct": 10}}})
+    assert out["ok"] is False
+    assert "error" in out
+    # unchanged
+    assert doctrine.load()["guardrails"]["reserve_bands"]["O2_Store"]["floor_pct"] == 20

@@ -598,6 +598,22 @@ def get_run_review() -> dict:
 
 
 @mcp.tool()
+def update_doctrine(guardrails: dict | None = None, lessons: list | None = None) -> dict:
+    """Persist learned guardrail adjustments and/or new lessons (auto-apply).
+
+    guardrails: {"reserve_bands": {"<Store>": {"floor_pct", "target_pct"}}, "rules": [...]}
+    lessons: [{"run_id", "sol", "text", "source"}].
+    Validates bands (0 <= floor <= target <= 100, known store) and regenerates the
+    human-readable doctrine.md mirror. Returns {ok, version, doctrine} or {ok:False, error}.
+    """
+    try:
+        doc = doctrine.merge(guardrails=guardrails, lessons=lessons)
+    except ValueError as e:
+        return {"ok": False, "error": str(e)}
+    return {"ok": True, "version": doc["version"], "doctrine": doc}
+
+
+@mcp.tool()
 def poll_command() -> dict:
     """Supervisor: check for a pending web-app control command (consume-once).
 
