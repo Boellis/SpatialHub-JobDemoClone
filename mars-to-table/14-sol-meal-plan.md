@@ -203,6 +203,83 @@ Format per sol: **Occasion — items — `kcal` — [source: I=in-situ, B=bulk-E
 
 ---
 
+## 5b. Serving sizes (oz / kg) & per-product nutrition — **mandatory hard-gate reference**
+
+Per the rules, **every food product** carries a serving size in **oz/kg** plus nutritional info. Values below are **per-crewmember, as-served** representative design estimates; **batch quantity = serving × 15 crew** (kg column). Macros shown are kcal + protein per serving (full DRI micronutrient verification against the official template is a Human-in-the-Loop step — see §9). These serving sizes are what the per-sol menu items in §4 are assembled from.
+
+### In-situ — grains & starches
+| Product | Serving (g) | Serving (oz) | Batch ×15 (kg) | kcal/serv | Protein g/serv |
+|---|---:|---:|---:|---:|---:|
+| Wheat — bread/baked | 80 | 2.8 | 1.20 | 210 | 7 |
+| Wheat — flour (dry, pasta/flatbread) | 75 | 2.6 | 1.13 | 270 | 9 |
+| Rice (cooked) | 180 | 6.3 | 2.70 | 235 | 4 |
+| Oats (dry) | 50 | 1.8 | 0.75 | 190 | 7 |
+| White potato | 200 | 7.1 | 3.00 | 155 | 4 |
+| Sweet potato | 180 | 6.3 | 2.70 | 155 | 3 |
+
+### In-situ — legumes & plant protein
+| Product | Serving (g) | Serving (oz) | Batch ×15 (kg) | kcal/serv | Protein g/serv |
+|---|---:|---:|---:|---:|---:|
+| Tofu | 150 | 5.3 | 2.25 | 115 | 13 |
+| Tempeh | 100 | 3.5 | 1.50 | 195 | 19 |
+| Soy milk | 240 | 8.5 | 3.60 | 110 | 8 |
+| Edamame (shelled) | 80 | 2.8 | 1.20 | 95 | 9 |
+| Miso (seasoning) | 18 | 0.6 | 0.27 | 35 | 2 |
+| Soy sauce | 12 | 0.4 | 0.18 | 8 | 1 |
+| Dry beans (cooked) | 150 | 5.3 | 2.25 | 195 | 13 |
+| Peanut (roasted / butter) | 32 | 1.1 | 0.48 | 190 | 8 |
+
+### In-situ — vegetables
+| Product | Serving (g) | Serving (oz) | Batch ×15 (kg) | kcal/serv | Protein g/serv |
+|---|---:|---:|---:|---:|---:|
+| Leafy greens (lettuce/kale/chard/spinach) | 75 | 2.6 | 1.13 | 25 | 2 |
+| Tomato | 120 | 4.2 | 1.80 | 22 | 1 |
+| Pepper | 90 | 3.2 | 1.35 | 25 | 1 |
+| Cucumber | 100 | 3.5 | 1.50 | 16 | 1 |
+| Carrot | 80 | 2.8 | 1.20 | 33 | 1 |
+| Aromatics (radish/onion/garlic) | 40 | 1.4 | 0.60 | 20 | 1 |
+| Cabbage / kimchi (fermented) | 60 | 2.1 | 0.90 | 18 | 1 |
+| Peas | 70 | 2.5 | 1.05 | 58 | 4 |
+
+### In-situ — fungi, fruit, fresh garnish
+| Product | Serving (g) | Serving (oz) | Batch ×15 (kg) | kcal/serv | Protein g/serv |
+|---|---:|---:|---:|---:|---:|
+| Mushroom | 90 | 3.2 | 1.35 | 30 | 3 |
+| Strawberry | 100 | 3.5 | 1.50 | 33 | 1 |
+| Microgreens (garnish) | 15 | 0.5 | 0.23 | 5 | 1 |
+
+### In-situ — animal & alt-protein
+| Product | Serving (g) | Serving (oz) | Batch ×15 (kg) | kcal/serv | Protein g/serv |
+|---|---:|---:|---:|---:|---:|
+| Tilapia | 140 | 4.9 | 2.10 | 175 | 36 |
+| Spirulina (dried) | 10 | 0.35 | 0.15 | 29 | 6 |
+| Yeast / single-cell protein | 15 | 0.5 | 0.23 | 50 | 7 |
+
+### Earth — bulk ingredients
+| Product | Serving (g) | Serving (oz) | Batch ×15 (kg) | kcal/serv | Protein g/serv |
+|---|---:|---:|---:|---:|---:|
+| Cooking oil | 12 | 0.4 | 0.18 | 106 | 0 |
+| Milk powder | 25 | 0.9 | 0.38 | 125 | 9 |
+| Hard cheese | 30 | 1.1 | 0.45 | 120 | 7 |
+| Sugar | 12 | 0.4 | 0.18 | 46 | 0 |
+| Honey | 21 | 0.75 | 0.32 | 64 | 0 |
+| Almonds / walnuts | 28 | 1.0 | 0.42 | 170 | 5 |
+| Dried fruit | 30 | 1.1 | 0.45 | 90 | 1 |
+
+### Earth — prepackaged
+| Product | Serving (g) | Serving (oz) | Batch ×15 (kg) | kcal/serv | Protein g/serv |
+|---|---:|---:|---:|---:|---:|
+| Coffee (brewed) | 240 | 8.5 | 3.60 | 2 | 0 |
+| Tea (brewed) | 240 | 8.5 | 3.60 | 2 | 0 |
+| Cocoa / dark chocolate | 20 | 0.7 | 0.30 | 100 | 2 |
+| Freeze-dried meat (morale) | 30 | 1.1 | 0.45 | 110 | 18 |
+| Vitamin/mineral supplement (B12, D) | 2 | 0.07 | 0.03 | 0 | 0 |
+| EVA electrolyte/protein powder | 40 | 1.4 | 0.60 | 150 | 20 |
+
+> Serving sizes are representative engineering/nutrition estimates; **verify every value and full micronutrient profile against the official submission template before submission** (Human-in-the-Loop mandate, §9). When the official template is in hand, transcribe these into its per-item rows.
+
+---
+
 ## 6. Per-crew & EVA adjustment
 
 - **Baseline unit is per-person/day at 3,035 kcal.** Crew variation (age/sex/mass/activity) handled by ±portion scaling of staples and the supplement slot, logged by the meal-prep specialist.

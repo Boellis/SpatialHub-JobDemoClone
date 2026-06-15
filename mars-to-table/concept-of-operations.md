@@ -149,6 +149,7 @@ Format: slide-deck specification + technical Appendix · Crew: 15 · Mission: 50
 | In-situ edible biomass | ~18–22 kg/sol | ~66% of calories |
 | Earth-provisioned food | ~3–4 kg/sol | shelf-stable, ~34% of calories |
 | Crop growing area | ~300 m² (multi-tier; ~120 m² floor) | + ~65 m² bioreactors/processing |
+| Food-system pressurized volume | ~840 m³ | ~252 m² usable floor × ~3.0 m clear + circulation/plenum (see Deliverable 4) |
 | Food-system water throughput | ~1,500–2,000 L/sol circulating | **>90% recycled**; net make-up small |
 | Food-system power draw | ~700–900 kWh/sol | **LED lighting dominant**; nuclear primary |
 | O₂ produced (crops) | secondary contribution; OGS remains primary | scales with canopy area; minor at the modeled 1–25 m² scale |

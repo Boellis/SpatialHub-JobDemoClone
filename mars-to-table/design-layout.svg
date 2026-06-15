@@ -1,0 +1,148 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700" font-family="'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrowWater" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#38bdf8"/>
+    </marker>
+    <marker id="arrowNut" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#4ade80"/>
+    </marker>
+    <marker id="arrowWaste" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#f59e0b"/>
+    </marker>
+    <marker id="arrowPower" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#facc15"/>
+    </marker>
+    <marker id="arrowAir" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#a78bfa"/>
+    </marker>
+    <style>
+      .zone { stroke-width:2; rx:8; }
+      .zlabel { font-size:17px; font-weight:700; fill:#e2e8f0; }
+      .zsub { font-size:11px; fill:#94a3b8; }
+      .zdim { font-size:10.5px; fill:#cbd5e1; font-style:italic; }
+      .flow { fill:none; stroke-width:2.4; }
+      .flowlabel { font-size:10px; font-weight:600; }
+    </style>
+  </defs>
+
+  <!-- background -->
+  <rect x="0" y="0" width="1000" height="700" fill="#0b1220"/>
+
+  <!-- title block -->
+  <text x="32" y="42" font-size="24" font-weight="700" fill="#f1f5f9">Mars to Table — Food-System Habitat Layout</text>
+  <text x="32" y="64" font-size="13" fill="#94a3b8">Deliverable 4 of 6 · Top-down schematic · Crew 15 · 500 sols · ~840 m³ pressurized · clean-to-dirty corridor</text>
+  <line x1="32" y1="76" x2="968" y2="76" stroke="#1e293b" stroke-width="1.5"/>
+
+  <!-- corridor spine -->
+  <rect x="60" y="350" width="820" height="34" fill="#11203a" stroke="#27406b" stroke-width="1.5" rx="6"/>
+  <text x="470" y="372" text-anchor="middle" font-size="11" fill="#64748b" letter-spacing="1.5">CIRCULATION CORRIDOR  (E → A → B → C → D, clean-to-dirty)</text>
+
+  <!-- ZONE E: Resource & Waste (dirty end, left, isolatable) -->
+  <rect class="zone" x="60" y="120" width="150" height="210" fill="#3a1d1d" stroke="#b45353"/>
+  <rect x="60" y="120" width="150" height="22" fill="#5a2a2a"/>
+  <text class="zlabel" x="68" y="136">ZONE E</text>
+  <text class="zsub" x="68" y="162">Resource &amp; Waste</text>
+  <text class="zsub" x="68" y="180">WaterRS · ISRU reserve</text>
+  <text class="zsub" x="68" y="196">Nutrient mix · Power+battery</text>
+  <text class="zsub" x="68" y="212">Seed/culture · Dry store</text>
+  <text class="zsub" x="68" y="228">Composter / digester</text>
+  <text class="zdim" x="68" y="252">~25 m² · ~75 m³</text>
+  <text x="68" y="300" font-size="9.5" fill="#fca5a5">▣ ISOLATABLE BULKHEAD</text>
+  <line x1="210" y1="120" x2="210" y2="330" stroke="#fca5a5" stroke-width="2.5" stroke-dasharray="6 4"/>
+
+  <!-- ZONE A: Vertical Crop Bays (two isolatable bays) -->
+  <rect class="zone" x="232" y="120" width="200" height="210" fill="#143226" stroke="#3f9e6e"/>
+  <rect x="232" y="120" width="200" height="22" fill="#1c4733"/>
+  <text class="zlabel" x="240" y="136">ZONE A</text>
+  <text class="zsub" x="240" y="162">Vertical Crop Bays</text>
+  <text class="zsub" x="240" y="178">grain · tuber · legume staples</text>
+  <text class="zsub" x="240" y="194">3-tier hydroponic racks</text>
+  <!-- bay split A1/A2 -->
+  <rect x="240" y="206" width="86" height="86" fill="#0f261c" stroke="#2f7e57" stroke-width="1.5" rx="4"/>
+  <text x="283" y="252" text-anchor="middle" font-size="13" font-weight="700" fill="#86efac">A1</text>
+  <rect x="338" y="206" width="86" height="86" fill="#0f261c" stroke="#2f7e57" stroke-width="1.5" rx="4"/>
+  <text x="381" y="252" text-anchor="middle" font-size="13" font-weight="700" fill="#86efac">A2</text>
+  <text x="332" y="307" text-anchor="middle" font-size="9" fill="#5eba89">redundant · isolatable bays</text>
+  <text class="zdim" x="240" y="324">~90 m² floor → ~270 m² grow · ~270 m³</text>
+
+  <!-- ZONE B: Fresh & Salad Racks -->
+  <rect class="zone" x="454" y="120" width="150" height="210" fill="#0f2e2e" stroke="#3aa8a8"/>
+  <rect x="454" y="120" width="150" height="22" fill="#16403f"/>
+  <text class="zlabel" x="462" y="136">ZONE B</text>
+  <text class="zsub" x="462" y="162">Fresh &amp; Salad Racks</text>
+  <text class="zsub" x="462" y="180">greens · fruiting veg</text>
+  <text class="zsub" x="462" y="196">strawberry · microgreens</text>
+  <text class="zsub" x="462" y="212">LED 3-tier · harvest ≤48 h</text>
+  <text class="zdim" x="462" y="252">~30 m² floor · ~90 m³</text>
+  <text x="462" y="300" font-size="9" fill="#5eead4">↔ adjacent to Galley (fresh-to-plate)</text>
+
+  <!-- ZONE C: Bioreactors -->
+  <rect class="zone" x="626" y="120" width="160" height="210" fill="#1a1230" stroke="#7c5cd1"/>
+  <rect x="626" y="120" width="160" height="22" fill="#261a45"/>
+  <text class="zlabel" x="634" y="136">ZONE C</text>
+  <text class="zsub" x="634" y="162">Bioreactors</text>
+  <text class="zsub" x="634" y="180">aquaponic tilapia loop</text>
+  <text class="zsub" x="634" y="196">fungi blocks · spirulina PBR</text>
+  <text class="zsub" x="634" y="212">soy / yeast fermenters</text>
+  <text class="zsub" x="634" y="230">multi-path protein backstop</text>
+  <text class="zdim" x="634" y="256">~35 m² · ~105 m³</text>
+
+  <!-- ZONE D: Processing & Galley (clean end) -->
+  <rect class="zone" x="808" y="120" width="132" height="210" fill="#2b2410" stroke="#c9a23a"/>
+  <rect x="808" y="120" width="132" height="22" fill="#3d3417"/>
+  <text class="zlabel" x="816" y="136">ZONE D</text>
+  <text class="zsub" x="816" y="160">Processing &amp; Galley</text>
+  <text class="zsub" x="816" y="178">mill · press · cook-chill</text>
+  <text class="zsub" x="816" y="194">galley · assembly</text>
+  <text class="zsub" x="816" y="210">dining (Sol 7 &amp; 14)</text>
+  <text class="zsub" x="816" y="228">⌗ Control dashboard</text>
+  <text class="zdim" x="816" y="256">~30 m² · ~90 m³</text>
+  <text x="816" y="300" font-size="9" fill="#fde68a">CLEAN END · crew dining</text>
+
+  <!-- ===================== FLOW ARROWS ===================== -->
+
+  <!-- WATER LOOP (cyan): E -> A racks, return A -> E -->
+  <path class="flow" stroke="#38bdf8" d="M150,335 C150,420 250,440 332,440" marker-end="url(#arrowWater)"/>
+  <text class="flowlabel" fill="#38bdf8" x="170" y="432">water → fertigation</text>
+  <path class="flow" stroke="#38bdf8" stroke-dasharray="2 0" d="M332,455 C250,475 150,470 135,400" marker-end="url(#arrowWater)"/>
+  <text class="flowlabel" fill="#7dd3fc" x="200" y="488">condensate return (&gt;90% recycled)</text>
+
+  <!-- NUTRIENT LOOP (green): E -> A/B, residue C -> E -->
+  <path class="flow" stroke="#4ade80" d="M180,335 C180,520 460,530 520,335" marker-end="url(#arrowNut)"/>
+  <text class="flowlabel" fill="#4ade80" x="300" y="544">nutrient solution → racks</text>
+  <path class="flow" stroke="#4ade80" stroke-dasharray="6 4" d="M700,335 C700,560 220,575 175,335" marker-end="url(#arrowNut)"/>
+  <text class="flowlabel" fill="#86efac" x="430" y="590">crop residue + fish effluent → composter/digester</text>
+
+  <!-- WASTE -> COMPOST (amber): all zones -> E composter -->
+  <path class="flow" stroke="#f59e0b" stroke-dasharray="4 3" d="M870,335 C870,620 200,640 150,335" marker-end="url(#arrowWaste)"/>
+  <text class="flowlabel" fill="#f59e0b" x="430" y="636">inedible biomass ~5–8 kg/sol → compost / biogas</text>
+
+  <!-- POWER (yellow): E distribution -> all (top rail) -->
+  <path class="flow" stroke="#facc15" d="M150,118 C150,96 870,96 870,118" marker-end="url(#arrowPower)"/>
+  <text class="flowlabel" fill="#facc15" x="430" y="92">nuclear power + battery → LED-dominant loads (700–900 kWh/sol)</text>
+
+  <!-- AIR (purple, dashed = secondary, not credited) : A/B/C canopy -> E env interface -->
+  <path class="flow" stroke="#a78bfa" stroke-dasharray="3 3" d="M520,118 C520,104 200,108 165,118" marker-end="url(#arrowAir)"/>
+  <text class="flowlabel" fill="#a78bfa" x="250" y="116">crop CO₂/O₂ exchange → ECLSS (secondary; OGS/VCCR primary)</text>
+
+  <!-- ===================== LEGEND ===================== -->
+  <rect x="60" y="606" width="880" height="74" fill="#0e1626" stroke="#1e293b" rx="8"/>
+  <text x="74" y="626" font-size="12" font-weight="700" fill="#e2e8f0">RESOURCE FLOWS</text>
+
+  <line x1="74" y1="646" x2="104" y2="646" stroke="#38bdf8" stroke-width="3" marker-end="url(#arrowWater)"/>
+  <text x="110" y="650" font-size="11" fill="#cbd5e1">Water loop (&gt;90% recycled, ~1,500–2,000 L/sol)</text>
+
+  <line x1="74" y1="666" x2="104" y2="666" stroke="#4ade80" stroke-width="3" marker-end="url(#arrowNut)"/>
+  <text x="110" y="670" font-size="11" fill="#cbd5e1">Nutrient loop (effluent + digestate → fertigation)</text>
+
+  <line x1="430" y1="646" x2="460" y2="646" stroke="#f59e0b" stroke-width="3" stroke-dasharray="4 3" marker-end="url(#arrowWaste)"/>
+  <text x="466" y="650" font-size="11" fill="#cbd5e1">Waste → compost / biogas</text>
+
+  <line x1="430" y1="666" x2="460" y2="666" stroke="#facc15" stroke-width="3" marker-end="url(#arrowPower)"/>
+  <text x="466" y="670" font-size="11" fill="#cbd5e1">Power (nuclear primary + battery backup)</text>
+
+  <line x1="700" y1="646" x2="730" y2="646" stroke="#a78bfa" stroke-width="3" stroke-dasharray="3 3" marker-end="url(#arrowAir)"/>
+  <text x="736" y="650" font-size="11" fill="#cbd5e1">Air (crop exchange — secondary)</text>
+
+  <text x="700" y="670" font-size="9.5" fill="#64748b" font-style="italic">Representative estimates — pending human verification</text>
+</svg>
