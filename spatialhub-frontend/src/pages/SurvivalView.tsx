@@ -76,21 +76,26 @@ const GOLD = '#ffd166';
 
 // Persistent high-sol log — kept in localStorage so the record survives page
 // reloads AND backend redeploys (ideal for a demo machine; no DB needed).
-type RunRecord = { sols: number; reason: string; ts: number };
-const RECORD_KEY = 'survival.record.v1';
-function loadRecord(): { best: number; log: RunRecord[] } {
+type RunRecord = { sols: number; reason: string; ts: number; difficulty: Difficulty };
+// v2: tags the record with the difficulty that set it. Bumping the key from v1
+// deliberately retires any stale pre-tag record (e.g. an inflated "off"-difficulty
+// high sol left in a demo browser) so the headline can't mislead judges. The durable
+// cross-run archive lives in Postgres (History tab) — only this convenience cache resets.
+const RECORD_KEY = 'survival.record.v2';
+function loadRecord(): { best: number; bestDifficulty: Difficulty | null; log: RunRecord[] } {
   try {
     const raw = localStorage.getItem(RECORD_KEY);
     if (raw) {
       const p = JSON.parse(raw);
-      return { best: Number(p.best) || 0, log: Array.isArray(p.log) ? p.log : [] };
+      const bd = p.bestDifficulty === 'off' || p.bestDifficulty === 'malfunctions' ? p.bestDifficulty : null;
+      return { best: Number(p.best) || 0, bestDifficulty: bd, log: Array.isArray(p.log) ? p.log : [] };
     }
   } catch { /* ignore */ }
-  return { best: 0, log: [] };
+  return { best: 0, bestDifficulty: null, log: [] };
 }
-function saveRecord(best: number, log: RunRecord[]) {
+function saveRecord(best: number, bestDifficulty: Difficulty | null, log: RunRecord[]) {
   try {
-    localStorage.setItem(RECORD_KEY, JSON.stringify({ best, log: log.slice(0, 10) }));
+    localStorage.setItem(RECORD_KEY, JSON.stringify({ best, bestDifficulty, log: log.slice(0, 10) }));
   } catch { /* ignore */ }
 }
 
@@ -127,6 +132,7 @@ const SurvivalView = () => {
   const [reasoningLog, setReasoningLog] = useState<ReasoningEntry[]>([]);
   const [result, setResult] = useState<SurvivalResult | null>(null);
   const [best, setBestState] = useState(0);
+  const [bestDifficulty, setBestDifficultyState] = useState<Difficulty | null>(null);
   const [isRecord, setIsRecord] = useState(false);
   const [pilot, setPilot] = useState<PilotStat | null>(null);
   const [plan, setPlan] = useState<SurvivalPlanEvent | null>(null); // Claude habitat plan
@@ -149,10 +155,15 @@ const SurvivalView = () => {
   const lastPctRef = useRef<Map<string, number>>(new Map()); // for per-store delta
   const lastSolRef = useRef(0);       // replay cursor: suppress delta on non-advancing (replayed) sols
   const bestRef = useRef(0);          // record at-large (ref avoids stale closures)
+  const bestDifficultyRef = useRef<Difficulty | null>(null); // difficulty that set the record
+  const difficultyRef = useRef<Difficulty | null>(null);     // current run's difficulty (for record tagging inside callbacks)
   const recordStartRef = useRef(0);   // best when the current run began
   const logRef = useRef<RunRecord[]>([]);
 
-  const setBest = (n: number) => { bestRef.current = n; setBestState(n); };
+  const setBest = (n: number, diff: Difficulty | null) => {
+    bestRef.current = n; setBestState(n);
+    bestDifficultyRef.current = diff; setBestDifficultyState(diff);
+  };
 
   // Refs for modal a11y (focus restore on close).
   const seeAllRef = useRef<HTMLDivElement | null>(null);
@@ -162,7 +173,7 @@ const SurvivalView = () => {
   // Load the persisted record once.
   useEffect(() => {
     const r = loadRecord();
-    setBest(r.best);
+    setBest(r.best, r.bestDifficulty);
     recordStartRef.current = r.best;
     logRef.current = r.log;
   }, []);
@@ -200,8 +211,8 @@ const SurvivalView = () => {
     if (d.pilot) setPilot(d.pilot);
     // Track the all-time high sol.
     if (d.sol > bestRef.current) {
-      setBest(d.sol);
-      saveRecord(d.sol, logRef.current);
+      setBest(d.sol, difficultyRef.current);
+      saveRecord(d.sol, difficultyRef.current, logRef.current);
       if (recordStartRef.current > 0 && d.sol > recordStartRef.current) setIsRecord(true);
     }
     if (d.actions) setLastActions(d.actions);
@@ -343,6 +354,7 @@ const SurvivalView = () => {
         lastPctRef.current = new Map();
         lastSolRef.current = 0;
         setDifficulty(d.difficulty);
+        difficultyRef.current = d.difficulty;
         if (d.crew_size) setCrewSize(d.crew_size);
         recordStartRef.current = bestRef.current; // snapshot the record to beat
         setIsRecord(false);
@@ -365,11 +377,15 @@ const SurvivalView = () => {
         setAlive(false);
         setResult({ sols_survived: d.sols_survived, ended_reason: d.ended_reason });
         // Log the completed run + persist any new record.
-        const rec: RunRecord = { sols: d.sols_survived, reason: d.ended_reason, ts: Date.now() };
+        const runDiff = difficultyRef.current ?? 'malfunctions';
+        const rec: RunRecord = { sols: d.sols_survived, reason: d.ended_reason, ts: Date.now(), difficulty: runDiff };
         logRef.current = [rec, ...logRef.current].slice(0, 10);
+        // Only re-tag the record's difficulty if this run actually matched/beat it.
+        const beat = d.sols_survived >= bestRef.current;
         const nb = Math.max(bestRef.current, d.sols_survived);
-        setBest(nb);
-        saveRecord(nb, logRef.current);
+        const nbDiff = beat ? runDiff : bestDifficultyRef.current;
+        setBest(nb, nbDiff);
+        saveRecord(nb, nbDiff, logRef.current);
       });
       es.addEventListener('error', (ev) => {
         console.error('[Survival SSE] EventSource error — readyState=%d, attempt=%d, url=%s',
@@ -524,6 +540,11 @@ const SurvivalView = () => {
               {Math.max(best, sol)}
             </span>
             <span style={{ opacity: 0.7 }}>sols</span>
+            {(() => {
+              // The shown number is whichever is higher; tag it with the difficulty that owns it.
+              const diff = sol > best ? difficulty : bestDifficulty;
+              return diff ? <span style={{ opacity: 0.6, fontSize: 10 }}>· {diff === 'off' ? 'off' : 'malf'}</span> : null;
+            })()}
             {isRecord && (
               <span style={{ color: '#fff', fontWeight: 700, animation: 'survPulse 1s ease-in-out infinite' }}>
                 · NEW!
