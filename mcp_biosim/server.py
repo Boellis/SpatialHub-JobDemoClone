@@ -37,6 +37,7 @@ from sensor_data.survival.state import (  # noqa: E402
     TICKS_PER_SOL,
     summarize_state,
 )
+import doctrine  # noqa: E402
 
 from mcp.server.fastmcp import FastMCP  # noqa: E402
 
@@ -289,6 +290,7 @@ def _status_payload(detail="normal"):
         payload["stores"] = _compact_stores(snap["stores"], deltas)
         payload["balances"] = _compact_balances(snap["balances"])
         payload["controllable"] = _compact_controllable(snap["controllable"])
+    payload["guardrail_violations"] = doctrine.violations(snap["stores"])
     return payload
 
 

@@ -451,3 +451,34 @@ def test_sol_event_carries_pilot_stat():
     raw = client.get_state(42)
     ev = server._sol_event(raw, "note")
     assert "pilot" in ev and "est_tokens" in ev["pilot"] and "budget" in ev["pilot"]
+
+
+def test_status_payload_includes_guardrail_violations(monkeypatch, tmp_path):
+    import server
+    import doctrine
+    # Use a throwaway doctrine file so the test doesn't write the repo's real one.
+    monkeypatch.setattr(doctrine, "_DOCTRINE_FILE", tmp_path / "doctrine.json")
+    monkeypatch.setattr(doctrine, "_MIRROR_FILE", tmp_path / "doctrine.md")
+    doctrine.save(doctrine.bootstrap())
+
+    class FakeClient:
+        def get_state(self, sim_id):
+            return {"_fake": True}
+
+    monkeypatch.setattr(server.RUN, "client", FakeClient())
+    monkeypatch.setattr(server.RUN, "sim_id", 1)
+    monkeypatch.setattr(server, "summarize_state", lambda raw: {
+        "ended": False,
+        "warnings": [],
+        "stores": [
+            {"name": "Potable_Water_Store", "pct": 0.0},
+            {"name": "O2_Store", "pct": 100.0},
+        ],
+        "balances": [],
+        "controllable": [],
+    })
+
+    payload = server._status_payload("normal")
+    stores = {v["store"] for v in payload["guardrail_violations"]}
+    assert "Potable_Water_Store" in stores
+    assert "O2_Store" not in stores
