@@ -42,9 +42,10 @@ type StoreView = { name: string; pct: number; delta: number; runway?: number; ne
 // scrubber/waste stores (full = danger), and `resource` links to the net-flow balance.
 const RESOURCES: {
   name: string; label: string; primary: boolean; highIsBad: boolean; resource: string;
+  ventSafe?: boolean;
 }[] = [
   { name: 'O2_Store', label: 'Oxygen', primary: true, highIsBad: false, resource: 'O2' },
-  { name: 'CO2_Store', label: 'CO₂ Scrubber', primary: true, highIsBad: true, resource: 'CO2' },
+  { name: 'CO2_Store', label: 'CO₂ Store', primary: true, highIsBad: true, resource: 'CO2', ventSafe: true },
   { name: 'General_Power_Store', label: 'Power', primary: true, highIsBad: false, resource: 'Power' },
   { name: 'Potable_Water_Store', label: 'Potable Water', primary: true, highIsBad: false, resource: 'PotableWater' },
   { name: 'Food_Store', label: 'Food', primary: true, highIsBad: false, resource: 'Food' },
@@ -394,7 +395,7 @@ const SurvivalView = () => {
   const cards = RESOURCES.map((r) => {
     const s = byName.get(r.name);
     if (!s) return null;
-    const health = healthOf(s.pct, r.highIsBad);
+    const health = healthOf(s.pct, r.highIsBad, r.ventSafe);
     return { ...r, ...s, health };
   }).filter(Boolean) as (typeof RESOURCES[number] & StoreView & { health: Health })[];
   const primary = cards.filter((c) => c.primary);

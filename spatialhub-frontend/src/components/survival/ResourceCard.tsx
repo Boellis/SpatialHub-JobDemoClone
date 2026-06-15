@@ -11,8 +11,11 @@ const HEALTH_COLOR: Record<Health, string> = {
 };
 
 // Direction of danger differs per resource: most stores are bad when LOW (running
-// out); scrubber/waste stores are bad when HIGH (filling up).
-export function healthOf(pct: number, highIsBad: boolean): Health {
+// out); waste stores are bad when HIGH (filling up). A `ventSafe` buffer (e.g. the
+// CO₂ store) overflows/vents harmlessly when full, so it has NO danger direction —
+// saturation is nominal and must never read as a critical alarm.
+export function healthOf(pct: number, highIsBad: boolean, ventSafe = false): Health {
+  if (ventSafe) return 'ok';
   if (highIsBad) {
     if (pct >= 85) return 'crit';
     if (pct >= 60) return 'warn';
