@@ -239,9 +239,14 @@ def _record_trend(stores):
     return deltas
 
 
-def _record_reserve(stores):
-    """Update per-run reserve stats from a sol's stores ([{name, pct}, ...])."""
-    bands = doctrine.load()["guardrails"]["reserve_bands"]
+def _record_reserve(stores, bands=None):
+    """Update per-run reserve stats from a sol's stores ([{name, pct}, ...]).
+
+    Pass `bands` (doctrine reserve_bands) to avoid a per-sol doctrine file read in
+    hot loops; falls back to loading the doctrine when called without it.
+    """
+    if bands is None:
+        bands = doctrine.load()["guardrails"]["reserve_bands"]
     for s in stores:
         name, pct = s["name"], s["pct"]
         prev = RUN.reserve_min.get(name)
@@ -518,6 +523,7 @@ def advance(sols: int = 1, detail: str = "normal", note: str = "") -> dict:
         raise ValueError("No active run. Call start_run first.")
     sols = max(1, sols)
     advanced = 0
+    reserve_bands = doctrine.load()["guardrails"]["reserve_bands"]
     for _ in range(sols):
         if (RUN.difficulty == "malfunctions"
                 and RUN.sols > 0 and RUN.sols % 10 == 0):
@@ -533,7 +539,7 @@ def advance(sols: int = 1, detail: str = "normal", note: str = "") -> dict:
         # publish — do NOT add extra BioSim calls.
         raw = RUN.client.get_state(RUN.sim_id)
         snap = summarize_state(raw)
-        _record_reserve(snap["stores"])
+        _record_reserve(snap["stores"], reserve_bands)
         if snap["ended"]:
             RUN.alive = False
             RUN.ended_reason = "crew_death"
