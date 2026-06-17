@@ -1,0 +1,42 @@
+{
+  "checkpoint": "400066",
+  "run": "aligned_validate",
+  "note": "Aggregate operating point exported from the trained deterministic policies; NOT live per-tick inference. LLM doctrine controller sets the live BiomassPS power/water BUDGET; these numbers set the BioSim config conversion sizing (the RL efficiency).",
+  "biomassps_operating_point": {
+    "power": 234.25,
+    "water": 58.27,
+    "biomass": 58.56
+  },
+  "detail": {
+    "power": {
+      "agent": "LightingAgent",
+      "action_index": 0,
+      "normalized_action": 0.5856,
+      "calibration_key": "BiomassPS_power",
+      "biosim_range": [
+        0.0,
+        400.0
+      ],
+      "unit": "watts",
+      "rate": 234.25
+    },
+    "water": {
+      "agent": "WaterAgent",
+      "action_index": 0,
+      "normalized_action": 0.5827,
+      "calibration_key": "BiomassPS_water",
+      "biosim_range": [
+        0.0,
+        100.0
+      ],
+      "unit": "L/tick",
+      "rate": 58.27
+    },
+    "biomass": {
+      "derived_from": "power_fraction * biomass_ceiling(100)",
+      "power_fraction": 0.5856,
+      "rate": 58.56,
+      "unit": "kg/tick (biomass)"
+    }
+  }
+}

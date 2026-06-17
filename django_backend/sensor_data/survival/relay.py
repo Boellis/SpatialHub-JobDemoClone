@@ -19,6 +19,8 @@ Two kinds of state are kept:
     sol events coalesce between SSE wake-ups.
 """
 
+import json
+import os
 import threading
 
 EVENT_TYPES = ("run", "sol", "end", "plan")
@@ -48,6 +50,70 @@ _STATE = {
 # version-stamped telemetry above so polling it never disturbs the SSE stream.
 _COMMAND = {"pending": None}
 KNOWN_COMMANDS = ("new_session",)
+
+# ---------------------------------------------------------------------------
+# Sols high-score — the best `sols_survived` ever seen across runs. Survives a
+# Cloud Run restart via a small JSON file (best-effort) when HIGHSCORE_PATH is
+# set; otherwise it is in-memory only. Updated on every `end` event.
+# ---------------------------------------------------------------------------
+# Default location is writable on Cloud Run (/tmp). Override with HIGHSCORE_PATH.
+_HIGHSCORE_PATH = os.environ.get("SURVIVAL_HIGHSCORE_PATH", "/tmp/survival_highscore.json")
+_HIGHSCORE = {"best_sols": 0, "run_id": None, "ended_reason": None,
+              "difficulty": None, "when": None}
+_HIGHSCORE_LOADED = [False]
+
+
+def _highscore_load():
+    """Lazily hydrate the high-score from disk once per process (best-effort)."""
+    if _HIGHSCORE_LOADED[0]:
+        return
+    _HIGHSCORE_LOADED[0] = True
+    try:
+        with open(_HIGHSCORE_PATH, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        if isinstance(data, dict) and isinstance(data.get("best_sols"), int):
+            _HIGHSCORE.update({k: data.get(k) for k in _HIGHSCORE})
+    except Exception:  # pragma: no cover - missing/corrupt file is fine
+        pass
+
+
+def _highscore_save():
+    try:
+        with open(_HIGHSCORE_PATH, "w", encoding="utf-8") as fh:
+            json.dump(_HIGHSCORE, fh)
+    except Exception:  # pragma: no cover - read-only fs etc.
+        pass
+
+
+def _maybe_update_highscore(end_data):
+    """If this `end` event beat the record, persist the new high-score. Caller
+    must hold _COND. Returns True when the record advanced."""
+    if not isinstance(end_data, dict):
+        return False
+    _highscore_load()
+    try:
+        sols = int(end_data.get("sols_survived", 0) or 0)
+    except (TypeError, ValueError):
+        return False
+    if sols <= _HIGHSCORE["best_sols"]:
+        return False
+    import datetime
+    _HIGHSCORE.update({
+        "best_sols": sols,
+        "run_id": end_data.get("run_id"),
+        "ended_reason": end_data.get("ended_reason"),
+        "difficulty": end_data.get("difficulty"),
+        "when": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    })
+    _highscore_save()
+    return True
+
+
+def highscore():
+    """Return the current sols high-score snapshot (a fresh dict)."""
+    with _COND:
+        _highscore_load()
+        return dict(_HIGHSCORE)
 
 
 def publish(event_type, data):
@@ -86,6 +152,8 @@ def publish(event_type, data):
             # An ended/stopped run is not "paused". Clear the flag without bumping the
             # stamp (the `end` event already moves the client out of the paused view).
             _STATE["status"] = ({"paused": False}, _STATE["status"][1])
+            # Update the persistent sols high-score on every run end.
+            _maybe_update_highscore(data)
         _COND.notify_all()
     # Durable archive — best-effort, outside the lock so DB I/O never blocks readers.
     _persist(event_type, data)
@@ -173,6 +241,9 @@ def reset():
         _STATE["status"] = ({"paused": False}, 0)
         _STATE["log"] = []
         _COMMAND["pending"] = None
+        _HIGHSCORE.update({"best_sols": 0, "run_id": None, "ended_reason": None,
+                           "difficulty": None, "when": None})
+        _HIGHSCORE_LOADED[0] = False
         _COND.notify_all()
     try:
         from . import history

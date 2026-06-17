@@ -1,0 +1,54 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Standalone BioSim — minimal, self-hosted, one-command deployment.
+#
+# Brings up ONLY the NASA BioSim life-support server on port 8009 — none of the
+# big stack's postgres / django / openmct / bridge services. This is what the
+# biosim MCP server (mcp_biosim/server.py, BIOSIM_URL=http://localhost:8009)
+# talks to. Derived from the `biosim` service in ../../docker-compose.yml.
+#
+# Usage (from this directory or with -f pointing here):
+#   docker compose -f docker-compose.biosim.yml up -d --build   # start (detached)
+#   docker compose -f docker-compose.biosim.yml ps              # status / health
+#   docker compose -f docker-compose.biosim.yml logs -f biosim  # follow logs
+#   docker compose -f docker-compose.biosim.yml restart biosim  # restart
+#   docker compose -f docker-compose.biosim.yml down            # stop + remove
+#
+# First build clones + Maven-compiles BioSim (~10-20 min). Subsequent starts use
+# the image cache and come up in seconds. `restart: unless-stopped` makes the
+# container survive a host reboot (Docker Desktop must be set to start on login).
+#
+# Verify:  curl http://localhost:8009/api/simulation
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  biosim:
+    build:
+      # Build context is the repo root (two levels up), where biosim.Dockerfile
+      # and configuration/ live. The Dockerfile clones BioSim from upstream.
+      context: ../..
+      dockerfile: biosim.Dockerfile
+    image: survival-v4-biosim          # reuse the already-built image if present
+    container_name: biosim
+    ports:
+      - "8009:8009"
+    working_dir: /app
+    restart: unless-stopped            # survive crashes AND host reboot
+    # Start the HTTP server, wait until it answers, then auto-start one sim so the
+    # API has a live simulation immediately (matches the big-stack biosim service).
+    command: >
+      sh -c "
+        ./bin/start-biosim-server --writeTicks &
+        SERVER_PID=$$!;
+        echo 'Waiting for BioSim HTTP server to be ready...';
+        until curl -sf http://localhost:8009/api/simulation >/dev/null 2>&1; do sleep 2; done;
+        echo 'BioSim server ready, starting simulation...';
+        SIM_ID=$$(curl -s -X POST 'http://localhost:8009/api/simulation/start' --data-binary @configuration/default.biosim -H 'Content-Type: text/plain');
+        echo \"Simulation started with ID: $$SIM_ID\";
+        wait $$SERVER_PID
+      "
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8009/api/simulation || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 6
+      start_period: 90s

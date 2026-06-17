@@ -566,3 +566,106 @@ def survival_plans(request):
         for p in SurvivalPlan.objects.all()[:limit]
     ]
     return JsonResponse({"plans": plans})
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 additions: highscore, farmer config playground, RL greenhouse telemetry.
+# ---------------------------------------------------------------------------
+
+
+def survival_highscore(request):
+    """Public read: the best ``sols_survived`` ever seen across all runs.
+
+    The relay updates this on every ``end`` event (see relay.highscore /
+    relay._maybe_update_highscore). Returns the record holder's run metadata.
+    """
+    if request.method != "GET":
+        return JsonResponse({"error": "GET only"}, status=405)
+    hs = relay.highscore()
+    response = JsonResponse({
+        "best_sols": hs.get("best_sols", 0),
+        "run_id": hs.get("run_id"),
+        "ended_reason": hs.get("ended_reason"),
+        "difficulty": hs.get("difficulty"),
+        "when": hs.get("when"),
+    })
+    response["Cache-Control"] = "public, max-age=15"
+    return response
+
+
+# Cap the playground body so a hostile POST can't exhaust memory.
+_MAX_PLAYGROUND_BYTES = 64 * 1024
+_PLAYGROUND_CAP_MAX = 1000
+
+
+@csrf_exempt
+def survival_playground_run(request):
+    """Farmer config playground: build a BioSim config from the defensible base
+    with the supplied overrides, run it against BioSim, and return its metrics
+    alongside the unmodified-baseline result for comparison.
+
+    Body: {"overrides": {dirty_water_level, nuclear_power, biomass_power,
+            biomass_water, crop_area, food_store, ...}, "mode": "passive"|"maxctrl",
+            "difficulty": "off"|"malfunctions", "cap": int, "crew": int}
+
+    Returns: {sols, in_band_sols, mars_grown_cal_pct, ended_reason,
+              baseline: {...same shape...}, applied_overrides, ignored_overrides}.
+
+    NOTE: this runs ONE BioSim sim at a time (sequential). It must run on a host
+    that can reach BioSim (the parent wires it to the VM via SURVIVAL_BIOSIM_URL).
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only"}, status=405)
+    body_bytes = request.body or b""
+    if len(body_bytes) > _MAX_PLAYGROUND_BYTES:
+        return JsonResponse({"error": "payload too large"}, status=413)
+    try:
+        body = json.loads(body_bytes or b"{}")
+    except (ValueError, TypeError):
+        return JsonResponse({"error": "invalid json"}, status=400)
+
+    overrides = body.get("overrides") or {}
+    if not isinstance(overrides, dict):
+        return JsonResponse({"error": "overrides must be an object"}, status=400)
+    mode = body.get("mode", "passive")
+    if mode not in ("passive", "maxctrl"):
+        return JsonResponse({"error": "mode must be passive|maxctrl"}, status=400)
+    difficulty = body.get("difficulty", "off")
+    if difficulty not in ("off", "malfunctions"):
+        return JsonResponse({"error": "difficulty must be off|malfunctions"}, status=400)
+    try:
+        cap = int(body.get("cap", 200))
+    except (TypeError, ValueError):
+        cap = 200
+    cap = max(1, min(cap, _PLAYGROUND_CAP_MAX))
+    try:
+        crew = int(body.get("crew", settings.SURVIVAL_CREW_SIZE))
+    except (TypeError, ValueError):
+        crew = settings.SURVIVAL_CREW_SIZE
+
+    from .survival import playground
+    try:
+        result = playground.run_playground(
+            settings.SURVIVAL_BIOSIM_URL, overrides,
+            mode=mode, difficulty=difficulty, cap=cap, crew_size=crew)
+    except Exception as e:  # pragma: no cover - BioSim/network guard
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=502)
+    return JsonResponse(result)
+
+
+def survival_greenhouse_telemetry(request):
+    """Public read: the latest ONNX-exported RL greenhouse operating point
+    (BiomassPS power/water/biomass rates) + a short label, so the frontend
+    greenhouse panel reflects the trained RL policy.
+
+    Always answers 200; if the export hasn't been produced yet the payload carries
+    ``available: false`` with a reason rather than erroring the dashboard.
+    """
+    if request.method != "GET":
+        return JsonResponse({"error": "GET only"}, status=405)
+    from .survival import greenhouse_telemetry
+    data = greenhouse_telemetry.load_telemetry()
+    response = JsonResponse(data)
+    response["Cache-Control"] = "public, max-age=60"
+    return response

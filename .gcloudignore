@@ -1,0 +1,12 @@
+.git/
+spatialhub-frontend/
+mcp_biosim/
+django_backend/venv/
+django_backend/staticfiles/
+**/node_modules/
+**/__pycache__/
+*.tar.gz
+_bench/
+deploy/
+docs/
+tests/

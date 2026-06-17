@@ -58,9 +58,14 @@ def run_survival(client, brain, config_xml, max_sols=200, token_budget=None,
         raw = client.get_state(sim_id)
         snap = summarize_state(raw)
         alive = not snap["ended"]
+        # Per-sol token/cost meter (LLM path). The deterministic feeder uses no
+        # brain, so these attributes are absent there and default to 0.
         yield _ev("sol", {"sol": sol, "alive": alive, "modules": raw.get("modules", {}),
                           "reasoning": decision["reasoning"], "actions": decision["actions"],
-                          "warnings": snap["warnings"]})
+                          "warnings": snap["warnings"],
+                          "tokens_this_sol": getattr(brain, "tokens_this_sol", 0),
+                          "tokens_total": getattr(brain, "tokens_used", 0),
+                          "est_cost_usd_total": getattr(brain, "est_cost_usd_total", 0.0)})
         if not alive:
             # Crew died during the tick that took them from sol N to N+1; they
             # did not actually complete sol N+1, so report N as survived.
@@ -70,4 +75,6 @@ def run_survival(client, brain, config_xml, max_sols=200, token_budget=None,
         if token_budget is not None and getattr(brain, "tokens_used", 0) >= token_budget:
             reason = "token_budget"
             break
-    yield _ev("end", {"sols_survived": max(sol, 0), "ended_reason": reason})
+    yield _ev("end", {"sols_survived": max(sol, 0), "ended_reason": reason,
+                      "tokens_total": getattr(brain, "tokens_used", 0),
+                      "est_cost_usd_total": getattr(brain, "est_cost_usd_total", 0.0)})

@@ -27,4 +27,7 @@ urlpatterns = [
     path('survival/history', views.survival_history, name='survival-history'),
     path('survival/history/<str:run_id>', views.survival_run_detail, name='survival-run-detail'),
     path('survival/plans', views.survival_plans, name='survival-plans'),
+    path('survival/highscore', views.survival_highscore, name='survival-highscore'),
+    path('survival/playground/run', views.survival_playground_run, name='survival-playground-run'),
+    path('survival/greenhouse/telemetry', views.survival_greenhouse_telemetry, name='survival-greenhouse-telemetry'),
 ]

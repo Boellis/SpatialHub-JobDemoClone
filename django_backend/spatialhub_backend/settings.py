@@ -92,11 +92,14 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CSRF_TRUSTED_ORIGINS = [
     "https://*.run.app",
     "https://nasa-comp-demo.web.app",
+    "https://biosim-host-bellis.web.app",
 ]
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "https://nasa-comp-demo.web.app",
+    # Phase 2 public Firebase frontend.
+    "https://biosim-host-bellis.web.app",
 ]
 
 CORS_ALLOW_HEADERS = list(default_headers)

@@ -1,5 +1,37 @@
 import json
 
+# --- Claude API pricing (USD per million tokens) -------------------------------
+# VERIFY pricing: current Claude pricing as of 2026-06 (per claude-api skill).
+#   Opus 4.x  : $5.00 input  / $25.00 output  per MTok
+#   Sonnet 4.6: $3.00 input  / $15.00 output  per MTok
+#   Haiku 4.5 : $1.00 input  / $5.00  output  per MTok
+# Keyed by a substring of the model id (longest match wins). Update on a price
+# change or when adding a model. # VERIFY pricing
+PRICING_USD_PER_MTOK = {
+    "opus":   {"input": 5.00, "output": 25.00},   # VERIFY pricing
+    "sonnet": {"input": 3.00, "output": 15.00},   # VERIFY pricing
+    "haiku":  {"input": 1.00, "output": 5.00},    # VERIFY pricing
+}
+# Fallback when the model id matches none of the above (use Opus-tier rates).
+_DEFAULT_PRICE = {"input": 5.00, "output": 25.00}  # VERIFY pricing
+
+
+def _price_for(model):
+    """Return the {input, output} $/MTok for a model id (substring match)."""
+    m = (model or "").lower()
+    for key, price in PRICING_USD_PER_MTOK.items():
+        if key in m:
+            return price
+    return _DEFAULT_PRICE
+
+
+def cost_usd(model, input_tokens, output_tokens):
+    """USD cost of a request given its input/output token counts."""
+    p = _price_for(model)
+    return (input_tokens / 1_000_000.0) * p["input"] + \
+           (output_tokens / 1_000_000.0) * p["output"]
+
+
 ACTION_TOOL_NAME = "set_flow_rates"
 ACTION_TOOL = {
     "name": ACTION_TOOL_NAME,
@@ -41,9 +73,19 @@ SYSTEM = (
 
 class BotBrain:
     def __init__(self, client, model):
-        self.client, self.model, self.tokens_used = client, model, 0
+        self.client, self.model = client, model
+        # Cumulative token + cost accounting across the run.
+        self.tokens_used = 0          # total (input+output), for the token budget
+        self.input_tokens_total = 0
+        self.output_tokens_total = 0
+        self.est_cost_usd_total = 0.0
+        # Per-sol meter: tokens consumed by the most recent decide() call. The loop
+        # reads `tokens_this_sol` after each decision and puts it on the sol event.
+        self.tokens_this_sol = 0
+        self.cost_this_sol_usd = 0.0
 
     def decide(self, snapshot):
+        prev_total = self.tokens_used
         msg = self.client.messages.create(
             model=self.model, max_tokens=1024, system=SYSTEM, tools=[ACTION_TOOL],
             tool_choice={"type": "tool", "name": ACTION_TOOL_NAME},
@@ -51,8 +93,16 @@ class BotBrain:
                 {k: snapshot[k] for k in ("stores", "balances", "warnings", "controllable")
                  if k in snapshot})}])
         u = getattr(msg, "usage", None)
-        if u:
-            self.tokens_used += getattr(u, "input_tokens", 0) + getattr(u, "output_tokens", 0)
+        in_tok = getattr(u, "input_tokens", 0) if u else 0
+        out_tok = getattr(u, "output_tokens", 0) if u else 0
+        self.input_tokens_total += in_tok
+        self.output_tokens_total += out_tok
+        self.tokens_used += in_tok + out_tok
+        # Per-sol delta of tokens_used + the USD cost of THIS call only.
+        self.tokens_this_sol = self.tokens_used - prev_total
+        self.cost_this_sol_usd = round(cost_usd(self.model, in_tok, out_tok), 6)
+        self.est_cost_usd_total = round(
+            self.est_cost_usd_total + self.cost_this_sol_usd, 6)
         payload = {"reasoning": "", "actions": []}
         for b in msg.content:
             if getattr(b, "type", None) == "tool_use" and b.name == ACTION_TOOL_NAME:
