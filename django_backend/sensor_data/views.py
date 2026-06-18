@@ -624,19 +624,32 @@ _PLAYGROUND_CAP_MAX = 1000
 
 @csrf_exempt
 def survival_playground_run(request):
-    """Farmer config playground: build a BioSim config from the defensible base
-    with the supplied overrides, run it against BioSim, and return its metrics
-    alongside the unmodified-baseline result for comparison.
+    """Farmer config playground: build a BioSim config from the HARD base with the
+    supplied survival-physics + grow overrides, run THREE deterministic controllers
+    on it (passive / maxctrl / doctrine), and return their metrics alongside an
+    unmodified-baseline (hard config flown by doctrine) for comparison.
 
-    Body: {"overrides": {dirty_water_level, nuclear_power, biomass_power,
-            biomass_water, crop_area, food_store, ...}, "mode": "passive"|"maxctrl",
-            "difficulty": "off"|"malfunctions", "cap": int, "crew": int}
+    Body: {"overrides": {
+              // survival physics (air loop + power) -- the levers that matter:
+              o2_producer_max, o2_store, vccr_max, nuclear_power_max, power_store,
+              crew_size,
+              // grow/food (BioSim food output is largely insensitive to these):
+              dirty_water_level, nuclear_power, biomass_power, biomass_water,
+              crop_area, crop_type, num_shelves, food_store
+            },
+            "difficulty": "off"|"malfunctions", "cap": int, "crew": int,
+            "config": <whitelisted .biosim filename, optional>}
 
-    Returns: {sols, in_band_sols, mars_grown_cal_pct, ended_reason,
-              baseline: {...same shape...}, applied_overrides, ignored_overrides}.
+    All overrides are validated/clamped server-side (see playground.PHYSICS_CLAMPS).
+    `crew_size` may be supplied inside `overrides` (preferred) or as top-level
+    `crew`; it is clamped to [1, 30].
 
-    NOTE: this runs ONE BioSim sim at a time (sequential). It must run on a host
-    that can reach BioSim (the parent wires it to the VM via SURVIVAL_BIOSIM_URL).
+    Returns: {controllers: {passive, maxctrl, doctrine}, baseline,
+              applied_overrides, ignored_overrides, crew_size, cap} where each
+    controller/baseline is {sols, in_band_sols, mars_grown_cal_pct, ended_reason}.
+
+    NOTE: this runs ONE BioSim sim at a time (sequential, four runs total). It
+    must run on a host that can reach BioSim (parent wires SURVIVAL_BIOSIM_URL).
     """
     if request.method != "POST":
         return JsonResponse({"error": "POST only"}, status=405)
@@ -648,30 +661,31 @@ def survival_playground_run(request):
     except (ValueError, TypeError):
         return JsonResponse({"error": "invalid json"}, status=400)
 
-    overrides = body.get("overrides") or {}
-    if not isinstance(overrides, dict):
+    overrides = dict(body.get("overrides") or {})
+    if not isinstance(body.get("overrides") or {}, dict):
         return JsonResponse({"error": "overrides must be an object"}, status=400)
-    mode = body.get("mode", "passive")
-    if mode not in ("passive", "maxctrl"):
-        return JsonResponse({"error": "mode must be passive|maxctrl"}, status=400)
     difficulty = body.get("difficulty", "off")
     if difficulty not in ("off", "malfunctions"):
         return JsonResponse({"error": "difficulty must be off|malfunctions"}, status=400)
     # Optional base-config selection (whitelisted in config.ALLOWED_CONFIGS); None
-    # keeps the playground's defensible base. build_config validates it, so a
-    # hostile value can never escape configs/.
+    # keeps the playground's HARD base. build_config validates it, so a hostile
+    # value can never escape configs/.
     from .survival.config import ALLOWED_CONFIGS
     config_name = body.get("config")
     if config_name is not None and config_name not in ALLOWED_CONFIGS:
         return JsonResponse(
             {"error": f"config must be one of {sorted(ALLOWED_CONFIGS)}"}, status=400)
     try:
-        cap = int(body.get("cap", 200))
+        cap = int(body.get("cap", 120))
     except (TypeError, ValueError):
-        cap = 200
+        cap = 120
     cap = max(1, min(cap, _PLAYGROUND_CAP_MAX))
+    # crew_size: prefer the value inside `overrides` (the new frontend lever); fall
+    # back to top-level `crew`, then the configured default. build_config re-clamps
+    # to [1, 30], so this is just sourcing -- not the validation boundary.
+    crew_raw = overrides.pop("crew_size", body.get("crew", settings.SURVIVAL_CREW_SIZE))
     try:
-        crew = int(body.get("crew", settings.SURVIVAL_CREW_SIZE))
+        crew = int(crew_raw)
     except (TypeError, ValueError):
         crew = settings.SURVIVAL_CREW_SIZE
 
@@ -679,7 +693,7 @@ def survival_playground_run(request):
     try:
         result = playground.run_playground(
             settings.SURVIVAL_BIOSIM_URL, overrides,
-            mode=mode, difficulty=difficulty, cap=cap, crew_size=crew,
+            difficulty=difficulty, cap=cap, crew_size=crew,
             config_name=config_name)
     except Exception as e:  # pragma: no cover - BioSim/network guard
         traceback.print_exc()

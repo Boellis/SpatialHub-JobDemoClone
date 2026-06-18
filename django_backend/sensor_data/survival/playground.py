@@ -1,13 +1,23 @@
 """playground.py -- build + run BioSim configs with farmer-supplied overrides.
 
 Backs the ``POST /api/survival/playground/run`` endpoint and is reusable as a
-library. It takes the defensible config (``configs/survival_defensible.biosim``),
-applies a small set of named overrides (store levels/capacities, BiomassPS
-power/water budgets, crop area, food store), builds an N-crew config with the
-existing survival crew builder, and runs it against the live BioSim to death-or-cap.
+library. Its base is the HARD config (``configs/survival_hard.biosim``) -- the
+O2-constrained habitat where survival is the real score -- and it applies a set
+of named overrides that tune the SURVIVAL PHYSICS (the air loop + power) plus the
+older grow/food knobs, builds an N-crew config with the existing survival crew
+builder, and runs it against the live BioSim to death-or-cap.
 
-Run logic mirrors ``_bench/bench.py`` (passive / maxctrl modes, in-band sols,
-mars-grown calorie %), kept in-tree so the endpoint has no out-of-tree dependency.
+Two survival stories the physics levers are designed to tell:
+  A. RAISE THE O2 CEILING (``o2_producer_max`` / ``o2_store`` / ``vccr_max``):
+     bigger air loop -> the cabin-O2 death clock slows -> everyone survives longer.
+  B. CONSTRAIN POWER (``nuclear_power_max`` / ``power_store``): cut the power
+     budget so maxing every consumer blindly (maxctrl) overruns it and BioSim
+     clamps the air loop -- a *prioritizing* controller (doctrine) that feeds
+     power first then O2 beats blind max-all. Smart control visibly wins.
+
+Run logic mirrors ``_bench/bench.py`` (passive / maxctrl / doctrine modes,
+in-band sols, mars-grown calorie %), kept in-tree so the endpoint has no
+out-of-tree dependency.
 
 ONE BioSim instance is assumed -- runs are sequential, one sim each.
 """
@@ -18,9 +28,15 @@ import time
 from pathlib import Path
 
 from . import config as cfgmod
+from . import doctrine_controller
 from .biosim_control import BiosimControl
 from .state import CONTROLLABLE, TICKS_PER_SOL, summarize_state
 
+# Playground base = HARD config. This is the O2-constrained habitat the new
+# survival-physics levers (air loop + power) are tuned against; the older grow
+# knobs still work on it. Callers may still select a whitelisted base via
+# `config_name`, but None now means HARD (not defensible) for the playground.
+HARD_CONFIG = Path(__file__).parent / "configs" / "survival_hard.biosim"
 DEFENSIBLE_CONFIG = Path(__file__).parent / "configs" / "survival_defensible.biosim"
 
 # Life-critical safe bands (store fill %); a store is in-band when low <= pct <= high.
@@ -44,6 +60,19 @@ DEFAULT_CROP_TYPE = "SOYBEAN"
 # Shelf-count bounds: at least one shelf, at most 50.
 MIN_SHELVES = 1
 MAX_SHELVES = 50
+
+# ── NEW survival-physics overrides: (min, max) clamps, validated server-side. ──
+# These move the air loop + power -- the levers that actually drive survival on the
+# hard config (crop area / food are insensitive in BioSim). Every value is coerced
+# to a number and clamped to its band before it ever touches the XML.
+PHYSICS_CLAMPS = {
+    "o2_producer_max":   (10.0, 5000.0),   # OGS O2Producer + H2Producer maxFlowRates
+    "o2_store":          (200.0, 50000.0),  # O2_Store capacity (and level)
+    "vccr_max":          (30.0, 5000.0),    # VCCR airProducer/airConsumer/CO2Producer max
+    "nuclear_power_max": (200.0, 10000.0),  # Nuclear powerProducer maxFlowRates
+    "power_store":       (1000.0, 500000.0),  # General_Power_Store capacity (and level)
+}
+CREW_CLAMP = (1, 30)
 
 # Named overrides -> how to rewrite the .biosim XML. Each handler takes (xml, value)
 # and returns the new xml. Keys are the public override names accepted in the request.
@@ -77,6 +106,38 @@ def _set_module_surface_rate(xml, module_tag, surface_tag, value):
         return xml
     new_block = surf_pat.sub(lambda s: s.group(1) + str(value) + s.group(2), block, count=1)
     return xml[:m.start(1)] + new_block + xml[m.end(1):]
+
+
+def _set_module_attr_all(xml, module_tag, surface_tags, attr, value):
+    """Set ``attr="value"`` on EVERY listed surface inside ``<module_tag>...``.
+
+    Used for the physics levers that must move several surfaces of one module
+    together (e.g. OGS O2Producer + H2Producer, or all three VCCR air surfaces),
+    so the whole sub-loop is re-rated consistently. Only the named surfaces inside
+    the module block are touched; the rest of the XML is untouched.
+    """
+    block_pat = re.compile(r"(<" + module_tag + r"\b.*?</" + module_tag + r">)", re.DOTALL)
+    m = block_pat.search(xml)
+    if not m:
+        return xml
+    block = m.group(1)
+    for surf in surface_tags:
+        surf_pat = re.compile(
+            r"(<" + surf + r"\b[^>]*?\b" + attr + r'=")[^"]*(")')
+        block = surf_pat.sub(lambda s: s.group(1) + str(value) + s.group(2), block)
+    return xml[:m.start(1)] + block + xml[m.end(1):]
+
+
+def _set_store_capacity_and_level(xml, store_tag, value):
+    """Set both capacity= and level= to ``value`` on a self-closing store element.
+
+    A reserve buffer is only as useful as the level it starts at, so capacity and
+    starting level move together (a 50k-capacity store that starts at 600 buys no
+    runway). Used for o2_store / power_store.
+    """
+    xml = _set_store_attr(xml, store_tag, "capacity", value)
+    xml = _set_store_attr(xml, store_tag, "level", value)
+    return xml
 
 
 def _set_biomass_shelves(xml, num_shelves, crop_area, crop_type):
@@ -119,6 +180,26 @@ def _apply_override(xml, name, value):
         # keep capacity >= level so the store can actually hold the override.
         xml = _set_store_attr(xml, "FoodStore", "capacity", value)
         return xml
+    # ── survival-physics levers (already clamped before dispatch) ──
+    if name == "o2_producer_max":
+        # OGS O2 + H2 generation ceiling -> raises the cabin-O2 supply (story A).
+        return _set_module_attr_all(
+            xml, "OGS", ("O2Producer", "H2Producer"), "maxFlowRates", value)
+    if name == "o2_store":
+        return _set_store_capacity_and_level(xml, "O2Store", value)
+    if name == "vccr_max":
+        # VCCR is the cabin air recycler (returns O2, scrubs CO2) -- the primary
+        # death-clock lever. Re-rate all three air surfaces together.
+        return _set_module_attr_all(
+            xml, "VCCR", ("airProducer", "airConsumer", "CO2Producer"),
+            "maxFlowRates", value)
+    if name == "nuclear_power_max":
+        # Nuclear power ceiling -> the power budget (story B). Lower it and maxing
+        # every consumer overruns the bus, so a prioritizing pilot wins.
+        return _set_module_attr_all(
+            xml, "PowerPS", ("powerProducer",), "maxFlowRates", value)
+    if name == "power_store":
+        return _set_store_capacity_and_level(xml, "PowerStore", value)
     return xml  # unknown override: ignored (caller may report it)
 
 
@@ -128,20 +209,38 @@ def _apply_override(xml, name, value):
 SHELF_OVERRIDES = ("crop_area", "crop_type", "num_shelves")
 
 SUPPORTED_OVERRIDES = (
+    # legacy grow/water/food knobs
     "dirty_water_level", "nuclear_power", "biomass_power",
     "biomass_water", "crop_area", "crop_type", "num_shelves", "food_store",
+    # NEW survival-physics levers (air loop + power)
+    "o2_producer_max", "o2_store", "vccr_max", "nuclear_power_max", "power_store",
 )
+
+
+def _clamp_physics(name, value):
+    """Coerce a physics override to a float and clamp it to its band.
+
+    Returns None for a non-numeric value so the caller can drop it. Server-side
+    validation: the client can never push a surface past its safe band.
+    """
+    lo, hi = PHYSICS_CLAMPS[name]
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return None
+    return max(lo, min(v, hi))
 
 
 def build_config(overrides, crew_size=15, config_name=None):
     """Build a crewed config with overrides applied.
 
     `config_name` selects a whitelisted base config (validated via
-    config.resolve_config_path); None keeps the defensible base (the playground's
-    farmer-tuning sandbox default). Returns (xml, applied, ignored) where
-    applied/ignored are override-name lists."""
+    config.resolve_config_path); None now means the HARD base (the playground's
+    survival-physics sandbox -- the O2-constrained habitat the levers are tuned
+    against). Returns (xml, applied, ignored) where applied/ignored are
+    override-name lists. crew_size is clamped to CREW_CLAMP."""
     base = (cfgmod.resolve_config_path(config_name)
-            if config_name is not None else DEFENSIBLE_CONFIG)
+            if config_name is not None else HARD_CONFIG)
     xml = base.read_text()
     xml = re.sub(r'runTillCrewDeath="[^"]*"', 'runTillCrewDeath="true"', xml)
     overrides = overrides or {}
@@ -152,6 +251,14 @@ def build_config(overrides, crew_size=15, config_name=None):
             continue
         if name in SHELF_OVERRIDES:
             continue  # applied together below
+        if name in PHYSICS_CLAMPS:
+            clamped = _clamp_physics(name, value)
+            if clamped is None:  # non-numeric -> drop, report as ignored
+                ignored.append(name)
+                continue
+            xml = _apply_override(xml, name, clamped)
+            applied.append(name)
+            continue
         xml = _apply_override(xml, name, value)
         applied.append(name)
 
@@ -172,7 +279,13 @@ def build_config(overrides, crew_size=15, config_name=None):
         for k in SHELF_OVERRIDES:
             if k in overrides:
                 applied.append(k)
-    # Crew builder (same marker dance as config.build_survival_config).
+    # Crew builder (same marker dance as config.build_survival_config). Crew size
+    # is clamped server-side: a hostile/typo value can never spawn 10k crew.
+    try:
+        crew_size = int(crew_size)
+    except (TypeError, ValueError):
+        crew_size = 15
+    crew_size = max(CREW_CLAMP[0], min(crew_size, CREW_CLAMP[1]))
     xml = re.sub(r"<crewPerson\b.*?</crewPerson>", cfgmod._CREW_MARKER, xml,
                  count=1, flags=re.DOTALL)
     xml = re.sub(r"<crewPerson\b.*?</crewPerson>", "", xml, flags=re.DOTALL)
@@ -231,12 +344,28 @@ def _maxctrl_actions(raw):
     return actions
 
 
+def _doctrine_actions(raw):
+    """Doctrine controller's actions for one sol (deterministic, no LLM).
+
+    Delegates to ``doctrine_controller.decide`` -- the same reserve-band /
+    contingency / failsafe logic the always-on feeder flies. This is the
+    PRIORITIZING pilot: it feeds power first, then O2, then water, so when the
+    power budget is constrained (story B) it beats blind max-all.
+    """
+    snap = summarize_state(raw)
+    decision = doctrine_controller.decide(snap)
+    return decision.get("actions", [])
+
+
 def run_config(biosim_url, xml, mode="passive", cap=200, difficulty="off",
                crew_size=15, timeout=30.0):
     """Run a built config against BioSim to death-or-cap.
 
     Returns {sols, in_band_sols, mars_grown_cal_pct, ended_reason}.
-    mode: 'passive' (config desired rates) | 'maxctrl' (producers to max each sol).
+    mode:
+      'passive'  -- coast on the config's desired rates (no control).
+      'maxctrl'  -- drive every producer to its ceiling each sol (blind max-all).
+      'doctrine' -- the deterministic prioritizing controller (decide()).
     difficulty: 'off' | 'malfunctions' (SEVERE grey-water malf every 10th sol).
     """
     client = BiosimControl(biosim_url, timeout=timeout)
@@ -258,9 +387,11 @@ def run_config(biosim_url, xml, mode="passive", cap=200, difficulty="off",
                 client.add_malfunction(sim_id, MALF_MODULE)
             except Exception:
                 pass
-        if mode == "maxctrl":
+        if mode in ("maxctrl", "doctrine"):
             raw = client.get_state(sim_id)
-            for a in _maxctrl_actions(raw):
+            actions = (_doctrine_actions(raw) if mode == "doctrine"
+                       else _maxctrl_actions(raw))
+            for a in actions:
                 try:
                     client.set_flows(sim_id, a["module"], a["kind"], a["type"], a["rates"])
                 except Exception:
@@ -295,23 +426,59 @@ def run_config(biosim_url, xml, mode="passive", cap=200, difficulty="off",
     }
 
 
-def run_playground(biosim_url, overrides, mode="passive", difficulty="off",
-                   cap=200, crew_size=15, config_name=None):
-    """Top-level: build the override config + a baseline (no overrides), run both,
-    and return {sols, in_band_sols, mars_grown_cal_pct, ended_reason, baseline,
-    applied_overrides, ignored_overrides}.
+# The three deterministic controllers compared on every playground run. All are
+# free (no LLM): passive coasts, maxctrl blind-maxes producers, doctrine
+# prioritizes (power -> O2 -> water). The 3-way split is the whole point -- it
+# shows WHEN smart control wins (story B: constrained power -> doctrine > maxctrl)
+# vs. when the config ceiling dominates (story A: raise O2 -> all three rise).
+CONTROLLERS = ("passive", "maxctrl", "doctrine")
 
-    `config_name` selects a whitelisted base config (default = defensible).
-    `baseline` is that same base config with NO overrides, run the same way -- the
-    comparison point for the farmer's tweaks.
+
+def run_playground(biosim_url, overrides, difficulty="off",
+                   cap=120, crew_size=15, config_name=None, **_legacy):
+    """Top-level: build the farmer's override config and run THREE controllers on
+    it (passive / maxctrl / doctrine), plus a `baseline` = the unmodified HARD
+    config flown by doctrine. Returns:
+
+        {
+          "controllers": {
+            "passive":  {sols, in_band_sols, mars_grown_cal_pct, ended_reason},
+            "maxctrl":  {...},
+            "doctrine": {...},
+          },
+          "baseline": {...same shape...},      # unmodified hard config, doctrine
+          "applied_overrides": [...],
+          "ignored_overrides": [...],
+          "crew_size": int,                    # the (clamped) crew actually flown
+          "cap": int,
+        }
+
+    `config_name` selects a whitelisted base config (default = the HARD base). All
+    runs are sequential (one BioSim sim at a time). A legacy ``mode=`` kwarg is
+    accepted and ignored -- the response always carries all three controllers.
     """
     xml, applied, ignored = build_config(overrides, crew_size, config_name)
-    result = run_config(biosim_url, xml, mode, cap, difficulty, crew_size)
+    # Re-derive the clamped crew so the response reports what was actually flown.
+    try:
+        flown_crew = max(CREW_CLAMP[0], min(int(crew_size), CREW_CLAMP[1]))
+    except (TypeError, ValueError):
+        flown_crew = 15
 
-    base_xml, _, _ = build_config({}, crew_size, config_name)
-    baseline = run_config(biosim_url, base_xml, mode, cap, difficulty, crew_size)
+    controllers = {}
+    for ctrl in CONTROLLERS:
+        controllers[ctrl] = run_config(
+            biosim_url, xml, ctrl, cap, difficulty, flown_crew)
 
-    result["baseline"] = baseline
-    result["applied_overrides"] = applied
-    result["ignored_overrides"] = ignored
-    return result
+    # Baseline: the unmodified hard config (no overrides), flown by doctrine -- the
+    # "what the autonomous pilot does on the stock habitat" reference point.
+    base_xml, _, _ = build_config({}, flown_crew, config_name)
+    baseline = run_config(biosim_url, base_xml, "doctrine", cap, difficulty, flown_crew)
+
+    return {
+        "controllers": controllers,
+        "baseline": baseline,
+        "applied_overrides": applied,
+        "ignored_overrides": ignored,
+        "crew_size": flown_crew,
+        "cap": cap,
+    }
