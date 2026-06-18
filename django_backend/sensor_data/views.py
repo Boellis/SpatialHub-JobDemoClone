@@ -218,7 +218,30 @@ def survival_stream(request):
     the package) can import this module.
     """
     difficulty = request.GET.get("difficulty", "off")
+    # Clamp difficulty server-side to the known set (never trust the client).
+    if difficulty not in ("off", "malfunctions"):
+        difficulty = "off"
+    # Config selection: a whitelisted .biosim filename. Unknown/absent -> the
+    # env/default (build_survival_config validates against ALLOWED_CONFIGS, so a
+    # hostile value can never escape configs/ or pick a non-whitelisted file).
+    config_name = request.GET.get("config")
     run_id = run_registry.new_run_id()
+
+    # Per-run Claude sols cap (cost control). Default to the configured
+    # SURVIVAL_MAX_SOLS when the param is absent; otherwise CLAMP server-side to
+    # [10, 500] — never trust the client and never exceed the hard ceiling of 500.
+    raw_max_sols = request.GET.get("max_sols")
+    if raw_max_sols is None:
+        max_sols = settings.SURVIVAL_MAX_SOLS
+    else:
+        try:
+            max_sols = int(raw_max_sols)
+        except (TypeError, ValueError):
+            max_sols = settings.SURVIVAL_MAX_SOLS
+        max_sols = max(10, min(max_sols, 500))
+    # Scale the token budget with the run length so a longer run isn't killed
+    # early by the old fixed 200k budget, but keep a hard ceiling.
+    token_budget = min(max_sols * 5000, 2_600_000)
 
     def stream():
         try:
@@ -227,14 +250,15 @@ def survival_stream(request):
             client = BiosimControl(settings.SURVIVAL_BIOSIM_URL)
             anthropic_client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
             brain = BotBrain(anthropic_client, settings.ANTHROPIC_MODEL)
-            config_xml = build_survival_config(settings.SURVIVAL_CREW_SIZE)
+            config_xml = build_survival_config(
+                settings.SURVIVAL_CREW_SIZE, config_name=config_name)
 
             yield f"event: run\ndata: {json.dumps({'run_id': run_id})}\n\n"
 
             for event in run_survival(
                 client, brain, config_xml,
-                max_sols=settings.SURVIVAL_MAX_SOLS,
-                token_budget=settings.SURVIVAL_TOKEN_BUDGET,
+                max_sols=max_sols,
+                token_budget=token_budget,
                 difficulty=difficulty,
                 cancel=lambda: run_registry.is_cancelled(run_id),
             ):
@@ -633,6 +657,14 @@ def survival_playground_run(request):
     difficulty = body.get("difficulty", "off")
     if difficulty not in ("off", "malfunctions"):
         return JsonResponse({"error": "difficulty must be off|malfunctions"}, status=400)
+    # Optional base-config selection (whitelisted in config.ALLOWED_CONFIGS); None
+    # keeps the playground's defensible base. build_config validates it, so a
+    # hostile value can never escape configs/.
+    from .survival.config import ALLOWED_CONFIGS
+    config_name = body.get("config")
+    if config_name is not None and config_name not in ALLOWED_CONFIGS:
+        return JsonResponse(
+            {"error": f"config must be one of {sorted(ALLOWED_CONFIGS)}"}, status=400)
     try:
         cap = int(body.get("cap", 200))
     except (TypeError, ValueError):
@@ -647,7 +679,8 @@ def survival_playground_run(request):
     try:
         result = playground.run_playground(
             settings.SURVIVAL_BIOSIM_URL, overrides,
-            mode=mode, difficulty=difficulty, cap=cap, crew_size=crew)
+            mode=mode, difficulty=difficulty, cap=cap, crew_size=crew,
+            config_name=config_name)
     except Exception as e:  # pragma: no cover - BioSim/network guard
         traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=502)

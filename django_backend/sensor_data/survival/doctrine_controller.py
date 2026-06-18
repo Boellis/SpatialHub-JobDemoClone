@@ -20,6 +20,16 @@ Given one sol's ``summarize_state(raw)`` snapshot it:
 
 Pure / no I/O: ``decide`` takes a snapshot dict and returns actions. The feeder
 (``management/commands/survival_autopilot.py``) talks to BioSim.
+
+VALIDATED (2026-06-17, live local BioSim @ localhost:8009, survival_hard.biosim,
+cap 120, off): this controller reaches **77 sols** (ended_reason=crew_death) vs.
+passive ~31 -- byte-for-byte the same survival as the bench's _bench/controller.py.
+The decisive move is sol 1: General_Power_Store runway is ~0.1 sols (Nuclear is
+de-rated to 700 < ~3000 demand), so the RESERVE-BAND guardrail drives Nuclear
+Power -> 3000, which keeps the bus up so the air loop (VCCR/OGS) runs and cabin O2
+holds. The earlier "feeder only reaches ~36" symptom was NOT a decide() defect --
+the feeder was building from the lenient survival_defensible base; pointed at
+survival_hard (the autopilot --config default now) the SAME decide() reaches 77.
 """
 from __future__ import annotations
 

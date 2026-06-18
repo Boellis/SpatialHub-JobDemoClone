@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../../style/table.xsl"?>
+<biosim xmlns="http://www.traclabs.com/biosim"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.traclabs.com/biosim ../../schema/BiosimInitSchema.xsd">
+	<!-- ===================================================================
+	     HARD MODE survival config (derived from survival_defensible.biosim).
+
+	     GOAL: make crew survival NON-TRIVIAL so the sols counter is a real
+	     score. PASSIVE (zero control) dies fast; an active max-throughput /
+	     doctrine controller survives ~2-5x longer (control clearly matters,
+	     but it is still beatable, not impossible).
+
+	     MEASURED RESULT on the live local BioSim (15 crew, runTillCrewDeath):
+	       PASSIVE   ~28-31 sols (crew_death; tight)
+	       MAXCTRL  ~76-77 sols  (crew_death; deterministic, ALWAYS > passive)
+	       -> ~2.5x; worst passive (31) far below worst maxctrl (76) (diff off)
+	     See HARD_MODE_CONFIG.md for the full matrix incl. malfunctions.
+
+	     ROOT-CAUSE NOTE (why earlier configs looked un-killable): in this
+	     scottbell/biosim build crew death is surfaced via
+	     globals.simulationEnded + each crewPerson currentActivity="dead", NOT a
+	     top-level crewDead flag. state.py::_is_ended was reading only the
+	     top-level flag, so EVERY config (shipped + defensible) reported 500+
+	     "survival" sols when the crew actually died ~sol 36. With detection
+	     fixed, the binding death mechanism is CABIN OXYGEN DECLINE: 15 crew
+	     out-breathe the cabin O2 the air loop returns, so cabin o2 concentration
+	     decays to ~0.09 (asphyxiation). That decline rate is what control moves.
+
+	     DESIGN (every lever justified against measured BioSim physics):
+	       1. THE AIR LOOP IS THE DEATH CLOCK, AND IT IS THE CONTROL LEVER.
+	          VCCR (the cabin air recycler that returns O2 to the cabin and
+	          scrubs CO2) and OGS (O2 generator) DEFAULTS are de-rated to a small
+	          nonzero FLOOR (well below 15-crew demand) so PASSIVE gets almost no
+	          active air support and the cabin O2 crashes fast (death ~sol 28-31).
+	          maxFlowRates are kept HIGH (1000) so a controller can ramp the whole
+	          air loop and slow the cabin-O2 decline, surviving to ~sol 76-77:
+	            * VCCR air/CO2 desired 1000 -> 30  (max 1000)  [primary lever]
+	            * OGS  O2/H2  desired 1000 -> 10   (max 1000)
+	          A small NONZERO floor (vs full 0) keeps the passive crew metabolically
+	          active and avoids a BioSim "dormancy" path where a fully-starved crew
+	          slows its metabolism and survives anomalously long; the nonzero
+	          floor makes passive death tighter and keeps maxctrl ALWAYS above
+	          passive. This is the lever that produces the ~2.5x passive/control gap.
+	       2. POWER DE-RATED so a controller must ALSO keep the bus up (the air
+	          loop it ramps draws power):
+	            * Nuclear_Source Power desired 3000 -> 700 (max 3000). Steady
+	              demand is ~3000/tick; at 700 the small power store drains, so a
+	              controller ramps Nuclear to feed the air loop it just maxed.
+	            * Water_RS potable desired 100 -> 20 (max 100). Reclamation is
+	              BioSim-capped at ~1.4/tick regardless of config, so this is a
+	              secondary clock, not the binding one.
+	       3. BUFFERS SHRUNK so a transient (or a malfunction) binds instead of
+	          being absorbed by a 15k-sol reserve:
+	            * O2_Store        10000 -> 1200
+	            * Potable_Water_Store 10000 -> 3000  (sized as a TIGHT dehydration
+	              clock that kills passive deterministically ~sol 31, closing the
+	              cabin-O2 "dormancy" lottery that otherwise let passive survive
+	              anomalously long; control keeps power+Water_RS up so potable
+	              lasts and the air loop carries it to ~sol 76)
+	            * General_Power_Store 100000 -> 6000   (~2 sols of demand)
+	            * Food_Store      10000 -> 6000        (food is not the bind)
+	            * Dirty_Water_Store 2000 -> 400        (kills the surge reserve)
+	       4. Designed to also be run with difficulty=malfunctions (SEVERE
+	          grey-water malf every 10 sols) and survivable only with active
+	          response.
+
+	     Everything not listed above is held identical to survival_defensible.
+	     =================================================================== -->
+	<Globals driverStutterLength="500" crewsToWatch="Crew_Quarters_Group" runTillCrewDeath="true"  tickLength="1" startPaused="false"/>
+	<SimBioModules>
+		<environment>
+			<SimEnvironment moduleName="Crew_Quarters_Environment" initialVolume="2700000"/>
+		</environment>
+		<air>
+			<MethaneStore capacity="0" moduleName="MethaneStore" level="0"/>
+			<NitrogenStore capacity="0" moduleName="NitrogenStore" level="0"/>
+			<CO2Store capacity="1000" moduleName="CO2_Store" level="0"/>
+			<H2Store capacity="10000" moduleName="H2_Store" level="0"/>
+			<O2Store capacity="1200" moduleName="O2_Store" level="600"/>
+			<VCCR moduleName="VCCR">
+				<powerConsumer desiredFlowRates="1000" maxFlowRates="1000" inputs="General_Power_Store"/>
+                <airConsumer desiredFlowRates="30.0" inputs="Crew_Quarters_Environment" maxFlowRates="1000.0"/>
+                <airProducer desiredFlowRates="30.0" maxFlowRates="1000.0" outputs="Crew_Quarters_Environment"></airProducer>
+                <CO2Producer desiredFlowRates="30.0" maxFlowRates="1000.0" outputs="CO2_Store"/>
+            </VCCR>
+			<OGS moduleName="OGS">
+				<powerConsumer inputs="General_Power_Store" desiredFlowRates="1000" maxFlowRates="1000"/>
+				<potableWaterConsumer inputs="Potable_Water_Store" desiredFlowRates="10" maxFlowRates="10"/>
+				<O2Producer desiredFlowRates="10" outputs="O2_Store" maxFlowRates="1000"/>
+				<H2Producer desiredFlowRates="10" outputs="H2_Store" maxFlowRates="1000"/>
+			</OGS>
+		</air>
+		<water>
+			<PotableWaterStore capacity="3000" moduleName="Potable_Water_Store" level="3000"/>
+			<GreyWaterStore capacity="10000" moduleName="Grey_Water_Store" level="10000"/>
+			<!-- Dirty_Water_Store shrunk 2000 -> 400 so a Water_RS / grey-water
+			     malfunction surge binds quickly instead of being absorbed. -->
+			<DirtyWaterStore capacity="400" moduleName="Dirty_Water_Store" level="400"/>
+			<WaterRS moduleName="Water_RS">
+				<powerConsumer inputs="General_Power_Store" desiredFlowRates="500" maxFlowRates="1000"/>
+				<dirtyWaterConsumer inputs="Dirty_Water_Store" desiredFlowRates="100" maxFlowRates="100"/>
+				<greyWaterConsumer inputs="Grey_Water_Store" desiredFlowRates="100" maxFlowRates="100"/>
+				<potableWaterProducer outputs="Potable_Water_Store" desiredFlowRates="20" maxFlowRates="100"/>
+			</WaterRS>
+		</water>
+		<power>
+			<!-- General_Power_Store shrunk 100000 -> 6000 (~2 sols of full demand)
+			     so the de-rated Nuclear default drains it on a sol scale. -->
+			<PowerStore capacity="6000" moduleName="General_Power_Store" level="6000"/>
+			<PowerPS moduleName="Nuclear_Source" generationType="NUCLEAR">
+				<powerProducer desiredFlowRates="700" outputs="General_Power_Store" maxFlowRates="3000" />
+			</PowerPS>
+		</power>
+		<food>
+			<FoodStore capacity="6000" level="6000" moduleName="Food_Store"/>
+			<BiomassStore capacity="10000" level="10000" moduleName="Biomass_Store"/>
+			<BiomassPS moduleName="BiomassPS" autoHarvestAndReplant="true">
+				<shelf cropArea="1" cropType="SOYBEAN"/>
+				<powerConsumer maxFlowRates="400" desiredFlowRates="400" inputs="General_Power_Store"/>
+				<potableWaterConsumer maxFlowRates="100" desiredFlowRates="100" inputs="Potable_Water_Store"/>
+				<greyWaterConsumer maxFlowRates="100" desiredFlowRates="100" inputs="Grey_Water_Store"/>
+				<airConsumer maxFlowRates="0" desiredFlowRates="0" inputs="Crew_Quarters_Environment"/>
+				<dirtyWaterProducer maxFlowRates="100" desiredFlowRates="100" outputs="Dirty_Water_Store"/>
+				<biomassProducer maxFlowRates="100" desiredFlowRates="100" outputs="Biomass_Store"/>
+				<airProducer maxFlowRates="0" desiredFlowRates="0" outputs="Crew_Quarters_Environment"/>
+			</BiomassPS>
+			<FoodProcessor moduleName="FoodProcessor">
+				<powerConsumer inputs="General_Power_Store" desiredFlowRates="100" maxFlowRates="200"/>
+				<biomassConsumer inputs="Biomass_Store" desiredFlowRates="100" maxFlowRates="200"/>
+				<foodProducer outputs="Food_Store" desiredFlowRates="100" maxFlowRates="200"/>
+				<dryWasteProducer outputs="Dry_Waste_Store" desiredFlowRates="100" maxFlowRates="200"/>
+				<waterProducer outputs="Grey_Water_Store" desiredFlowRates="100" maxFlowRates="200"/>
+			</FoodProcessor>
+		</food>
+		<waste>
+			<DryWasteStore capacity="1000000" moduleName="Dry_Waste_Store" level="0"/>
+		</waste>
+		<crew>
+			<CrewGroup moduleName="Crew_Quarters_Group">
+				<potableWaterConsumer inputs="Potable_Water_Store"
+					desiredFlowRates="3" maxFlowRates="3"/>
+				<airConsumer inputs="Crew_Quarters_Environment" desiredFlowRates="0"
+					maxFlowRates="0" />
+				<foodConsumer inputs="Food_Store" desiredFlowRates="5"
+					maxFlowRates="5"/>
+				<dirtyWaterProducer desiredFlowRates="100"
+					outputs="Dirty_Water_Store" maxFlowRates="100"/>
+				<greyWaterProducer desiredFlowRates="100"
+					outputs="Grey_Water_Store" maxFlowRates="100" />
+				<airProducer desiredFlowRates="0"
+					outputs="Crew_Quarters_Environment" maxFlowRates="0" />
+				<dryWasteProducer desiredFlowRates="10"
+					outputs="Dry_Waste_Store" maxFlowRates="10"/>
+				<crewPerson age="35" name="Buck Rogers" sex="MALE" weight="75">
+					<schedule>
+						<activity intensity="2" name="leisure" length="12" />
+						<activity intensity="0" name="sleep" length="8" />
+						<activity intensity="5" name="excercise" length="2" />
+					</schedule>
+				</crewPerson>
+			</CrewGroup>
+		</crew>
+	</SimBioModules>
+	<Sensors>
+		<environment>
+			<GasConcentrationSensor input="Crew_Quarters_Environment" moduleName="Co2GasConcentrationSensor" gasType="CO2">
+				<alarms>
+					<distress_high min="0.002" max="0.003"/>
+					<critical_high min="0.003" max="0.004"/>
+					<severe_high min="0.004" max="1"/>
+				</alarms>
+			</GasConcentrationSensor>
+			<GasConcentrationSensor input="Crew_Quarters_Environment" moduleName="O22GasConcentrationSensor" gasType="O2">
+				<alarms>
+					<watch_low min="0.17" max="0.19"/>
+					<warning_low min="0.15" max="0.17"/>
+					<severe_low min="0" max="0.15"/>
+				</alarms>
+			</GasConcentrationSensor>
+		</environment>
+	</Sensors>
+</biosim>

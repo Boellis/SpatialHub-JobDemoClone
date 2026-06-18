@@ -31,7 +31,8 @@ import uuid
 import requests
 from django.core.management.base import BaseCommand
 
-from sensor_data.survival import doctrine_controller, playground
+from sensor_data.survival import config as cfgmod
+from sensor_data.survival import doctrine_controller
 from sensor_data.survival.biosim_control import BiosimControl
 from sensor_data.survival.state import TICKS_PER_SOL, summarize_state
 
@@ -48,6 +49,11 @@ class Command(BaseCommand):
         parser.add_argument("--difficulty", choices=["off", "malfunctions"],
                             default=os.environ.get("AUTOPILOT_DIFFICULTY", "off"))
         parser.add_argument("--crew", type=int, default=int(os.environ.get("BIOSIM_CREW_SIZE", "15")))
+        parser.add_argument(
+            "--config", default=os.environ.get("SURVIVAL_CONFIG_FILE", "survival_hard.biosim"),
+            help="whitelisted .biosim filename (default survival_hard.biosim so the "
+                 "feeder runs the O2-constrained config where doctrine reaches ~77 "
+                 "sols, not the lenient defensible base ~36). Validated server-side.")
         parser.add_argument("--once", action="store_true",
                             help="run a single survival run then exit (testing)")
         parser.add_argument("--biosim-url", default=os.environ.get("BIOSIM_URL", "http://localhost:8009"))
@@ -74,12 +80,18 @@ class Command(BaseCommand):
             time.sleep(2 * (attempt + 1))
 
     # -- one run ------------------------------------------------------------
-    def _run_once(self, client, relay_url, token, cap, difficulty, crew):
+    def _run_once(self, client, relay_url, token, cap, difficulty, crew, config_name):
         run_id = uuid.uuid4().hex
-        xml, _, _ = playground.build_config({}, crew)
+        # Build from the SELECTED whitelisted config (default survival_hard.biosim).
+        # This is the TASK 1 fix: the feeder previously always built from the lenient
+        # survival_defensible base, so the doctrine controller only reached ~36 sols
+        # (~passive). On survival_hard the SAME controller reaches ~77 (it maxes
+        # Nuclear power sol 1 to keep the air loop running and defend cabin O2).
+        xml = cfgmod.build_survival_config(crew, config_name=config_name)
         sim_id = client.start_sim(xml)
         self.stdout.write(f"[autopilot] started run {run_id} sim {sim_id} "
-                          f"(cap={cap}, difficulty={difficulty}, crew={crew})")
+                          f"(cap={cap}, difficulty={difficulty}, crew={crew}, "
+                          f"config={cfgmod.resolve_config_path(config_name).name})")
         self._post_event(relay_url, token, "run", {
             "run_id": run_id, "difficulty": difficulty, "crew_size": crew,
             "pilot": "deterministic_doctrine"})
@@ -138,6 +150,7 @@ class Command(BaseCommand):
         relay_url = opts["relay_url"]
         token = opts["relay_token"]
         cap, difficulty, crew = opts["cap"], opts["difficulty"], opts["crew"]
+        config_name = opts["config"]
 
         self.stdout.write(f"[autopilot] BIOSIM_URL={biosim_url} "
                           f"relay={'configured' if (relay_url and token) else 'DRY-RUN (no POST)'}")
@@ -146,7 +159,7 @@ class Command(BaseCommand):
         backoff = 5
         while True:
             try:
-                self._run_once(client, relay_url, token, cap, difficulty, crew)
+                self._run_once(client, relay_url, token, cap, difficulty, crew, config_name)
                 backoff = 5  # reset after a clean run
             except Exception as e:  # start_sim failure or unexpected error
                 self.stderr.write(f"[autopilot] run failed to start/complete ({e}); "

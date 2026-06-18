@@ -46,7 +46,17 @@ WARN_HIGH = 95.0
 
 
 def _is_ended(raw):
-    """A BioSim run has ended when the crew dies or the sim stops."""
+    """A BioSim run has ended when the crew dies or the sim stops.
+
+    IMPORTANT: in the scottbell/biosim build this stack runs against, crew death
+    is NOT surfaced as a top-level crewDead/crewAlive flag. When runTillCrewDeath
+    is set and the crew dies (starvation / dehydration / asphyxiation), BioSim:
+      * flips ``globals.simulationEnded`` to true, and
+      * sets every crewPerson's ``currentActivity.name`` to "dead".
+    Reading only the top-level keys (the original behavior) made every run look
+    like it "survived" to the sol cap — masking real deaths. We now read both the
+    globals end flag and the per-person dead state, so survival-sols are honest.
+    """
     if raw.get("crewDead") or raw.get("crew_dead"):
         return True
     if raw.get("simError") or raw.get("error"):
@@ -55,6 +65,18 @@ def _is_ended(raw):
     for key in ("crewAlive", "alive", "isRunning"):
         if key in raw and raw[key] is False:
             return True
+    # scottbell/biosim: globals.simulationEnded flips true on crew death (with
+    # runTillCrewDeath). simulationStarted guards against the pre-run snapshot.
+    g = raw.get("globals") or {}
+    if g.get("simulationEnded") and g.get("ticksGoneBy", 0):
+        return True
+    # Fallback: all crew flagged "dead" in their currentActivity.
+    crew = ((raw.get("modules") or {}).get("Crew_Quarters_Group") or {})
+    people = (crew.get("properties") or {}).get("crewPeople") or []
+    if people and all(
+        ((p.get("currentActivity") or {}).get("name") == "dead") for p in people
+    ):
+        return True
     return False
 
 
