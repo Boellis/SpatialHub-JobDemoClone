@@ -690,14 +690,39 @@ def survival_playground_run(request):
         crew = settings.SURVIVAL_CREW_SIZE
 
     from .survival import playground
+
+    # Optional metered LLM pilot (4th controller). Off by default: it flies one
+    # Claude call per sol (slow + costs money), so the caller must opt in with
+    # include_llm=true. We build the brain here and hand it to run_playground; if no
+    # API key is configured (or the SDK is missing) we report llm_error and still
+    # return the three free controllers rather than failing the whole request.
+    include_llm = bool(body.get("include_llm", False))
+    brain = None
+    llm_error = None
+    token_budget = None
+    if include_llm:
+        try:
+            import anthropic  # lazy: keep module import-safe without the SDK
+            if not getattr(settings, "ANTHROPIC_API_KEY", None):
+                llm_error = "LLM pilot unavailable: no ANTHROPIC_API_KEY configured."
+            else:
+                anthropic_client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+                brain = BotBrain(anthropic_client, settings.ANTHROPIC_MODEL)
+                # Bound LLM spend: budget scales with the (clamped) LLM sol cap.
+                token_budget = playground.LLM_MAX_SOLS * 5000
+        except Exception as e:  # SDK import / client init failure -> degrade gracefully
+            llm_error = f"LLM pilot unavailable: {e}"
+
     try:
         result = playground.run_playground(
             settings.SURVIVAL_BIOSIM_URL, overrides,
             difficulty=difficulty, cap=cap, crew_size=crew,
-            config_name=config_name)
+            config_name=config_name, brain=brain, token_budget=token_budget)
     except Exception as e:  # pragma: no cover - BioSim/network guard
         traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=502)
+    if llm_error:
+        result["llm_error"] = llm_error
     return JsonResponse(result)
 
 

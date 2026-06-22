@@ -433,9 +433,103 @@ def run_config(biosim_url, xml, mode="passive", cap=200, difficulty="off",
 # vs. when the config ceiling dominates (story A: raise O2 -> all three rise).
 CONTROLLERS = ("passive", "maxctrl", "doctrine")
 
+# Hard ceiling on the OPTIONAL metered LLM controller. The LLM flies one Claude
+# call per sol (slow + costs money), and the playground request is synchronous, so
+# this both bounds the run cost and keeps the whole request inside the relay's
+# request timeout (~300s on Cloud Run). The three free controllers still honor the
+# caller's full `cap`; only the LLM is clamped to this.
+LLM_MAX_SOLS = 80
+
+
+def run_config_llm(biosim_url, xml, brain, cap=LLM_MAX_SOLS, difficulty="off",
+                   crew_size=15, token_budget=None, timeout=30.0):
+    """Run a built config flown by the LLM bot brain (metered) to death-or-cap.
+
+    Mirrors ``run_config`` exactly (same in-band / food / death-sol accounting so
+    the LLM column is apples-to-apples with passive/maxctrl/doctrine) but swaps the
+    per-sol action source for ``brain.decide`` -- one Claude call per sol, steering
+    on store trends + runway like the live ``/stream`` pilot. Returns the standard
+    run dict plus ``tokens_total`` + ``est_cost_usd_total``. Stops on crew death,
+    sol cap, or token budget.
+    """
+    from .loop import _attach_trend  # reuse the live pilot's trend window
+
+    client = BiosimControl(biosim_url, timeout=timeout)
+    sim_id = client.start_sim(xml)
+
+    sols = 0
+    in_band_sols = 0
+    food_prod_sum = food_cons_sum = 0.0
+    has_fp = False
+    ended_reason = None
+    trend_history = {}
+
+    raw = client.get_state(sim_id)
+    if _in_band(_store_pct(raw)):
+        in_band_sols += 1
+
+    while sols < cap:
+        if difficulty == "malfunctions" and sols > 0 and sols % 10 == 0:
+            try:
+                client.add_malfunction(sim_id, MALF_MODULE)
+            except Exception:
+                pass
+
+        raw = client.get_state(sim_id)
+        snap = summarize_state(raw)
+        if snap["ended"]:
+            ended_reason = "crew_death"
+            break
+        _attach_trend(snap["stores"], trend_history)
+        try:
+            decision = brain.decide(snap)
+        except Exception:
+            # An LLM/API hiccup mid-run shouldn't crash the whole playground call;
+            # coast this sol (no actions) and keep flying.
+            decision = {"actions": []}
+        for a in decision.get("actions", []):
+            try:
+                client.set_flows(sim_id, a["module"], a["kind"], a["type"], a["desired_rates"])
+            except Exception:
+                pass
+
+        client.tick(sim_id, TICKS_PER_SOL)
+        sols += 1
+
+        raw = client.get_state(sim_id)
+        snap = summarize_state(raw)
+        if _in_band(_store_pct(raw)):
+            in_band_sols += 1
+        fprod, fcons, fp_present = _food_flows(raw)
+        has_fp = has_fp or fp_present
+        food_prod_sum += fprod
+        food_cons_sum += fcons
+
+        if snap["ended"]:
+            ended_reason = "crew_death"
+            break
+        if token_budget is not None and getattr(brain, "tokens_used", 0) >= token_budget:
+            ended_reason = "token_budget"
+            break
+
+    if ended_reason is None:
+        ended_reason = "sol_cap"
+    cal_pct = (round(100.0 * food_prod_sum / food_cons_sum, 1)
+               if has_fp and food_cons_sum > 0 else None)
+
+    return {
+        "sols": sols,
+        "in_band_sols": in_band_sols,
+        "mars_grown_cal_pct": cal_pct,
+        "ended_reason": ended_reason,
+        "tokens_total": getattr(brain, "tokens_used", 0),
+        "est_cost_usd_total": getattr(brain, "est_cost_usd_total", 0.0),
+    }
+
 
 def run_playground(biosim_url, overrides, difficulty="off",
-                   cap=120, crew_size=15, config_name=None, **_legacy):
+                   cap=120, crew_size=15, config_name=None,
+                   brain=None, token_budget=None, **_legacy):
     """Top-level: build the farmer's override config and run THREE controllers on
     it (passive / maxctrl / doctrine), plus a `baseline` = the unmodified HARD
     config flown by doctrine. Returns:
@@ -469,6 +563,16 @@ def run_playground(biosim_url, overrides, difficulty="off",
         controllers[ctrl] = run_config(
             biosim_url, xml, ctrl, cap, difficulty, flown_crew)
 
+    # Optional 4th controller: the metered LLM pilot (one Claude call/sol). Only
+    # runs when the caller passes a `brain`; clamped to LLM_MAX_SOLS for cost + to
+    # keep the synchronous request inside the relay timeout. llm_cap is echoed so
+    # the UI can note it flew fewer sols than the free controllers.
+    llm_cap = None
+    if brain is not None:
+        llm_cap = min(cap, LLM_MAX_SOLS)
+        controllers["llm"] = run_config_llm(
+            biosim_url, xml, brain, llm_cap, difficulty, flown_crew, token_budget)
+
     # Baseline: the unmodified hard config (no overrides), flown by doctrine -- the
     # "what the autonomous pilot does on the stock habitat" reference point.
     base_xml, _, _ = build_config({}, flown_crew, config_name)
@@ -481,4 +585,5 @@ def run_playground(biosim_url, overrides, difficulty="off",
         "ignored_overrides": ignored,
         "crew_size": flown_crew,
         "cap": cap,
+        "llm_cap": llm_cap,
     }
