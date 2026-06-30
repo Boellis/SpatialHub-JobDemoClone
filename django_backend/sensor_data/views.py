@@ -741,3 +741,216 @@ def survival_greenhouse_telemetry(request):
     response = JsonResponse(data)
     response["Cache-Control"] = "public, max-age=60"
     return response
+
+
+# ---------------------------------------------------------------------------
+# BioSim management proxy (the legacy /biosim SpatialHub dashboard).
+#
+# The dashboard (spatialhub-frontend BioSimDashboard.tsx + biosimApi.ts) calls
+# ``/api/biosim/{status,state,config,calibration,tick,flow-rates,malfunctions}``.
+# Those routes never existed on this relay (it only had /survival/*), so every
+# call 404'd and the page rendered blank. These thin proxies bridge the dashboard
+# to the real BioSim REST server at settings.SURVIVAL_BIOSIM_URL via BiosimControl.
+#
+# BioSim is stateful: state/tick/malfunction need a simId. We reuse the
+# web-control RUN (survival/control.py) when a run is live, otherwise we lazily
+# start (and cache) a private "dashboard" sim so the page works on its own.
+# ---------------------------------------------------------------------------
+
+import threading as _threading
+
+_BIOSIM_DASH_LOCK = _threading.Lock()
+_biosim_dash = {"client": None, "sim_id": None}
+
+
+def _biosim_host_port():
+    """Split SURVIVAL_BIOSIM_URL into (host, port) for the status payload."""
+    from urllib.parse import urlparse
+    parsed = urlparse(settings.SURVIVAL_BIOSIM_URL)
+    return parsed.hostname or "?", parsed.port or (443 if parsed.scheme == "https" else 8009)
+
+
+def _biosim_list_sims():
+    """GET /api/simulation -> list of active sim ids (handles wrapped + bare array)."""
+    import requests
+    base = settings.SURVIVAL_BIOSIM_URL.rstrip("/")
+    resp = requests.get(f"{base}/api/simulation", timeout=10)
+    resp.raise_for_status()
+    data = resp.json()
+    return data if isinstance(data, list) else data.get("simulations", [])
+
+
+def _biosim_active_sim():
+    """Return (client, sim_id) for state/tick/malfunction.
+
+    Prefers the live web-control run; else reuses any sim already on the server;
+    else lazily starts a private dashboard sim. Cached so repeated calls reuse it.
+    """
+    if survival_control_mod.RUN.sim_id is not None:
+        return survival_control_mod.RUN.client, survival_control_mod.RUN.sim_id
+
+    with _BIOSIM_DASH_LOCK:
+        if _biosim_dash["sim_id"] is not None:
+            return _biosim_dash["client"], _biosim_dash["sim_id"]
+
+        client = BiosimControl(settings.SURVIVAL_BIOSIM_URL)
+        # Reuse an existing sim on the server if one is running.
+        try:
+            sims = _biosim_list_sims()
+        except Exception:
+            sims = []
+        if sims:
+            sim_id = int(sims[0])
+        else:
+            from .survival.config import build_survival_config
+            sim_id = client.start_sim(build_survival_config(settings.SURVIVAL_CREW_SIZE))
+        _biosim_dash["client"] = client
+        _biosim_dash["sim_id"] = sim_id
+        return client, sim_id
+
+
+@csrf_exempt
+def biosim_status(request):
+    """GET /api/biosim/status/ -> connectivity + active sim ids.
+
+    Always answers 200 with ``connected: false`` + an error string when BioSim is
+    unreachable, so the dashboard renders a clear "Disconnected" state instead of
+    going blank on an HTTP error.
+    """
+    host, port = _biosim_host_port()
+    try:
+        sims = _biosim_list_sims()
+        return JsonResponse({
+            "connected": True, "host": host, "port": port,
+            "simulations": [int(s) for s in sims],
+        })
+    except Exception as e:  # pragma: no cover - network guard
+        return JsonResponse({
+            "connected": False, "host": host, "port": port,
+            "simulations": [], "error": f"BioSim unreachable: {e}",
+        })
+
+
+@csrf_exempt
+def biosim_state(request):
+    """GET /api/biosim/state/ -> raw BioSim state for the active sim."""
+    try:
+        client, sim_id = _biosim_active_sim()
+        raw = client.get_state(sim_id)
+        raw["sim_id"] = sim_id
+        return JsonResponse(raw)
+    except Exception as e:  # pragma: no cover - network guard
+        return JsonResponse({"error": f"BioSim unreachable: {e}"}, status=502)
+
+
+@csrf_exempt
+def biosim_tick(request):
+    """POST /api/biosim/tick/ {num_ticks} -> advance the active sim."""
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only"}, status=405)
+    try:
+        body = json.loads(request.body or b"{}")
+    except (ValueError, TypeError):
+        body = {}
+    try:
+        n = max(1, min(int(body.get("num_ticks", 1)), 1000))
+    except (TypeError, ValueError):
+        n = 1
+    try:
+        client, sim_id = _biosim_active_sim()
+        client.tick(sim_id, n)
+        return JsonResponse({"ticks_advanced": n, "sim_id": sim_id})
+    except Exception as e:  # pragma: no cover - network guard
+        return JsonResponse({"error": f"tick failed: {e}"}, status=502)
+
+
+@csrf_exempt
+def biosim_flow_rates(request):
+    """POST /api/biosim/flow-rates/ -> set desired flow rates on a module."""
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only"}, status=405)
+    try:
+        body = json.loads(request.body or b"{}")
+    except (ValueError, TypeError):
+        return JsonResponse({"error": "invalid json"}, status=400)
+    try:
+        module = body["module_name"]
+        flow_type = body["flow_type"]
+        direction = body.get("direction", "consumer")
+        kind = "consumers" if direction == "consumer" else "producers"
+        rates = body.get("rates", [])
+    except KeyError as e:
+        return JsonResponse({"error": f"missing field {e}"}, status=400)
+    try:
+        client, sim_id = _biosim_active_sim()
+        out = client.set_flows(sim_id, module, kind, flow_type, rates)
+        return JsonResponse(out if isinstance(out, dict) else {"ok": True})
+    except Exception as e:  # pragma: no cover - network guard
+        return JsonResponse({"error": f"set flow failed: {e}"}, status=502)
+
+
+@csrf_exempt
+def biosim_malfunctions(request):
+    """POST /api/biosim/malfunctions/ -> inject a malfunction into a module."""
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only"}, status=405)
+    try:
+        body = json.loads(request.body or b"{}")
+    except (ValueError, TypeError):
+        return JsonResponse({"error": "invalid json"}, status=400)
+    module = body.get("module_name")
+    if not module:
+        return JsonResponse({"error": "module_name required"}, status=400)
+    intensity = body.get("intensity", "SEVERE_MALF")
+    length = body.get("length", "TEMPORARY_MALF")
+    try:
+        client, sim_id = _biosim_active_sim()
+        mid = client.add_malfunction(sim_id, module, intensity, length)
+        return JsonResponse({"ok": True, "malfunction_id": mid})
+    except Exception as e:  # pragma: no cover - network guard
+        return JsonResponse({"error": f"malfunction failed: {e}"}, status=502)
+
+
+@csrf_exempt
+def biosim_config(request):
+    """GET/PUT /api/biosim/config/ -> endpoint presets the dashboard renders.
+
+    This relay has a single fixed BioSim target (settings.SURVIVAL_BIOSIM_URL),
+    so config is read-mostly. We surface that target as the 'remote' preset (plus a
+    'local' preset for parity with the dashboard's endpoint switcher). PUT is
+    accepted and echoed so the switcher doesn't error, but switching the relay's
+    target at runtime is not supported (it's an env var on Cloud Run).
+    """
+    host, port = _biosim_host_port()
+    endpoints = {
+        "active": "remote",
+        "remote": {"host": host, "port": port, "description": "BioSim GCE VM (relay target)"},
+        "local": {"host": "localhost", "port": 8009, "description": "Local Docker BioSim"},
+    }
+    if request.method == "PUT":
+        # Accept + echo so the UI's endpoint switcher succeeds; the relay's target is
+        # fixed by env, so this is effectively a no-op acknowledgement.
+        return JsonResponse({"updated": ["endpoints"]})
+    return JsonResponse({"endpoints": endpoints, "observation_map": None, "calibration": None})
+
+
+@csrf_exempt
+def biosim_calibration(request):
+    """GET /api/biosim/calibration/ -> flow calibration (not run on the relay).
+
+    Calibration is a local-tooling step (python/calibrate_flow_rates.py); the cloud
+    relay doesn't run it. Answer 200 with status 'unavailable' so the dashboard's
+    calibration panel degrades gracefully instead of erroring.
+    """
+    return JsonResponse({"calibration": None, "status": "unavailable"})
+
+
+@csrf_exempt
+def biosim_calibrate(request):
+    """POST /api/biosim/calibrate/ -> not supported on the cloud relay."""
+    return JsonResponse(
+        {"status": "unavailable",
+         "error": "Calibration runs locally (python/calibrate_flow_rates.py); "
+                  "the cloud relay does not execute it."},
+        status=501,
+    )

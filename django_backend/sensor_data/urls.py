@@ -30,4 +30,13 @@ urlpatterns = [
     path('survival/highscore', views.survival_highscore, name='survival-highscore'),
     path('survival/playground/run', views.survival_playground_run, name='survival-playground-run'),
     path('survival/greenhouse/telemetry', views.survival_greenhouse_telemetry, name='survival-greenhouse-telemetry'),
+    # BioSim management proxy for the legacy /biosim dashboard (biosimApi.ts).
+    path('biosim/status/', views.biosim_status, name='biosim-status'),
+    path('biosim/state/', views.biosim_state, name='biosim-state'),
+    path('biosim/tick/', views.biosim_tick, name='biosim-tick'),
+    path('biosim/flow-rates/', views.biosim_flow_rates, name='biosim-flow-rates'),
+    path('biosim/malfunctions/', views.biosim_malfunctions, name='biosim-malfunctions'),
+    path('biosim/config/', views.biosim_config, name='biosim-config'),
+    path('biosim/calibration/', views.biosim_calibration, name='biosim-calibration'),
+    path('biosim/calibrate/', views.biosim_calibrate, name='biosim-calibrate'),
 ]

@@ -148,19 +148,85 @@ def _set_biomass_shelves(xml, num_shelves, crop_area, crop_type):
         <shelf cropArea="..." cropType="..."/>
     Only the shelves inside the BiomassPS block are touched.
     """
+    return _set_biomass_shelf_specs(
+        xml, [(crop_area, crop_type)] * num_shelves)
+
+
+def _set_biomass_shelf_specs(xml, specs):
+    """Replace every <shelf .../> inside <BiomassPS>...</BiomassPS> with one
+    shelf per ``(crop_area, crop_type)`` entry in ``specs`` (mixed crops OK).
+
+    Mirrors the exact self-closing form BioSim accepts:
+        <shelf cropArea="..." cropType="..."/>
+    Only the shelves inside the BiomassPS block are touched. A falsy/empty
+    ``specs`` is a no-op (the base shelf run is left verbatim).
+    """
+    if not specs:
+        return xml
     block_pat = re.compile(r"(<BiomassPS\b.*?</BiomassPS>)", re.DOTALL)
     m = block_pat.search(xml)
     if not m:
         return xml
     block = m.group(1)
-    shelf = '<shelf cropArea="{}" cropType="{}"/>'.format(crop_area, crop_type)
-    shelves = "\n\t\t\t\t".join([shelf] * num_shelves)
+    shelves = "\n\t\t\t\t".join(
+        '<shelf cropArea="{}" cropType="{}"/>'.format(area, ctype)
+        for area, ctype in specs)
     # Replace the first run of <shelf .../> entries with the rebuilt set.
     new_block, n = re.subn(r"(?:\s*<shelf\b[^>]*/>)+",
                            "\n\t\t\t\t" + shelves, block, count=1)
     if n == 0:
         return xml
     return xml[:m.start(1)] + new_block + xml[m.end(1):]
+
+
+# Per-shelf cropArea clamp (a sane planted-area band; mirrors the UI's 0–400 m²).
+CROP_AREA_CLAMP = (0.0, 400.0)
+
+
+def _coerce_crop_type(value):
+    """Validate a crop type against CROP_TYPES, falling back to the default."""
+    if isinstance(value, str) and value in CROP_TYPES:
+        return value
+    return DEFAULT_CROP_TYPE
+
+
+def _coerce_crop_area(value, default=1.0):
+    """Coerce to float + clamp to CROP_AREA_CLAMP; default on non-numeric."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        v = float(default)
+    lo, hi = CROP_AREA_CLAMP
+    return max(lo, min(v, hi))
+
+
+def _crops_to_shelf_specs(crops):
+    """Turn a ``crops`` override (list of {crop_type, num_shelves, crop_area})
+    into a flat list of (crop_area, crop_type) shelf specs.
+
+    Validation/clamping mirrors the legacy single-crop path:
+      • crop_type validated against CROP_TYPES (fallback DEFAULT_CROP_TYPE),
+      • crop_area coerced + clamped to CROP_AREA_CLAMP,
+      • each entry's num_shelves >= MIN_SHELVES,
+      • the TOTAL shelf count across all entries clamped to MAX_SHELVES.
+    Returns ``[]`` for an empty/invalid list so the caller leaves shelves as-is.
+    """
+    if not isinstance(crops, (list, tuple)):
+        return []
+    specs = []
+    for entry in crops:
+        if not isinstance(entry, dict):
+            continue
+        crop_type = _coerce_crop_type(entry.get("crop_type"))
+        crop_area = _coerce_crop_area(entry.get("crop_area", 1))
+        try:
+            n = int(entry.get("num_shelves", 1))
+        except (TypeError, ValueError):
+            n = 1
+        n = max(MIN_SHELVES, n)
+        specs.extend([(crop_area, crop_type)] * n)
+    # Clamp the TOTAL shelf count across every row to the hard cap.
+    return specs[:MAX_SHELVES]
 
 
 def _apply_override(xml, name, value):
@@ -212,6 +278,9 @@ SUPPORTED_OVERRIDES = (
     # legacy grow/water/food knobs
     "dirty_water_level", "nuclear_power", "biomass_power",
     "biomass_water", "crop_area", "crop_type", "num_shelves", "food_store",
+    # NEW: multi-crop shelf list (replaces the single crop_type/num_shelves/
+    # crop_area when present). Handled in the shelf-rebuild block, not dispatch.
+    "crops",
     # NEW survival-physics levers (air loop + power)
     "o2_producer_max", "o2_store", "vccr_max", "nuclear_power_max", "power_store",
 )
@@ -249,8 +318,8 @@ def build_config(overrides, crew_size=15, config_name=None):
         if name not in SUPPORTED_OVERRIDES:
             ignored.append(name)
             continue
-        if name in SHELF_OVERRIDES:
-            continue  # applied together below
+        if name in SHELF_OVERRIDES or name == "crops":
+            continue  # applied together below (shelf rebuild)
         if name in PHYSICS_CLAMPS:
             clamped = _clamp_physics(name, value)
             if clamped is None:  # non-numeric -> drop, report as ignored
@@ -262,14 +331,24 @@ def build_config(overrides, crew_size=15, config_name=None):
         xml = _apply_override(xml, name, value)
         applied.append(name)
 
-    # Shelf overrides (crop_area / crop_type / num_shelves) rebuild the BiomassPS
-    # shelves as one unit. Validate/clamp each; only rebuild if at least one was
-    # supplied so configs that don't touch shelves keep the base shelf verbatim.
-    if any(k in overrides for k in SHELF_OVERRIDES):
-        crop_area = overrides.get("crop_area", 1)
-        crop_type = overrides.get("crop_type", DEFAULT_CROP_TYPE)
-        if not isinstance(crop_type, str) or crop_type not in CROP_TYPES:
-            crop_type = DEFAULT_CROP_TYPE
+    # Shelf rebuild. Two paths, both rebuild the BiomassPS shelf run as one unit:
+    #   • `crops` (NEW, preferred): a list of {crop_type, num_shelves, crop_area}
+    #     rows -> one shelf per requested copy, mixed crops allowed. Takes priority
+    #     when present.
+    #   • legacy crop_area / crop_type / num_shelves: one crop across N identical
+    #     shelves (back-compat; used only when `crops` is absent).
+    # Only rebuild if shelves were actually requested, so configs that don't touch
+    # them keep the base shelf run verbatim.
+    if "crops" in overrides:
+        specs = _crops_to_shelf_specs(overrides.get("crops"))
+        if specs:
+            xml = _set_biomass_shelf_specs(xml, specs)
+            applied.append("crops")
+        else:
+            ignored.append("crops")
+    elif any(k in overrides for k in SHELF_OVERRIDES):
+        crop_area = _coerce_crop_area(overrides.get("crop_area", 1))
+        crop_type = _coerce_crop_type(overrides.get("crop_type", DEFAULT_CROP_TYPE))
         try:
             num_shelves = int(overrides.get("num_shelves", 1))
         except (TypeError, ValueError):
@@ -331,11 +410,25 @@ def _habitat_specs(xml):
                 pass
         if t:
             types.append(t.group(1))
+    # Per-crop summary so the UI can show a mixed-crop greenhouse honestly. Each
+    # entry = {crop_type, num_shelves, area_m2}; ordered by first appearance.
+    crop_summary = []
+    crop_index = {}
+    for i, s in enumerate(shelves):
+        ctype = types[i] if i < len(types) else (types[0] if types else None)
+        area = areas[i] if i < len(areas) else 0.0
+        if ctype not in crop_index:
+            crop_index[ctype] = len(crop_summary)
+            crop_summary.append({"crop_type": ctype, "num_shelves": 0, "area_m2": 0.0})
+        row = crop_summary[crop_index[ctype]]
+        row["num_shelves"] += 1
+        row["area_m2"] = round(row["area_m2"] + area, 2)
     return {
         "grow_area_m2": round(sum(areas), 2),
         "crop_area_per_shelf_m2": round(areas[0], 2) if areas else 0.0,
         "num_shelves": len(shelves),
         "crop_type": types[0] if types else None,
+        "crops": crop_summary,
         "crew_size": len(re.findall(r"<crewPerson\b", xml)),
         "o2_store_capacity": _store_cap(xml, "O2Store"),
         "power_store_capacity": _store_cap(xml, "PowerStore"),
