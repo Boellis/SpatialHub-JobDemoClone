@@ -293,6 +293,59 @@ def build_config(overrides, crew_size=15, config_name=None):
     return xml, applied, ignored
 
 
+def _store_cap(xml, tag):
+    """Read capacity="..." off a self-closing store element <tag .../>."""
+    m = re.search(r"<" + tag + r"\b[^>]*\bcapacity=\"([^\"]+)\"", xml)
+    return round(float(m.group(1)), 1) if m else None
+
+
+def _module_surface_max(xml, module_tag, surface_tag):
+    """Read the first maxFlowRates value off <surface_tag> inside <module_tag>."""
+    block = re.search(r"<" + module_tag + r"\b.*?</" + module_tag + r">", xml, re.DOTALL)
+    if not block:
+        return None
+    m = re.search(r"<" + surface_tag + r"\b[^>]*\bmaxFlowRates=\"([^\"]+)\"", block.group(0))
+    if not m:
+        return None
+    try:
+        return round(float(m.group(1).split()[0]), 1)
+    except (TypeError, ValueError):
+        return None
+
+
+def _habitat_specs(xml):
+    """Deterministic 'habitat as built' spec read straight from the config XML —
+    grow area (space), crop, crew, store capacities, and the producer ceilings the
+    sliders move. This is the design side of a run (vs. the measured final-state
+    telemetry), so a farmer can see WHAT they built, not just how long it survived.
+    """
+    shelves = re.findall(r"<shelf\b[^>]*/>", xml)
+    areas, types = [], []
+    for s in shelves:
+        a = re.search(r'cropArea="([^"]+)"', s)
+        t = re.search(r'cropType="([^"]+)"', s)
+        if a:
+            try:
+                areas.append(float(a.group(1)))
+            except ValueError:
+                pass
+        if t:
+            types.append(t.group(1))
+    return {
+        "grow_area_m2": round(sum(areas), 2),
+        "crop_area_per_shelf_m2": round(areas[0], 2) if areas else 0.0,
+        "num_shelves": len(shelves),
+        "crop_type": types[0] if types else None,
+        "crew_size": len(re.findall(r"<crewPerson\b", xml)),
+        "o2_store_capacity": _store_cap(xml, "O2Store"),
+        "power_store_capacity": _store_cap(xml, "PowerStore"),
+        "food_store_capacity": _store_cap(xml, "FoodStore"),
+        "o2_producer_max": _module_surface_max(xml, "OGS", "O2Producer"),
+        "vccr_max": _module_surface_max(xml, "VCCR", "airProducer"),
+        "nuclear_power_max": _module_surface_max(xml, "PowerPS", "powerProducer"),
+    }
+
+
 def _store_pct(raw):
     out = {}
     for name, mod in (raw.get("modules") or {}).items():
@@ -418,11 +471,14 @@ def run_config(biosim_url, xml, mode="passive", cap=200, difficulty="off",
     cal_pct = (round(100.0 * food_prod_sum / food_cons_sum, 1)
                if has_fp and food_cons_sum > 0 else None)
 
+    final = summarize_state(raw)
     return {
         "sols": sols,
         "in_band_sols": in_band_sols,
         "mars_grown_cal_pct": cal_pct,
         "ended_reason": ended_reason,
+        "final_stores": final["stores"],       # per-reservoir level/capacity/runway at end
+        "final_balances": final["balances"],   # per-resource produced/consumed/net at end
     }
 
 
@@ -517,11 +573,14 @@ def run_config_llm(biosim_url, xml, brain, cap=LLM_MAX_SOLS, difficulty="off",
     cal_pct = (round(100.0 * food_prod_sum / food_cons_sum, 1)
                if has_fp and food_cons_sum > 0 else None)
 
+    final = summarize_state(raw)
     return {
         "sols": sols,
         "in_band_sols": in_band_sols,
         "mars_grown_cal_pct": cal_pct,
         "ended_reason": ended_reason,
+        "final_stores": final["stores"],
+        "final_balances": final["balances"],
         "tokens_total": getattr(brain, "tokens_used", 0),
         "est_cost_usd_total": getattr(brain, "est_cost_usd_total", 0.0),
     }
@@ -581,6 +640,7 @@ def run_playground(biosim_url, overrides, difficulty="off",
     return {
         "controllers": controllers,
         "baseline": baseline,
+        "habitat": _habitat_specs(xml),   # 'as built' specs of the user's config
         "applied_overrides": applied,
         "ignored_overrides": ignored,
         "crew_size": flown_crew,
