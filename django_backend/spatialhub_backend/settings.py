@@ -98,8 +98,20 @@ CSRF_TRUSTED_ORIGINS = [
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "https://nasa-comp-demo.web.app",
-    # Phase 2 public Firebase frontend.
+    # Phase 2 public Firebase frontend. Firebase Hosting serves the SAME site on
+    # BOTH the .web.app and .firebaseapp.com domains, and the Playground now calls
+    # this relay DIRECTLY (to dodge Firebase's 60s proxy timeout), so the relay must
+    # allow every origin a teammate might open it from — otherwise the browser blocks
+    # the request with the generic "could not reach the survival relay" error.
     "https://biosim-host-bellis.web.app",
+    "https://biosim-host-bellis.firebaseapp.com",
+]
+
+# Also allow Firebase preview channels (biosim-host-bellis--<channel>-<hash>.web.app)
+# and either canonical domain, via regex, so previews + both domains always work.
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://biosim-host-bellis(--[a-z0-9-]+)?\.web\.app$",
+    r"^https://biosim-host-bellis\.firebaseapp\.com$",
 ]
 
 CORS_ALLOW_HEADERS = list(default_headers)
