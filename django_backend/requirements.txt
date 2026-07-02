@@ -5,6 +5,7 @@ psycopg2-binary
 django-cors-headers
 whitenoise>=6.0
 google-cloud-pubsub>=2.20.0
+google-cloud-storage>=2.10.0
 requests>=2.31.0
 anthropic
 pytest>=7.0

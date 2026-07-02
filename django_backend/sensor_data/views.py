@@ -597,15 +597,32 @@ def survival_plans(request):
 # ---------------------------------------------------------------------------
 
 
+@csrf_exempt
 def survival_highscore(request):
-    """Public read: the best ``sols_survived`` ever seen across all runs.
+    """The best ``sols_survived`` ever seen across all runs — DURABLE + SHARED.
 
-    The relay updates this on every ``end`` event (see relay.highscore /
-    relay._maybe_update_highscore). Returns the record holder's run metadata.
+    GET  -> the current record (backed by GCS via SURVIVAL_HIGHSCORE_PATH, so it
+            survives Cloud Run cold-starts / redeploys and is shared across users).
+    POST {sols, difficulty?, source?} -> submit an achieved sols count; the relay
+            keeps the global max. Used by the Playground + /demo so any run can set
+            the record, not just the server-side feeder.
     """
-    if request.method != "GET":
-        return JsonResponse({"error": "GET only"}, status=405)
-    hs = relay.highscore()
+    if request.method == "POST":
+        try:
+            body = json.loads(request.body or b"{}")
+        except (ValueError, TypeError):
+            body = {}
+        try:
+            sols = int(body.get("sols", 0) or 0)
+        except (TypeError, ValueError):
+            sols = 0
+        sols = max(0, min(sols, 100000))  # sane bound
+        hs = relay.submit_highscore(
+            sols, difficulty=body.get("difficulty"), source=body.get("source"))
+    elif request.method == "GET":
+        hs = relay.highscore()
+    else:
+        return JsonResponse({"error": "GET or POST only"}, status=405)
     response = JsonResponse({
         "best_sols": hs.get("best_sols", 0),
         "run_id": hs.get("run_id"),
@@ -613,7 +630,8 @@ def survival_highscore(request):
         "difficulty": hs.get("difficulty"),
         "when": hs.get("when"),
     })
-    response["Cache-Control"] = "public, max-age=15"
+    if request.method == "GET":
+        response["Cache-Control"] = "public, max-age=15"
     return response
 
 
@@ -691,6 +709,15 @@ def survival_playground_run(request):
 
     from .survival import playground
 
+    # Optional resilience-malfunction target + interval (only used when
+    # difficulty=malfunctions). Validated inside run_playground against MALF_MODULES.
+    malf_module = body.get("malf_module", playground.MALF_MODULE)
+    try:
+        malf_interval = int(body.get("malf_interval", 10))
+    except (TypeError, ValueError):
+        malf_interval = 10
+    malf_interval = max(1, min(malf_interval, 500))
+
     # Optional metered LLM pilot (4th controller). Off by default: it flies one
     # Claude call per sol (slow + costs money), so the caller must opt in with
     # include_llm=true. We build the brain here and hand it to run_playground; if no
@@ -717,7 +744,8 @@ def survival_playground_run(request):
         result = playground.run_playground(
             settings.SURVIVAL_BIOSIM_URL, overrides,
             difficulty=difficulty, cap=cap, crew_size=crew,
-            config_name=config_name, brain=brain, token_budget=token_budget)
+            config_name=config_name, brain=brain, token_budget=token_budget,
+            malf_module=malf_module, malf_interval=malf_interval)
     except Exception as e:  # pragma: no cover - BioSim/network guard
         traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=502)

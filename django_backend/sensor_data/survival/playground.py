@@ -54,6 +54,7 @@ MALF_MODULE = "Grey_Water_Store"
 # Anything outside this whitelist is rejected and we fall back to the default.
 CROP_TYPES = (
     "SOYBEAN", "WHEAT", "WHITE_POTATO", "RICE", "DRY_BEAN", "LETTUCE", "TOMATO",
+    "PEANUT", "SWEET_POTATO",  # BioSim's full valid set is these 9 (users_manual)
 )
 DEFAULT_CROP_TYPE = "SOYBEAN"
 
@@ -229,6 +230,99 @@ def _crops_to_shelf_specs(crops):
     return specs[:MAX_SHELVES]
 
 
+# ── Data-driven override tables — the comprehensive BioSim config surface. ──
+# Each maps a public override name to the exact XML it rewrites. Numeric values are
+# clamped (CLAMPS) before dispatch; bools coerced true/false. Existing named levers
+# (o2_producer_max, vccr_max, nuclear_power(_max), o2_store, power_store,
+# biomass_power, biomass_water, dirty_water_level, food_store, crop_*) keep their
+# bespoke handlers below for back-compat; everything new is table-driven.
+
+# name -> (module_tag, (surface_tags...), attr): set attr on those surface(s).
+SURFACE_OVERRIDES = {
+    # Air loop — OGS (O2 generator)
+    "o2_producer_desired": ("OGS", ("O2Producer", "H2Producer"), "desiredFlowRates"),
+    "ogs_power_max":       ("OGS", ("powerConsumer",), "maxFlowRates"),
+    "ogs_power_desired":   ("OGS", ("powerConsumer",), "desiredFlowRates"),
+    # Air loop — VCCR (cabin air recycler)
+    "vccr_desired":       ("VCCR", ("airProducer", "airConsumer", "CO2Producer"), "desiredFlowRates"),
+    "vccr_power_max":     ("VCCR", ("powerConsumer",), "maxFlowRates"),
+    "vccr_power_desired": ("VCCR", ("powerConsumer",), "desiredFlowRates"),
+    # Water loop — Water_RS
+    "waterrs_potable_max":     ("WaterRS", ("potableWaterProducer",), "maxFlowRates"),
+    "waterrs_potable_desired": ("WaterRS", ("potableWaterProducer",), "desiredFlowRates"),
+    "waterrs_power_max":       ("WaterRS", ("powerConsumer",), "maxFlowRates"),
+    "waterrs_power_desired":   ("WaterRS", ("powerConsumer",), "desiredFlowRates"),
+    # Greenhouse — BiomassPS
+    "biomass_power_max":    ("BiomassPS", ("powerConsumer",), "maxFlowRates"),
+    "biomass_water_max":    ("BiomassPS", ("potableWaterConsumer",), "maxFlowRates"),
+    "biomass_prod_desired": ("BiomassPS", ("biomassProducer",), "desiredFlowRates"),
+    "biomass_prod_max":     ("BiomassPS", ("biomassProducer",), "maxFlowRates"),
+    # Food processor
+    "foodproc_food_desired":    ("FoodProcessor", ("foodProducer",), "desiredFlowRates"),
+    "foodproc_food_max":        ("FoodProcessor", ("foodProducer",), "maxFlowRates"),
+    "foodproc_power_desired":   ("FoodProcessor", ("powerConsumer",), "desiredFlowRates"),
+    "foodproc_power_max":       ("FoodProcessor", ("powerConsumer",), "maxFlowRates"),
+    "foodproc_biomass_desired": ("FoodProcessor", ("biomassConsumer",), "desiredFlowRates"),
+    "foodproc_biomass_max":     ("FoodProcessor", ("biomassConsumer",), "maxFlowRates"),
+    # Crew demand (CrewGroup)
+    "crew_food_desired":  ("CrewGroup", ("foodConsumer",), "desiredFlowRates"),
+    "crew_food_max":      ("CrewGroup", ("foodConsumer",), "maxFlowRates"),
+    "crew_water_desired": ("CrewGroup", ("potableWaterConsumer",), "desiredFlowRates"),
+    "crew_water_max":     ("CrewGroup", ("potableWaterConsumer",), "maxFlowRates"),
+}
+
+# name -> store_tag: set BOTH capacity + level (a reserve that starts full).
+STORE_CAPLEVEL_OVERRIDES = {
+    "potable_store":     "PotableWaterStore",
+    "grey_water_store":  "GreyWaterStore",
+    "dirty_water_store": "DirtyWaterStore",
+    "biomass_store":     "BiomassStore",
+}
+# name -> store_tag: set capacity only (buffers that start empty, e.g. CO2/H2).
+STORE_CAP_OVERRIDES = {
+    "co2_store": "CO2Store",
+    "h2_store":  "H2Store",
+}
+# name -> (element_tag, attr): set one attribute on a self-closing element.
+SCALAR_ATTR_OVERRIDES = {
+    "cabin_volume": ("SimEnvironment", "initialVolume"),  # cabin air volume (L)
+}
+# name -> (module_tag, attr): boolean toggle on a module element.
+BOOL_OVERRIDES = {
+    "auto_harvest": ("BiomassPS", "autoHarvestAndReplant"),
+}
+
+# Numeric clamps for the NEW table-driven overrides (existing ones = PHYSICS_CLAMPS).
+NUMERIC_CLAMPS = {
+    "o2_producer_desired": (0.0, 5000.0),
+    "ogs_power_max": (0.0, 5000.0), "ogs_power_desired": (0.0, 5000.0),
+    "vccr_desired": (0.0, 5000.0),
+    "vccr_power_max": (0.0, 5000.0), "vccr_power_desired": (0.0, 5000.0),
+    "waterrs_potable_max": (0.0, 2000.0), "waterrs_potable_desired": (0.0, 2000.0),
+    "waterrs_power_max": (0.0, 5000.0), "waterrs_power_desired": (0.0, 5000.0),
+    "biomass_power_max": (0.0, 2000.0), "biomass_water_max": (0.0, 1000.0),
+    "biomass_prod_desired": (0.0, 1000.0), "biomass_prod_max": (0.0, 1000.0),
+    "foodproc_food_desired": (0.0, 2000.0), "foodproc_food_max": (0.0, 2000.0),
+    "foodproc_power_desired": (0.0, 2000.0), "foodproc_power_max": (0.0, 2000.0),
+    "foodproc_biomass_desired": (0.0, 2000.0), "foodproc_biomass_max": (0.0, 2000.0),
+    "crew_food_desired": (0.0, 50.0), "crew_food_max": (0.0, 50.0),
+    "crew_water_desired": (0.0, 50.0), "crew_water_max": (0.0, 50.0),
+    "potable_store": (200.0, 100000.0), "grey_water_store": (0.0, 100000.0),
+    "dirty_water_store": (0.0, 50000.0), "biomass_store": (0.0, 100000.0),
+    "co2_store": (0.0, 50000.0), "h2_store": (0.0, 50000.0),
+    "cabin_volume": (10000.0, 10000000.0),
+}
+# All numeric clamps: existing physics levers + the new comprehensive surface.
+CLAMPS = {**PHYSICS_CLAMPS, **NUMERIC_CLAMPS}
+
+# Periodic-malfunction targets exposed to the resilience sim (difficulty=malfunctions).
+# Maps a friendly value to the BioSim module/store the fault is injected on.
+MALF_MODULES = (
+    "Grey_Water_Store", "Dirty_Water_Store", "Potable_Water_Store",
+    "O2_Store", "General_Power_Store", "Nuclear_Source", "VCCR", "OGS", "Water_RS",
+)
+
+
 def _apply_override(xml, name, value):
     if name == "dirty_water_level":
         return _set_store_attr(xml, "DirtyWaterStore", "level", value)
@@ -266,6 +360,26 @@ def _apply_override(xml, name, value):
             xml, "PowerPS", ("powerProducer",), "maxFlowRates", value)
     if name == "power_store":
         return _set_store_capacity_and_level(xml, "PowerStore", value)
+    # ── data-driven tables (the comprehensive new surface) ──
+    spec = SURFACE_OVERRIDES.get(name)
+    if spec:
+        module, surfaces, attr = spec
+        return _set_module_attr_all(xml, module, surfaces, attr, value)
+    store = STORE_CAPLEVEL_OVERRIDES.get(name)
+    if store:
+        return _set_store_capacity_and_level(xml, store, value)
+    store = STORE_CAP_OVERRIDES.get(name)
+    if store:
+        return _set_store_attr(xml, store, "capacity", value)
+    scalar = SCALAR_ATTR_OVERRIDES.get(name)
+    if scalar:
+        tag, attr = scalar
+        return _set_store_attr(xml, tag, attr, value)
+    boolspec = BOOL_OVERRIDES.get(name)
+    if boolspec:
+        tag, attr = boolspec
+        bval = "true" if value in (True, "true", "True", 1, "1", 1.0) else "false"
+        return _set_store_attr(xml, tag, attr, bval)
     return xml  # unknown override: ignored (caller may report it)
 
 
@@ -274,25 +388,25 @@ def _apply_override(xml, name, value):
 # the per-override _apply_override dispatch.
 SHELF_OVERRIDES = ("crop_area", "crop_type", "num_shelves")
 
-SUPPORTED_OVERRIDES = (
-    # legacy grow/water/food knobs
-    "dirty_water_level", "nuclear_power", "biomass_power",
-    "biomass_water", "crop_area", "crop_type", "num_shelves", "food_store",
-    # NEW: multi-crop shelf list (replaces the single crop_type/num_shelves/
-    # crop_area when present). Handled in the shelf-rebuild block, not dispatch.
-    "crops",
-    # NEW survival-physics levers (air loop + power)
+# Built from the bespoke legacy names + every table-driven override, so adding a
+# table entry automatically makes it accepted (no separate list to keep in sync).
+_LEGACY_OVERRIDES = (
+    "dirty_water_level", "nuclear_power", "biomass_power", "biomass_water",
+    "crop_area", "crop_type", "num_shelves", "food_store", "crops",
     "o2_producer_max", "o2_store", "vccr_max", "nuclear_power_max", "power_store",
 )
+SUPPORTED_OVERRIDES = tuple(sorted(set(_LEGACY_OVERRIDES)
+    | set(SURFACE_OVERRIDES) | set(STORE_CAPLEVEL_OVERRIDES)
+    | set(STORE_CAP_OVERRIDES) | set(SCALAR_ATTR_OVERRIDES) | set(BOOL_OVERRIDES)))
 
 
 def _clamp_physics(name, value):
-    """Coerce a physics override to a float and clamp it to its band.
+    """Coerce a numeric override to a float and clamp it to its band.
 
     Returns None for a non-numeric value so the caller can drop it. Server-side
     validation: the client can never push a surface past its safe band.
     """
-    lo, hi = PHYSICS_CLAMPS[name]
+    lo, hi = CLAMPS[name]
     try:
         v = float(value)
     except (TypeError, ValueError):
@@ -320,7 +434,7 @@ def build_config(overrides, crew_size=15, config_name=None):
             continue
         if name in SHELF_OVERRIDES or name == "crops":
             continue  # applied together below (shelf rebuild)
-        if name in PHYSICS_CLAMPS:
+        if name in CLAMPS:
             clamped = _clamp_physics(name, value)
             if clamped is None:  # non-numeric -> drop, report as ignored
                 ignored.append(name)
@@ -504,7 +618,7 @@ def _doctrine_actions(raw):
 
 
 def run_config(biosim_url, xml, mode="passive", cap=200, difficulty="off",
-               crew_size=15, timeout=30.0):
+               crew_size=15, timeout=30.0, malf_module=MALF_MODULE, malf_interval=10):
     """Run a built config against BioSim to death-or-cap.
 
     Returns {sols, in_band_sols, mars_grown_cal_pct, ended_reason}.
@@ -512,7 +626,8 @@ def run_config(biosim_url, xml, mode="passive", cap=200, difficulty="off",
       'passive'  -- coast on the config's desired rates (no control).
       'maxctrl'  -- drive every producer to its ceiling each sol (blind max-all).
       'doctrine' -- the deterministic prioritizing controller (decide()).
-    difficulty: 'off' | 'malfunctions' (SEVERE grey-water malf every 10th sol).
+    difficulty: 'off' | 'malfunctions' (SEVERE malf on `malf_module` every
+    `malf_interval` sols -- the resilience test).
     """
     client = BiosimControl(biosim_url, timeout=timeout)
     sim_id = client.start_sim(xml)
@@ -522,15 +637,16 @@ def run_config(biosim_url, xml, mode="passive", cap=200, difficulty="off",
     food_prod_sum = food_cons_sum = 0.0
     has_fp = False
     ended_reason = None
+    interval = max(1, int(malf_interval or 10))
 
     raw = client.get_state(sim_id)
     if _in_band(_store_pct(raw)):
         in_band_sols += 1
 
     while sols < cap:
-        if difficulty == "malfunctions" and sols > 0 and sols % 10 == 0:
+        if difficulty == "malfunctions" and sols > 0 and sols % interval == 0:
             try:
-                client.add_malfunction(sim_id, MALF_MODULE)
+                client.add_malfunction(sim_id, malf_module)
             except Exception:
                 pass
         if mode in ("maxctrl", "doctrine"):
@@ -591,7 +707,8 @@ LLM_MAX_SOLS = 80
 
 
 def run_config_llm(biosim_url, xml, brain, cap=LLM_MAX_SOLS, difficulty="off",
-                   crew_size=15, token_budget=None, timeout=30.0):
+                   crew_size=15, token_budget=None, timeout=30.0,
+                   malf_module=MALF_MODULE, malf_interval=10):
     """Run a built config flown by the LLM bot brain (metered) to death-or-cap.
 
     Mirrors ``run_config`` exactly (same in-band / food / death-sol accounting so
@@ -612,15 +729,16 @@ def run_config_llm(biosim_url, xml, brain, cap=LLM_MAX_SOLS, difficulty="off",
     has_fp = False
     ended_reason = None
     trend_history = {}
+    interval = max(1, int(malf_interval or 10))
 
     raw = client.get_state(sim_id)
     if _in_band(_store_pct(raw)):
         in_band_sols += 1
 
     while sols < cap:
-        if difficulty == "malfunctions" and sols > 0 and sols % 10 == 0:
+        if difficulty == "malfunctions" and sols > 0 and sols % interval == 0:
             try:
-                client.add_malfunction(sim_id, MALF_MODULE)
+                client.add_malfunction(sim_id, malf_module)
             except Exception:
                 pass
 
@@ -681,7 +799,8 @@ def run_config_llm(biosim_url, xml, brain, cap=LLM_MAX_SOLS, difficulty="off",
 
 def run_playground(biosim_url, overrides, difficulty="off",
                    cap=120, crew_size=15, config_name=None,
-                   brain=None, token_budget=None, **_legacy):
+                   brain=None, token_budget=None,
+                   malf_module=MALF_MODULE, malf_interval=10, **_legacy):
     """Top-level: build the farmer's override config and run THREE controllers on
     it (passive / maxctrl / doctrine), plus a `baseline` = the unmodified HARD
     config flown by doctrine. Returns:
@@ -710,10 +829,15 @@ def run_playground(biosim_url, overrides, difficulty="off",
     except (TypeError, ValueError):
         flown_crew = 15
 
+    # Validate the resilience-malfunction target against the known set.
+    if malf_module not in MALF_MODULES:
+        malf_module = MALF_MODULE
+
     controllers = {}
     for ctrl in CONTROLLERS:
         controllers[ctrl] = run_config(
-            biosim_url, xml, ctrl, cap, difficulty, flown_crew)
+            biosim_url, xml, ctrl, cap, difficulty, flown_crew,
+            malf_module=malf_module, malf_interval=malf_interval)
 
     # Optional 4th controller: the metered LLM pilot (one Claude call/sol). Only
     # runs when the caller passes a `brain`; clamped to LLM_MAX_SOLS for cost + to
@@ -723,12 +847,14 @@ def run_playground(biosim_url, overrides, difficulty="off",
     if brain is not None:
         llm_cap = min(cap, LLM_MAX_SOLS)
         controllers["llm"] = run_config_llm(
-            biosim_url, xml, brain, llm_cap, difficulty, flown_crew, token_budget)
+            biosim_url, xml, brain, llm_cap, difficulty, flown_crew, token_budget,
+            malf_module=malf_module, malf_interval=malf_interval)
 
     # Baseline: the unmodified hard config (no overrides), flown by doctrine -- the
     # "what the autonomous pilot does on the stock habitat" reference point.
     base_xml, _, _ = build_config({}, flown_crew, config_name)
-    baseline = run_config(biosim_url, base_xml, "doctrine", cap, difficulty, flown_crew)
+    baseline = run_config(biosim_url, base_xml, "doctrine", cap, difficulty, flown_crew,
+                          malf_module=malf_module, malf_interval=malf_interval)
 
     return {
         "controllers": controllers,

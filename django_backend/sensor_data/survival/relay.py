@@ -56,43 +56,79 @@ KNOWN_COMMANDS = ("new_session",)
 # Cloud Run restart via a small JSON file (best-effort) when HIGHSCORE_PATH is
 # set; otherwise it is in-memory only. Updated on every `end` event.
 # ---------------------------------------------------------------------------
-# Default location is writable on Cloud Run (/tmp). Override with HIGHSCORE_PATH.
+# Persistence location. On Cloud Run /tmp is EPHEMERAL (wiped on cold-start /
+# redeploy), so for a durable, shared-across-sessions record set SURVIVAL_HIGHSCORE_PATH
+# to a GCS URI (gs://bucket/key.json) — the relay reads/writes it via the Cloud
+# Storage client. Any non-gs:// value is treated as a local file (dev fallback).
 _HIGHSCORE_PATH = os.environ.get("SURVIVAL_HIGHSCORE_PATH", "/tmp/survival_highscore.json")
 _HIGHSCORE = {"best_sols": 0, "run_id": None, "ended_reason": None,
               "difficulty": None, "when": None}
 _HIGHSCORE_LOADED = [False]
 
 
-def _highscore_load():
-    """Lazily hydrate the high-score from disk once per process (best-effort)."""
-    if _HIGHSCORE_LOADED[0]:
+def _gcs_split(uri):
+    """gs://bucket/key -> (bucket, key); None if not a GCS URI."""
+    if not isinstance(uri, str) or not uri.startswith("gs://"):
+        return None
+    bucket, _, key = uri[len("gs://"):].partition("/")
+    return (bucket, key) if bucket and key else None
+
+
+def _highscore_read_raw():
+    """Read the raw highscore dict from GCS or a local file; {} on any error."""
+    gcs = _gcs_split(_HIGHSCORE_PATH)
+    try:
+        if gcs:
+            from google.cloud import storage  # lazy: only when GCS is configured
+            blob = storage.Client().bucket(gcs[0]).blob(gcs[1])
+            if not blob.exists():
+                return {}
+            return json.loads(blob.download_as_text())
+        with open(_HIGHSCORE_PATH, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except Exception:  # missing/corrupt/unreachable -> start fresh
+        return {}
+
+
+def _highscore_write_raw(data):
+    gcs = _gcs_split(_HIGHSCORE_PATH)
+    try:
+        if gcs:
+            from google.cloud import storage
+            blob = storage.Client().bucket(gcs[0]).blob(gcs[1])
+            blob.upload_from_string(json.dumps(data), content_type="application/json")
+            return
+        with open(_HIGHSCORE_PATH, "w", encoding="utf-8") as fh:
+            json.dump(data, fh)
+    except Exception:  # pragma: no cover - read-only fs / GCS error
+        pass
+
+
+def _highscore_load(force=False):
+    """Hydrate the high-score (once per process, or force a fresh read).
+
+    On GCS we force-read before comparing so concurrent instances/redeploys don't
+    clobber a higher record set by another instance.
+    """
+    if _HIGHSCORE_LOADED[0] and not force:
         return
     _HIGHSCORE_LOADED[0] = True
-    try:
-        with open(_HIGHSCORE_PATH, "r", encoding="utf-8") as fh:
-            data = json.load(fh)
-        if isinstance(data, dict) and isinstance(data.get("best_sols"), int):
+    data = _highscore_read_raw()
+    if isinstance(data, dict) and isinstance(data.get("best_sols"), int):
+        if data.get("best_sols", 0) >= _HIGHSCORE["best_sols"]:
             _HIGHSCORE.update({k: data.get(k) for k in _HIGHSCORE})
-    except Exception:  # pragma: no cover - missing/corrupt file is fine
-        pass
 
 
 def _highscore_save():
-    try:
-        with open(_HIGHSCORE_PATH, "w", encoding="utf-8") as fh:
-            json.dump(_HIGHSCORE, fh)
-    except Exception:  # pragma: no cover - read-only fs etc.
-        pass
+    _highscore_write_raw(dict(_HIGHSCORE))
 
 
-def _maybe_update_highscore(end_data):
-    """If this `end` event beat the record, persist the new high-score. Caller
-    must hold _COND. Returns True when the record advanced."""
-    if not isinstance(end_data, dict):
-        return False
-    _highscore_load()
+def _apply_highscore(sols, meta):
+    """Update + persist the record iff `sols` beats it. Returns True when advanced.
+    Re-reads the durable store first so we keep the true global max across instances."""
+    _highscore_load(force=bool(_gcs_split(_HIGHSCORE_PATH)))
     try:
-        sols = int(end_data.get("sols_survived", 0) or 0)
+        sols = int(sols or 0)
     except (TypeError, ValueError):
         return False
     if sols <= _HIGHSCORE["best_sols"]:
@@ -100,13 +136,29 @@ def _maybe_update_highscore(end_data):
     import datetime
     _HIGHSCORE.update({
         "best_sols": sols,
-        "run_id": end_data.get("run_id"),
-        "ended_reason": end_data.get("ended_reason"),
-        "difficulty": end_data.get("difficulty"),
+        "run_id": (meta or {}).get("run_id"),
+        "ended_reason": (meta or {}).get("ended_reason"),
+        "difficulty": (meta or {}).get("difficulty"),
         "when": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     })
     _highscore_save()
     return True
+
+
+def _maybe_update_highscore(end_data):
+    """If this `end` event beat the record, persist it. Caller holds _COND."""
+    if not isinstance(end_data, dict):
+        return False
+    return _apply_highscore(end_data.get("sols_survived", 0), end_data)
+
+
+def submit_highscore(sols, difficulty=None, source=None):
+    """Public entrypoint for clients (Playground / demo) to submit an achieved
+    sols count. Thread-safe; keeps the global max. Returns the current snapshot."""
+    with _COND:
+        _apply_highscore(sols, {"difficulty": difficulty, "run_id": source,
+                                "ended_reason": "submitted"})
+        return dict(_HIGHSCORE)
 
 
 def highscore():
