@@ -742,11 +742,13 @@ def run_config(biosim_url, xml, mode="passive", cap=200, difficulty="off",
 CONTROLLERS = ("passive", "maxctrl", "doctrine")
 
 # Hard ceiling on the OPTIONAL metered LLM controller. The LLM flies one Claude
-# call per sol (slow + costs money), and the playground request is synchronous, so
-# this both bounds the run cost and keeps the whole request inside the relay's
-# request timeout (~300s on Cloud Run). The three free controllers still honor the
-# caller's full `cap`; only the LLM is clamped to this.
-LLM_MAX_SOLS = 80
+# call per sol (slow + costs money), and the playground request is synchronous. The
+# caller may request any Claude run length up to this ceiling (the full 500-sol
+# mission); it defaults to LLM_DEFAULT_SOLS. 500 sols ≈ 20 min + ~$12, but stays
+# within the relay's raised request timeout (3600s). The three free controllers
+# always honor the caller's full `cap`.
+LLM_MAX_SOLS = 500
+LLM_DEFAULT_SOLS = 80
 
 
 def run_config_llm(biosim_url, xml, brain, cap=LLM_MAX_SOLS, difficulty="off",
@@ -845,7 +847,7 @@ def run_config_llm(biosim_url, xml, brain, cap=LLM_MAX_SOLS, difficulty="off",
 
 def run_playground(biosim_url, overrides, difficulty="off",
                    cap=120, crew_size=15, config_name=None,
-                   brain=None, token_budget=None,
+                   brain=None, token_budget=None, llm_sols=None,
                    malfunctions=None, malf_module=MALF_MODULE, malf_interval=10,
                    **_legacy):
     """Top-level: build the farmer's override config and run THREE controllers on
@@ -888,14 +890,20 @@ def run_playground(biosim_url, overrides, difficulty="off",
             malfunctions=malfs)
 
     # Optional 4th controller: the metered LLM pilot (one Claude call/sol). Only
-    # runs when the caller passes a `brain`; clamped to LLM_MAX_SOLS for cost + to
-    # keep the synchronous request inside the relay timeout. llm_cap is echoed so
-    # the UI can note it flew fewer sols than the free controllers.
+    # runs when the caller passes a `brain`. The caller may request a Claude run
+    # length via `llm_sols` (default LLM_DEFAULT_SOLS, up to the full mission
+    # LLM_MAX_SOLS=500 and never beyond the run `cap`). llm_cap is echoed so the UI
+    # can note how many sols Claude actually flew vs the free controllers.
     llm_cap = None
     if brain is not None:
-        llm_cap = min(cap, LLM_MAX_SOLS)
+        try:
+            requested = int(llm_sols) if llm_sols else LLM_DEFAULT_SOLS
+        except (TypeError, ValueError):
+            requested = LLM_DEFAULT_SOLS
+        llm_cap = max(1, min(cap, requested, LLM_MAX_SOLS))
         controllers["llm"] = run_config_llm(
-            biosim_url, xml, brain, llm_cap, difficulty, flown_crew, token_budget,
+            biosim_url, xml, brain, llm_cap, difficulty, flown_crew,
+            token_budget if token_budget is not None else llm_cap * 6000,
             malfunctions=malfs)
 
     # Baseline: the unmodified hard config (no overrides), flown by doctrine -- the

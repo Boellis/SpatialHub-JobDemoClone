@@ -729,6 +729,13 @@ def survival_playground_run(request):
     # API key is configured (or the SDK is missing) we report llm_error and still
     # return the three free controllers rather than failing the whole request.
     include_llm = bool(body.get("include_llm", False))
+    # Requested Claude run length (sols). Default LLM_DEFAULT_SOLS; caller may go up
+    # to the full mission (LLM_MAX_SOLS=500). Clamped server-side so cost is bounded.
+    try:
+        llm_sols = int(body.get("llm_cap", playground.LLM_DEFAULT_SOLS))
+    except (TypeError, ValueError):
+        llm_sols = playground.LLM_DEFAULT_SOLS
+    llm_sols = max(1, min(llm_sols, playground.LLM_MAX_SOLS))
     brain = None
     llm_error = None
     token_budget = None
@@ -740,8 +747,8 @@ def survival_playground_run(request):
             else:
                 anthropic_client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
                 brain = BotBrain(anthropic_client, settings.ANTHROPIC_MODEL)
-                # Bound LLM spend: budget scales with the (clamped) LLM sol cap.
-                token_budget = playground.LLM_MAX_SOLS * 5000
+                # Bound LLM spend: budget scales with the requested Claude run length.
+                token_budget = llm_sols * 6000
         except Exception as e:  # SDK import / client init failure -> degrade gracefully
             llm_error = f"LLM pilot unavailable: {e}"
 
@@ -750,6 +757,7 @@ def survival_playground_run(request):
             settings.SURVIVAL_BIOSIM_URL, overrides,
             difficulty=difficulty, cap=cap, crew_size=crew,
             config_name=config_name, brain=brain, token_budget=token_budget,
+            llm_sols=llm_sols,
             malfunctions=malfunctions, malf_module=malf_module, malf_interval=malf_interval)
     except Exception as e:  # pragma: no cover - BioSim/network guard
         traceback.print_exc()
