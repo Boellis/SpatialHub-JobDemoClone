@@ -709,8 +709,13 @@ def survival_playground_run(request):
 
     from .survival import playground
 
-    # Optional resilience-malfunction target + interval (only used when
-    # difficulty=malfunctions). Validated inside run_playground against MALF_MODULES.
+    # Optional resilience malfunctions (only used when difficulty=malfunctions).
+    # Preferred: a `malfunctions` LIST of {module, interval, intensity, length} —
+    # BioSim runs many concurrent faults. Legacy single malf_module/malf_interval
+    # still accepted. Both validated inside run_playground (_normalize_malfunctions).
+    malfunctions = body.get("malfunctions")
+    if not isinstance(malfunctions, list):
+        malfunctions = None
     malf_module = body.get("malf_module", playground.MALF_MODULE)
     try:
         malf_interval = int(body.get("malf_interval", 10))
@@ -745,7 +750,7 @@ def survival_playground_run(request):
             settings.SURVIVAL_BIOSIM_URL, overrides,
             difficulty=difficulty, cap=cap, crew_size=crew,
             config_name=config_name, brain=brain, token_budget=token_budget,
-            malf_module=malf_module, malf_interval=malf_interval)
+            malfunctions=malfunctions, malf_module=malf_module, malf_interval=malf_interval)
     except Exception as e:  # pragma: no cover - BioSim/network guard
         traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=502)

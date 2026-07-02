@@ -321,6 +321,45 @@ MALF_MODULES = (
     "Grey_Water_Store", "Dirty_Water_Store", "Potable_Water_Store",
     "O2_Store", "General_Power_Store", "Nuclear_Source", "VCCR", "OGS", "Water_RS",
 )
+# BioSim malfunction enums (users_manual). Intensity = how degraded; length =
+# self-clears (TEMPORARY) vs persists (PERMANENT).
+MALF_INTENSITIES = ("SEVERE_MALF", "MEDIUM_MALF", "LOW_MALF")
+MALF_LENGTHS = ("TEMPORARY_MALF", "PERMANENT_MALF")
+
+
+def _normalize_malfunctions(malfunctions, malf_module=MALF_MODULE, malf_interval=10):
+    """Validate a list of malfunction specs into
+    ``[{module, interval, intensity, length}]``.
+
+    BioSim supports MULTIPLE concurrent malfunctions (one per module, each with its
+    own intensity/length), injected at runtime — so the resilience sim accepts a
+    list and fires each on its own cadence. Falls back to a single SEVERE/TEMPORARY
+    fault on ``malf_module`` every ``malf_interval`` sols (the legacy behavior) when
+    the list is empty/invalid.
+    """
+    out = []
+    for mf in (malfunctions or []):
+        if not isinstance(mf, dict):
+            continue
+        mod = mf.get("module")
+        if mod not in MALF_MODULES:
+            continue
+        try:
+            iv = max(1, min(int(mf.get("interval", 10)), 500))
+        except (TypeError, ValueError):
+            iv = 10
+        inten = mf.get("intensity") if mf.get("intensity") in MALF_INTENSITIES else "SEVERE_MALF"
+        length = mf.get("length") if mf.get("length") in MALF_LENGTHS else "TEMPORARY_MALF"
+        out.append({"module": mod, "interval": iv, "intensity": inten, "length": length})
+    if not out:
+        mod = malf_module if malf_module in MALF_MODULES else MALF_MODULE
+        try:
+            iv = max(1, int(malf_interval or 10))
+        except (TypeError, ValueError):
+            iv = 10
+        out = [{"module": mod, "interval": iv,
+                "intensity": "SEVERE_MALF", "length": "TEMPORARY_MALF"}]
+    return out
 
 
 def _apply_override(xml, name, value):
@@ -618,7 +657,7 @@ def _doctrine_actions(raw):
 
 
 def run_config(biosim_url, xml, mode="passive", cap=200, difficulty="off",
-               crew_size=15, timeout=30.0, malf_module=MALF_MODULE, malf_interval=10):
+               crew_size=15, timeout=30.0, malfunctions=None):
     """Run a built config against BioSim to death-or-cap.
 
     Returns {sols, in_band_sols, mars_grown_cal_pct, ended_reason}.
@@ -626,8 +665,9 @@ def run_config(biosim_url, xml, mode="passive", cap=200, difficulty="off",
       'passive'  -- coast on the config's desired rates (no control).
       'maxctrl'  -- drive every producer to its ceiling each sol (blind max-all).
       'doctrine' -- the deterministic prioritizing controller (decide()).
-    difficulty: 'off' | 'malfunctions' (SEVERE malf on `malf_module` every
-    `malf_interval` sols -- the resilience test).
+    difficulty: 'off' | 'malfunctions'. When on, `malfunctions` is a normalized
+    list of {module, interval, intensity, length}; each fault is injected on its own
+    cadence (BioSim supports many concurrent malfunctions) -- the resilience test.
     """
     client = BiosimControl(biosim_url, timeout=timeout)
     sim_id = client.start_sim(xml)
@@ -637,18 +677,21 @@ def run_config(biosim_url, xml, mode="passive", cap=200, difficulty="off",
     food_prod_sum = food_cons_sum = 0.0
     has_fp = False
     ended_reason = None
-    interval = max(1, int(malf_interval or 10))
+    malfs = malfunctions if malfunctions is not None else _normalize_malfunctions(None)
 
     raw = client.get_state(sim_id)
     if _in_band(_store_pct(raw)):
         in_band_sols += 1
 
     while sols < cap:
-        if difficulty == "malfunctions" and sols > 0 and sols % interval == 0:
-            try:
-                client.add_malfunction(sim_id, malf_module)
-            except Exception:
-                pass
+        if difficulty == "malfunctions" and sols > 0:
+            for mf in malfs:
+                if sols % mf["interval"] == 0:
+                    try:
+                        client.add_malfunction(
+                            sim_id, mf["module"], mf["intensity"], mf["length"])
+                    except Exception:
+                        pass
         if mode in ("maxctrl", "doctrine"):
             raw = client.get_state(sim_id)
             actions = (_doctrine_actions(raw) if mode == "doctrine"
@@ -708,7 +751,7 @@ LLM_MAX_SOLS = 80
 
 def run_config_llm(biosim_url, xml, brain, cap=LLM_MAX_SOLS, difficulty="off",
                    crew_size=15, token_budget=None, timeout=30.0,
-                   malf_module=MALF_MODULE, malf_interval=10):
+                   malfunctions=None):
     """Run a built config flown by the LLM bot brain (metered) to death-or-cap.
 
     Mirrors ``run_config`` exactly (same in-band / food / death-sol accounting so
@@ -729,18 +772,21 @@ def run_config_llm(biosim_url, xml, brain, cap=LLM_MAX_SOLS, difficulty="off",
     has_fp = False
     ended_reason = None
     trend_history = {}
-    interval = max(1, int(malf_interval or 10))
+    malfs = malfunctions if malfunctions is not None else _normalize_malfunctions(None)
 
     raw = client.get_state(sim_id)
     if _in_band(_store_pct(raw)):
         in_band_sols += 1
 
     while sols < cap:
-        if difficulty == "malfunctions" and sols > 0 and sols % interval == 0:
-            try:
-                client.add_malfunction(sim_id, malf_module)
-            except Exception:
-                pass
+        if difficulty == "malfunctions" and sols > 0:
+            for mf in malfs:
+                if sols % mf["interval"] == 0:
+                    try:
+                        client.add_malfunction(
+                            sim_id, mf["module"], mf["intensity"], mf["length"])
+                    except Exception:
+                        pass
 
         raw = client.get_state(sim_id)
         snap = summarize_state(raw)
@@ -800,7 +846,8 @@ def run_config_llm(biosim_url, xml, brain, cap=LLM_MAX_SOLS, difficulty="off",
 def run_playground(biosim_url, overrides, difficulty="off",
                    cap=120, crew_size=15, config_name=None,
                    brain=None, token_budget=None,
-                   malf_module=MALF_MODULE, malf_interval=10, **_legacy):
+                   malfunctions=None, malf_module=MALF_MODULE, malf_interval=10,
+                   **_legacy):
     """Top-level: build the farmer's override config and run THREE controllers on
     it (passive / maxctrl / doctrine), plus a `baseline` = the unmodified HARD
     config flown by doctrine. Returns:
@@ -829,15 +876,16 @@ def run_playground(biosim_url, overrides, difficulty="off",
     except (TypeError, ValueError):
         flown_crew = 15
 
-    # Validate the resilience-malfunction target against the known set.
-    if malf_module not in MALF_MODULES:
-        malf_module = MALF_MODULE
+    # Normalize the resilience-malfunction schedule once (BioSim supports many
+    # concurrent faults). Accepts a `malfunctions` list, else the legacy single
+    # malf_module/malf_interval; every controller flies the SAME schedule.
+    malfs = _normalize_malfunctions(malfunctions, malf_module, malf_interval)
 
     controllers = {}
     for ctrl in CONTROLLERS:
         controllers[ctrl] = run_config(
             biosim_url, xml, ctrl, cap, difficulty, flown_crew,
-            malf_module=malf_module, malf_interval=malf_interval)
+            malfunctions=malfs)
 
     # Optional 4th controller: the metered LLM pilot (one Claude call/sol). Only
     # runs when the caller passes a `brain`; clamped to LLM_MAX_SOLS for cost + to
@@ -848,13 +896,13 @@ def run_playground(biosim_url, overrides, difficulty="off",
         llm_cap = min(cap, LLM_MAX_SOLS)
         controllers["llm"] = run_config_llm(
             biosim_url, xml, brain, llm_cap, difficulty, flown_crew, token_budget,
-            malf_module=malf_module, malf_interval=malf_interval)
+            malfunctions=malfs)
 
     # Baseline: the unmodified hard config (no overrides), flown by doctrine -- the
     # "what the autonomous pilot does on the stock habitat" reference point.
     base_xml, _, _ = build_config({}, flown_crew, config_name)
     baseline = run_config(biosim_url, base_xml, "doctrine", cap, difficulty, flown_crew,
-                          malf_module=malf_module, malf_interval=malf_interval)
+                          malfunctions=malfs)
 
     return {
         "controllers": controllers,
