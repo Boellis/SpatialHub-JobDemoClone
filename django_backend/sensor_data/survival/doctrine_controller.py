@@ -104,6 +104,66 @@ def _failsafe(snapshot):
     return {"actions": list(actions.values()), "trace": trace, "mode": "failsafe"}
 
 
+def _clamp_pct(value, default):
+    """Coerce a band percentage to a float in [0, 100]; default on non-numeric."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return default
+    return max(0.0, min(v, 100.0))
+
+
+def _clamp_runway(value, default):
+    """Coerce the urgent-runway threshold to a float in [1, 200]; default else."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return default
+    return max(1.0, min(v, 200.0))
+
+
+# Only these three life-critical stores have a tunable producer guardrail; CO2
+# (vent buffer) and Food are intentionally NOT operator-tunable from here.
+_TUNABLE_STORES = ("General_Power_Store", "O2_Store", "Potable_Water_Store")
+
+
+def _effective_bands(bands=None):
+    """Return ``(reserve_bands, runway_urgent)`` merged over the defaults + clamped.
+
+    ``bands`` is an optional operator override (e.g. from the Playground) shaped
+    like::
+
+        {"General_Power_Store": {"floor":.., "target":.., "ease_off":..},
+         "O2_Store": {...}, "Potable_Water_Store": {...},
+         "runway_urgent_sols": ..}
+
+    The module-level ``RESERVE_BANDS`` / ``RUNWAY_URGENT_SOLS`` defaults are
+    DEEP-COPIED (never mutated), so the always-on feeder's bands-less
+    ``decide(snap)`` call and any concurrent call are unaffected. Each pct is
+    clamped to [0, 100]; per store the three thresholds are ordered so
+    floor <= target <= ease_off is enforced loosely (a mis-ordered submission
+    can't invert the guardrail); runway is clamped to [1, 200]. Unknown keys and
+    non-numeric values fall back to the default, so a partial/garbage dict is safe.
+    """
+    merged = {name: dict(b) for name, b in RESERVE_BANDS.items()}
+    runway = RUNWAY_URGENT_SOLS
+    if isinstance(bands, dict):
+        runway = _clamp_runway(bands.get("runway_urgent_sols"), runway)
+        for name in _TUNABLE_STORES:
+            override = bands.get(name)
+            if not isinstance(override, dict):
+                continue
+            base = merged[name]
+            floor = _clamp_pct(override.get("floor"), base["floor"])
+            target = _clamp_pct(override.get("target"), base["target"])
+            ease_off = _clamp_pct(override.get("ease_off"), base["ease_off"])
+            # Order the three so floor <= target <= ease_off always holds, however
+            # the operator submitted them -- the doctrine rules assume this ordering.
+            floor, target, ease_off = sorted((floor, target, ease_off))
+            base["floor"], base["target"], base["ease_off"] = floor, target, ease_off
+    return merged, runway
+
+
 def _telemetry_ok(snapshot):
     if snapshot.get("ended"):
         return True
@@ -118,15 +178,21 @@ def _telemetry_ok(snapshot):
     return True
 
 
-def decide(snapshot):
+def decide(snapshot, bands=None):
     """Deterministic doctrine decision for one sol.
 
     Returns {"actions": [{module,kind,type,rates}], "trace": [str], "mode": str}.
     `mode` is one of: nominal | contingency | failsafe.
+
+    ``bands`` (optional) overrides the reserve bands for the three tunable
+    life-critical stores + the urgent-runway threshold -- see ``_effective_bands``.
+    It is backward-compatible: ``decide(snap)`` with no bands (the always-on
+    feeder + every legacy caller) flies the exact stock doctrine.
     """
     if not _telemetry_ok(snapshot):
         return _failsafe(snapshot)
 
+    reserve_bands, runway_urgent = _effective_bands(bands)
     live = _live_set(snapshot)
     stores = _stores_by_name(snapshot)
     net = _net_by_resource(snapshot)
@@ -136,7 +202,7 @@ def decide(snapshot):
 
     # ---- 1. RESERVE-BAND GUARDRAILS (POWER -> O2 -> WATER) -------------------
     for store_name in ("General_Power_Store", "O2_Store", "Potable_Water_Store"):
-        band = RESERVE_BANDS[store_name]
+        band = reserve_bands[store_name]
         prod_key = STORE_PRODUCER.get(store_name)
         if prod_key is None or prod_key not in live:
             continue
@@ -151,7 +217,7 @@ def decide(snapshot):
                           net.get("Water", 0.0))
 
         low_pct = pct < band["floor"]
-        low_runway = runway is not None and runway < RUNWAY_URGENT_SOLS
+        low_runway = runway is not None and runway < runway_urgent
         high_pct = band["ease_off"] is not None and pct >= band["ease_off"]
 
         if low_pct or low_runway:
@@ -160,7 +226,7 @@ def decide(snapshot):
             if low_pct:
                 why.append(f"pct {pct:.1f}<{band['floor']:.0f} floor")
             if low_runway:
-                why.append(f"runway {runway:.1f}<{RUNWAY_URGENT_SOLS:.0f} sols")
+                why.append(f"runway {runway:.1f}<{runway_urgent:.0f} sols")
             trace.append(
                 f"RAISE {prod_key[0]} {resource} -> max {ceiling:.0f} "
                 f"({store_name} {'; '.join(why)}; net={res_net:+.2f}).")
@@ -195,7 +261,7 @@ def decide(snapshot):
     potable_net = net.get("PotableWater", net.get("Water", 0.0))
     potable_threatened = (
         potable_pct is not None
-        and (potable_pct < RESERVE_BANDS["Potable_Water_Store"]["ease_off"]
+        and (potable_pct < reserve_bands["Potable_Water_Store"]["ease_off"]
              or potable_net < 0)
     )
 
@@ -221,7 +287,7 @@ def decide(snapshot):
                 elif sink_key == ("OGS", "producers", "O2"):
                     o2 = stores.get("O2_Store")
                     o2_pct = o2["pct"] if o2 else 0.0
-                    if o2_pct >= RESERVE_BANDS["O2_Store"]["target"]:
+                    if o2_pct >= reserve_bands["O2_Store"]["target"]:
                         _set(actions, sink_key, 0.0, live)
                         trace.append(
                             f"  CUT OGS O2 electrolysis -> 0 (O2 banked {o2_pct:.1f}%"

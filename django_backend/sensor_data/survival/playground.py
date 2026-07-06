@@ -643,21 +643,72 @@ def _maxctrl_actions(raw):
     return actions
 
 
-def _doctrine_actions(raw):
+# ── Doctrine reserve-band tuning ──────────────────────────────────────────────
+# The deterministic Doctrine pilot is a DESIGNED, tunable flight controller: its
+# reserve bands (per-store floor/target/ease_off + urgent-runway threshold) are
+# operator-configurable from the Playground so a user can test how the engineered
+# controller responds. The band dict flows run_playground -> run_config ->
+# _doctrine_actions -> doctrine_controller.decide, which re-validates/clamps it
+# authoritatively. The stock defaults live in doctrine_controller.RESERVE_BANDS.
+DOCTRINE_TUNABLE_STORES = ("General_Power_Store", "O2_Store", "Potable_Water_Store")
+_DOCTRINE_BAND_KEYS = ("floor", "target", "ease_off")
+
+
+def _normalize_doctrine_bands(doctrine_bands):
+    """Normalize a raw ``doctrine_bands`` request into the shape ``decide`` wants,
+    or ``None`` when nothing usable was supplied.
+
+    Keeps only the three tunable stores' floor/target/ease_off (coerced to float)
+    and an optional ``runway_urgent_sols``; drops everything else. This is a light
+    shape/type filter -- ``doctrine_controller._effective_bands`` still clamps every
+    value to its safe range and enforces floor<=target<=ease_off, so a hostile or
+    partial dict can never break the guardrail. Returns ``None`` for an
+    empty/invalid input so callers pass no override (stock doctrine).
+    """
+    if not isinstance(doctrine_bands, dict):
+        return None
+    out = {}
+    for store in DOCTRINE_TUNABLE_STORES:
+        band = doctrine_bands.get(store)
+        if not isinstance(band, dict):
+            continue
+        cleaned = {}
+        for key in _DOCTRINE_BAND_KEYS:
+            if key not in band:
+                continue
+            try:
+                cleaned[key] = float(band[key])
+            except (TypeError, ValueError):
+                continue
+        if cleaned:
+            out[store] = cleaned
+    runway = doctrine_bands.get("runway_urgent_sols")
+    if runway is not None:
+        try:
+            out["runway_urgent_sols"] = float(runway)
+        except (TypeError, ValueError):
+            pass
+    return out or None
+
+
+def _doctrine_actions(raw, doctrine_bands=None):
     """Doctrine controller's actions for one sol (deterministic, no LLM).
 
     Delegates to ``doctrine_controller.decide`` -- the same reserve-band /
     contingency / failsafe logic the always-on feeder flies. This is the
     PRIORITIZING pilot: it feeds power first, then O2, then water, so when the
     power budget is constrained (story B) it beats blind max-all.
+
+    ``doctrine_bands`` (optional) overrides the reserve bands so the operator can
+    test the tuned controller; ``None`` flies the stock doctrine (feeder parity).
     """
     snap = summarize_state(raw)
-    decision = doctrine_controller.decide(snap)
+    decision = doctrine_controller.decide(snap, doctrine_bands)
     return decision.get("actions", [])
 
 
 def run_config(biosim_url, xml, mode="passive", cap=200, difficulty="off",
-               crew_size=15, timeout=30.0, malfunctions=None):
+               crew_size=15, timeout=30.0, malfunctions=None, doctrine_bands=None):
     """Run a built config against BioSim to death-or-cap.
 
     Returns {sols, in_band_sols, mars_grown_cal_pct, ended_reason}.
@@ -668,6 +719,8 @@ def run_config(biosim_url, xml, mode="passive", cap=200, difficulty="off",
     difficulty: 'off' | 'malfunctions'. When on, `malfunctions` is a normalized
     list of {module, interval, intensity, length}; each fault is injected on its own
     cadence (BioSim supports many concurrent malfunctions) -- the resilience test.
+    `doctrine_bands` (only used when mode=='doctrine') overrides the tunable reserve
+    bands so the engineered controller can be tested; None = stock doctrine.
     """
     client = BiosimControl(biosim_url, timeout=timeout)
     sim_id = client.start_sim(xml)
@@ -694,7 +747,7 @@ def run_config(biosim_url, xml, mode="passive", cap=200, difficulty="off",
                         pass
         if mode in ("maxctrl", "doctrine"):
             raw = client.get_state(sim_id)
-            actions = (_doctrine_actions(raw) if mode == "doctrine"
+            actions = (_doctrine_actions(raw, doctrine_bands) if mode == "doctrine"
                        else _maxctrl_actions(raw))
             for a in actions:
                 try:
@@ -849,6 +902,7 @@ def run_playground(biosim_url, overrides, difficulty="off",
                    cap=120, crew_size=15, config_name=None,
                    brain=None, token_budget=None, llm_sols=None,
                    malfunctions=None, malf_module=MALF_MODULE, malf_interval=10,
+                   doctrine_bands=None,
                    **_legacy):
     """Top-level: build the farmer's override config and run THREE controllers on
     it (passive / maxctrl / doctrine), plus a `baseline` = the unmodified HARD
@@ -870,8 +924,16 @@ def run_playground(biosim_url, overrides, difficulty="off",
     `config_name` selects a whitelisted base config (default = the HARD base). All
     runs are sequential (one BioSim sim at a time). A legacy ``mode=`` kwarg is
     accepted and ignored -- the response always carries all three controllers.
+
+    `doctrine_bands` (optional) tunes the DOCTRINE controller's reserve bands so
+    the operator can test the engineered controller. It is applied to the DOCTRINE
+    run only -- passive/maxctrl ignore it, and the `baseline` deliberately stays on
+    the STOCK bands so it remains a stable reference the tuned run is compared to.
     """
     xml, applied, ignored = build_config(overrides, crew_size, config_name)
+    # Normalize the operator's doctrine-band override once (shape/type filter; the
+    # controller re-clamps authoritatively). None -> stock doctrine everywhere.
+    doctrine_bands = _normalize_doctrine_bands(doctrine_bands)
     # Re-derive the clamped crew so the response reports what was actually flown.
     try:
         flown_crew = max(CREW_CLAMP[0], min(int(crew_size), CREW_CLAMP[1]))
@@ -885,9 +947,12 @@ def run_playground(biosim_url, overrides, difficulty="off",
 
     controllers = {}
     for ctrl in CONTROLLERS:
+        # Only the DOCTRINE run flies the operator's tuned bands; passive/maxctrl
+        # have no reserve bands, so they get None (run_config ignores it anyway).
         controllers[ctrl] = run_config(
             biosim_url, xml, ctrl, cap, difficulty, flown_crew,
-            malfunctions=malfs)
+            malfunctions=malfs,
+            doctrine_bands=doctrine_bands if ctrl == "doctrine" else None)
 
     # Optional 4th controller: the metered LLM pilot (one Claude call/sol). Only
     # runs when the caller passes a `brain`. The caller may request a Claude run

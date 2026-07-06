@@ -729,6 +729,16 @@ def survival_playground_run(request):
         malf_interval = 10
     malf_interval = max(1, min(malf_interval, 500))
 
+    # Optional Doctrine reserve-band tuning. The deterministic Doctrine controller
+    # is a DESIGNED, tunable flight controller: the caller may override its per-store
+    # reserve bands (floor/target/ease_off for Power/O2/Potable) + the urgent-runway
+    # threshold to test how the engineered controller responds. Only the DOCTRINE
+    # column reflects these; the baseline stays on the stock bands. run_playground
+    # normalizes + the controller re-clamps, so a garbage/partial dict is safe.
+    doctrine_bands = body.get("doctrine_bands")
+    if not isinstance(doctrine_bands, dict):
+        doctrine_bands = None
+
     # Optional metered LLM pilot (4th controller). Off by default: it flies one
     # Claude call per sol (slow + costs money), so the caller must opt in with
     # include_llm=true. We build the brain here and hand it to run_playground; if no
@@ -764,7 +774,8 @@ def survival_playground_run(request):
             difficulty=difficulty, cap=cap, crew_size=crew,
             config_name=config_name, brain=brain, token_budget=token_budget,
             llm_sols=llm_sols,
-            malfunctions=malfunctions, malf_module=malf_module, malf_interval=malf_interval)
+            malfunctions=malfunctions, malf_module=malf_module, malf_interval=malf_interval,
+            doctrine_bands=doctrine_bands)
     except Exception as e:  # pragma: no cover - BioSim/network guard
         traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=502)
