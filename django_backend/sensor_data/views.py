@@ -643,7 +643,7 @@ def survival_highscore(request):
 
 # Cap the playground body so a hostile POST can't exhaust memory.
 _MAX_PLAYGROUND_BYTES = 64 * 1024
-_PLAYGROUND_CAP_MAX = 1000
+_PLAYGROUND_CAP_MAX = 500  # the mission is a fixed 500 sols; matches the UI cap
 
 
 @csrf_exempt
