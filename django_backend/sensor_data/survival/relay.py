@@ -161,6 +161,20 @@ def submit_highscore(sols, difficulty=None, source=None):
         return dict(_HIGHSCORE)
 
 
+def reset_highscore():
+    """Force-clear the durable sols record back to zero and persist it (also clears
+    the GCS/local object via _highscore_save), so every viewer's record resets.
+    Thread-safe (holds _COND like submit_highscore). Returns the fresh snapshot."""
+    with _COND:
+        _HIGHSCORE.update({"best_sols": 0, "run_id": None, "ended_reason": None,
+                           "difficulty": None, "when": None})
+        # Mark loaded so a later _highscore_load() won't re-hydrate the old value
+        # from a stale in-memory sentinel; the durable store is now zeroed too.
+        _HIGHSCORE_LOADED[0] = True
+        _highscore_save()
+        return dict(_HIGHSCORE)
+
+
 def highscore():
     """Return the current sols high-score snapshot (a fresh dict)."""
     with _COND:

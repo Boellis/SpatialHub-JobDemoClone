@@ -606,19 +606,25 @@ def survival_highscore(request):
     POST {sols, difficulty?, source?} -> submit an achieved sols count; the relay
             keeps the global max. Used by the Playground + /demo so any run can set
             the record, not just the server-side feeder.
+    POST {reset: true} -> force-clear the shared record back to zero (also wipes the
+            GCS object). Unauthenticated like submit — the frontend confirm dialog is
+            the guard.
     """
     if request.method == "POST":
         try:
             body = json.loads(request.body or b"{}")
         except (ValueError, TypeError):
             body = {}
-        try:
-            sols = int(body.get("sols", 0) or 0)
-        except (TypeError, ValueError):
-            sols = 0
-        sols = max(0, min(sols, 100000))  # sane bound
-        hs = relay.submit_highscore(
-            sols, difficulty=body.get("difficulty"), source=body.get("source"))
+        if body.get("reset") is True:
+            hs = relay.reset_highscore()
+        else:
+            try:
+                sols = int(body.get("sols", 0) or 0)
+            except (TypeError, ValueError):
+                sols = 0
+            sols = max(0, min(sols, 100000))  # sane bound
+            hs = relay.submit_highscore(
+                sols, difficulty=body.get("difficulty"), source=body.get("source"))
     elif request.method == "GET":
         hs = relay.highscore()
     else:
